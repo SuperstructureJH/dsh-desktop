@@ -41,6 +41,11 @@ const patchedPackages = [
     markers: ['SessionDeleteError', 'this.api.sessions.delete({ sessionId })', 'if (this.watched === sessionId) this.watched = void 0']
   },
   {
+    name: 'dsh-client-connection',
+    file: 'lib/client.js',
+    markers: ['sessionDeleteValueSchema', 'delete: (payload, signal) => this.callUnary("session.delete"', 'case "session.delete"']
+  },
+  {
     name: 'dsh-client-ui-workspace',
     file: 'lib/client.js',
     markers: ['delete.session', 'danger: true', 'Workspace files are kept', 'await ctx.sessions.delete(sessionId)']
