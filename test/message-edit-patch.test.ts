@@ -18,7 +18,7 @@ const installedPath = path.join(
 )
 
 describe('sent-message editing patch', () => {
-  it('adds an accessible edit action for text-only user messages', async () => {
+  it('adds an accessible edit action only for the latest text-only user message', async () => {
     const [patch, installed] = await Promise.all([
       readFile(patchPath, 'utf8'),
       readFile(installedPath, 'utf8')
@@ -27,7 +27,13 @@ describe('sent-message editing patch', () => {
     for (const source of [patch, installed]) {
       expect(source).toContain('IconEditOutline16')
       expect(source).toContain('aria-label": t("message.edit")')
-      expect(source).toContain('data.content.every((block) => block.type === "text")')
+      expect(source).toContain(
+        'canEditMessage && data.content.every((block) => block.type === "text")'
+      )
+      expect(source).toContain('nodeStore.get(key)?.kind === "user"')
+      expect(source).toContain(
+        'canEditMessage: node.kind === "user" && node.key === lastUserMessageKey'
+      )
       expect(source).toContain('"message.edit": "编辑消息"')
       expect(source).toContain('"message.edit": "Edit message"')
       expect(source).toContain('setEditing(true)')

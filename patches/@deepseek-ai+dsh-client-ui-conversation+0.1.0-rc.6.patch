@@ -1,5 +1,5 @@
 diff --git a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
-index 86e7906..e4a0fb4 100644
+index 86e7906..641c8e1 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
 +++ b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
 @@ -5056,7 +5056,7 @@ window.__ModuleLoader__.load({
@@ -115,9 +115,9 @@ index 86e7906..e4a0fb4 100644
 +		}
  		/** User and admitted-steering keyed Chat renderer. */
 -		const UserMessageNodeView = (0, react.memo)(function UserMessageNodeView({ node, loadImage, t }) {
-+		const UserMessageNodeView = (0, react.memo)(function UserMessageNodeView({ node, loadImage, editMessage, t }) {
++		const UserMessageNodeView = (0, react.memo)(function UserMessageNodeView({ node, loadImage, editMessage, canEditMessage, t }) {
  			const data = node.data;
-+			const editable = data.content.every((block) => block.type === "text");
++			const editable = canEditMessage && data.content.every((block) => block.type === "text");
 +			const [editing, setEditing] = (0, react.useState)(false);
  			return (0, react_jsx_runtime.jsx)(UserStyleBubble, {
  				content: data.content,
@@ -151,27 +151,29 @@ index 86e7906..e4a0fb4 100644
  		//#region lib/types/client/chat/ChatNodeSeat.js
  		/** Subscribe and dispatch one stable Context key without observing sibling Nodes. */
 -		const ChatNodeSeat = (0, react.memo)(function ChatNodeSeat({ nodeKey, selectedCallId, cwd, openFile, inspectCall, forkAt, loadImage, fileMentions, useSession, renderSlot, t }) {
-+		const ChatNodeSeat = (0, react.memo)(function ChatNodeSeat({ nodeKey, selectedCallId, cwd, openFile, inspectCall, forkAt, editMessage, loadImage, fileMentions, useSession, renderSlot, t }) {
++		const ChatNodeSeat = (0, react.memo)(function ChatNodeSeat({ nodeKey, lastUserMessageKey, selectedCallId, cwd, openFile, inspectCall, forkAt, editMessage, loadImage, fileMentions, useSession, renderSlot, t }) {
  			const node = useSession((snapshot) => snapshot.chat.nodes.get(nodeKey));
  			const routedNode = node;
  			const owner = (0, react.useMemo)(() => node === void 0 ? null : {
-@@ -5206,6 +5303,7 @@ window.__ModuleLoader__.load({
+@@ -5206,6 +5303,8 @@ window.__ModuleLoader__.load({
  				openFile,
  				inspectCall,
  				forkAt,
 +				editMessage,
++				canEditMessage: node.kind === "user" && node.key === lastUserMessageKey,
  				loadImage,
  				fileMentions
  			}, [
-@@ -5215,6 +5313,7 @@ window.__ModuleLoader__.load({
+@@ -5215,6 +5314,8 @@ window.__ModuleLoader__.load({
  				openFile,
  				inspectCall,
  				forkAt,
 +				editMessage,
++				lastUserMessageKey,
  				loadImage,
  				fileMentions
  			]);
-@@ -5329,7 +5428,7 @@ window.__ModuleLoader__.load({
+@@ -5329,7 +5430,7 @@ window.__ModuleLoader__.load({
  		* The chat view slot entry: pure component over the composed props; each
  		* ordered business Node crosses the keyed renderer seat.
  		*/
@@ -180,7 +182,28 @@ index 86e7906..e4a0fb4 100644
  			const order = useSession((s) => s.chat.order);
  			const nodeStore = useSession((s) => s.chat.nodes);
  			const timeline = useSession((s) => s.chat.timeline);
-@@ -5539,6 +5638,7 @@ window.__ModuleLoader__.load({
+@@ -5364,6 +5465,13 @@ window.__ModuleLoader__.load({
+ 			const firstSeq = firstKey === void 0 ? null : nodeStore.get(firstKey)?.anchorSeq ?? null;
+ 			const lastKey = order.at(-1) ?? null;
+ 			const lastNode = lastKey === null ? void 0 : nodeStore.get(lastKey);
++			const lastUserMessageKey = (0, react.useMemo)(() => {
++				for (let index = order.length - 1; index >= 0; index -= 1) {
++					const key = order[index];
++					if (key !== void 0 && nodeStore.get(key)?.kind === "user") return key;
++				}
++				return null;
++			}, [order, nodeStore]);
+ 			const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? null;
+ 			const followSig = `${openState}:${firstSeq}:${lastKey}:${order.length}:${running ? 1 : 0}:${lastSteeringId ?? ""}`;
+ 			const toBottom = (el) => {
+@@ -5533,12 +5641,14 @@ window.__ModuleLoader__.load({
+ 							}),
+ 							order.map((nodeKey) => (0, react_jsx_runtime.jsx)(ChatNodeSeat, {
+ 								nodeKey,
++								lastUserMessageKey,
+ 								useSession,
+ 								selectedCallId,
+ 								cwd,
  								openFile,
  								inspectCall,
  								forkAt,
@@ -188,7 +211,7 @@ index 86e7906..e4a0fb4 100644
  								loadImage,
  								fileMentions,
  								renderSlot,
-@@ -5878,6 +5978,12 @@ window.__ModuleLoader__.load({
+@@ -5878,6 +5988,12 @@ window.__ModuleLoader__.load({
  			"message.unknownSurface": "未知 surface 事件：{type}",
  			"message.unknownBlock": "未知内容块",
  			"message.stopped": "已停止",
@@ -201,7 +224,7 @@ index 86e7906..e4a0fb4 100644
  			"message.branch": "在新对话中分支",
  			"message.branchUnavailable": "仅可从已完成轮次的最后一条消息分支",
  			"message.retry.active": "正在重试模型请求",
-@@ -6043,6 +6149,12 @@ window.__ModuleLoader__.load({
+@@ -6043,6 +6159,12 @@ window.__ModuleLoader__.load({
  			"message.unknownSurface": "Unknown surface event: {type}",
  			"message.unknownBlock": "Unknown content block",
  			"message.stopped": "Stopped",
@@ -214,7 +237,7 @@ index 86e7906..e4a0fb4 100644
  			"message.branch": "Branch into a new conversation",
  			"message.branchUnavailable": "Available only on the last message of a completed turn",
  			"message.retry.active": "Retrying model request",
-@@ -9755,6 +9867,41 @@ window.__ModuleLoader__.load({
+@@ -9755,6 +9877,41 @@ window.__ModuleLoader__.load({
  							}).then((childId) => {
  								sessions.open(childId);
  							}).catch(() => {});
