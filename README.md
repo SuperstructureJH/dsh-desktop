@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="build/icon.png" width="64" alt="DSH Desktop logo" valign="middle" />
+  <img src="docs/images/readme-logo-black-v020.png" width="64" alt="DSH Desktop logo" valign="middle" />
   DSH Desktop
 </h1>
 
@@ -18,7 +18,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-x64-171513.svg" />
 </p>
 
-![DSH Desktop model provider settings](docs/images/model-provider-settings-v011.png)
+![DSH Desktop overview with portable presets, model providers, and phone control](docs/images/dsh-desktop-hero-v020.png)
 
 <p align="center"><strong>Beyond official DeepSeek models, DSH Desktop supports mainstream third-party model providers—with more DSH-powered desktop experiences coming soon.</strong></p>
 
@@ -32,6 +32,14 @@ DSH Desktop packages the local DeepSeek Harness web experience as a desktop appl
 Download DSH Desktop for macOS and Windows from the [official website](https://www.dshdesktop.com/#download).
 
 Installed macOS and Windows builds check for updates automatically after startup and every six hours. Updates download in the background and prompt you to restart when they are ready. You can also choose **Check for Updates…** from the application menu.
+
+## Community
+
+<p align="center">
+  Scan the QR code below with WeChat to join the DSH Desktop community group.<br />
+  <img src="docs/images/wechat-group-20260815.png" width="220" alt="DSH Desktop WeChat group QR code" /><br />
+  Prefer Discord? <a href="https://discord.gg/he2gAKCpj">Join the DSH Desktop Discord community</a>.
+</p>
 
 ## Why this project exists
 
@@ -54,21 +62,12 @@ DeepSeek Harness already provides a complete agent runtime and Web UI. DSH Deskt
 - Listens only on a random `127.0.0.1` port for each launch
 - Removes Node.js privileges from the renderer and enables `contextIsolation`, sandboxing, and navigation restrictions
 - Uses the DSH brand logo consistently in the desktop window and Harness sidebar
+- Imports and exports complete custom Agent presets as portable [`.dshpreset` packages](docs/preset-packages.md), with conflict checks and a trust warning before installation
 - Includes a production DSH app icon in macOS ICNS and Windows ICO formats
 
-## Model providers
+## Friends
 
-During initial setup, you can choose a model provider and enter its API key directly. DSH Desktop uses the real Harness Settings and Credentials APIs: the key is written only to the credential store, the corresponding provider route is created automatically, and its built-in model catalog is inherited without requiring model IDs to be entered manually.
-
-The initial setup currently includes:
-
-| Type | Providers |
-| --- | --- |
-| Model vendors | DeepSeek, OpenAI, Anthropic, Google Gemini, xAI, Moonshot/Kimi, MiniMax, Zhipu GLM, Mistral AI |
-| Model aggregation | OpenRouter |
-| Inference platforms | Groq, Together AI |
-
-Additional built-in or custom providers can be added from **Settings → Models** in Harness.
+[dsh-market](https://github.com/dsh-market/dsh-market) — the DeepSeek Harness plugin market: browse and search 900+ community plugins, preview screenshots, and install, update, enable or disable plugins, or switch themes with one click. Most plugins take effect instantly without a restart.
 
 ## Quick start
 
@@ -87,7 +86,7 @@ npm install
 npm run dev
 ```
 
-`npm install` runs `patch-package` to reapply DSH Desktop's model-provider onboarding and sidebar branding, installs the brand asset, and then installs the Electron runtime.
+`npm install` runs `patch-package` to reapply DSH Desktop's model-provider onboarding, preset package transfer, and sidebar branding, installs the brand asset, and then installs the Electron runtime.
 
 ### Quality checks
 
@@ -156,7 +155,7 @@ build/                Application icon assets
 
 ## Upstream version and patches
 
-The project currently pins `@deepseek-ai/dsh@0.1.0-rc.6`. The initial provider list is captured with [`patch-package`](https://github.com/ds300/patch-package) under [`patches/`](patches/) rather than relying on untracked changes in `node_modules`.
+The project currently pins `@deepseek-ai/dsh@0.1.0-rc.6`. The initial provider list and desktop preset-transfer surface are captured with [`patch-package`](https://github.com/ds300/patch-package) under [`patches/`](patches/) rather than relying on untracked changes in `node_modules`.
 
 When upgrading DSH:
 

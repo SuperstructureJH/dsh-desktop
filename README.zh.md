@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="build/icon.png" width="64" alt="DSH Desktop logo" valign="middle" />
+  <img src="docs/images/readme-logo-black-v020.png" width="64" alt="DSH Desktop logo" valign="middle" />
   DSH Desktop
 </h1>
 
@@ -18,7 +18,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-x64-171513.svg" />
 </p>
 
-![DSH Desktop 模型提供方设置界面](docs/images/model-provider-settings-v011.png)
+![DSH Desktop 的 Preset、模型提供方与手机控制能力](docs/images/dsh-desktop-hero-v020.png)
 
 <p align="center"><strong>除了 DeepSeek 官方模型，DSH Desktop 也支持主流第三方模型提供方。更多基于 DSH 的有趣桌面体验即将推出。</strong></p>
 
@@ -32,6 +32,14 @@ DSH Desktop 把 DeepSeek Harness 的本地 Web 体验封装为桌面应用：应
 请前往 [DSH Desktop 官网](https://www.dshdesktop.com/#download)下载 macOS 和 Windows 安装包。
 
 已安装的 macOS 和 Windows 版本会在启动后及每六小时自动检查更新。更新将在后台下载，准备完成后提示重启安装；也可以从应用菜单选择 **检查更新…** 手动检查。
+
+## 加入社区
+
+<p align="center">
+  使用微信扫描下方二维码，加入 DSH Desktop 微信交流群。<br />
+  <img src="docs/images/wechat-group-20260815.png" width="220" alt="DSH Desktop 微信群二维码" /><br />
+  也可以加入 <a href="https://discord.gg/he2gAKCpj">DSH Desktop Discord 社区</a>。
+</p>
 
 ## 为什么做这个项目
 
@@ -54,21 +62,12 @@ DeepSeek Harness 本身提供完整的 Agent Runtime 与 Web UI。DSH Desktop �
 - 每次启动仅监听随机的 `127.0.0.1` 端口
 - Renderer 关闭 Node.js 权限，启用 `contextIsolation`、sandbox 与导航限制
 - 在桌面窗口与 Harness 侧栏统一使用 DSH 品牌 Logo
+- 可把完整的自定义 Agent 预设导入/导出为便携的 [`.dshpreset` 压缩包](docs/preset-packages.md)，安装前会检查命名冲突并提示信任风险
 - 正式 DSH 应用图标，支持 macOS ICNS 与 Windows ICO
 
-## 模型提供方
+## 友情链接
 
-首次配置时可选择模型提供方并直接填写 API Key。DSH Desktop 复用 Harness 的真实 Settings/Credentials API：Key 只写入凭据存储，对应 Provider 路由会自动创建，并继承其内置模型目录，无需手工填写模型 ID。
-
-当前首启列表包括：
-
-| 类型 | Provider |
-| --- | --- |
-| 模型厂商 | DeepSeek、OpenAI、Anthropic、Google Gemini、xAI、Moonshot/Kimi、MiniMax、智谱 GLM、Mistral AI |
-| 模型聚合平台 | OpenRouter |
-| 推理服务平台 | Groq、Together AI |
-
-更多内置或自定义 Provider 可以在 Harness 的“设置 → 模型”中添加。
+[dsh-market](https://github.com/dsh-market/dsh-market) — DeepSeek Harness 插件市场：浏览、搜索社区 900+ 插件，截图预览、一键安装 / 更新 / 启停 / 换主题，多数插件免重启即时生效。
 
 ## 快速开始
 
@@ -87,7 +86,7 @@ npm install
 npm run dev
 ```
 
-`npm install` 会运行 `patch-package`，重放 DSH Desktop 对 Harness 首次模型配置和侧栏品牌的定制，安装品牌静态资源，然后安装 Electron Runtime。
+`npm install` 会运行 `patch-package`，重放 DSH Desktop 对 Harness 首次模型配置、Preset 压缩包导入导出和侧栏品牌的定制，安装品牌静态资源，然后安装 Electron Runtime。
 
 ### 质量检查
 
@@ -156,7 +155,7 @@ build/                应用图标资源
 
 ## 上游版本与补丁
 
-项目当前固定依赖 `@deepseek-ai/dsh@0.1.0-rc.6`。首启 Provider 列表由 [`patch-package`](https://github.com/ds300/patch-package) 固化在 [`patches/`](patches/) 中，而不是依赖未跟踪的 `node_modules` 修改。
+项目当前固定依赖 `@deepseek-ai/dsh@0.1.0-rc.6`。首启 Provider 列表与桌面端 Preset 导入导出界面由 [`patch-package`](https://github.com/ds300/patch-package) 固化在 [`patches/`](patches/) 中，而不是依赖未跟踪的 `node_modules` 修改。
 
 升级 DSH 时必须：
 

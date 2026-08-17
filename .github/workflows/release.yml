@@ -8,6 +8,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      windows_prerelease_tag:
+        description: Optional non-v tag for a Windows Dev pre-release
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -268,14 +273,91 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
-      - run: npm run package:win
+      - name: Build Windows release package
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm run package:win
+      - name: Build isolated Windows development package
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run package:dev:win
+      - name: Smoke test packaged Windows Harness
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $userData = Join-Path $env:APPDATA 'dsh-desktop-dev'
+          $logPath = Join-Path $userData 'logs\harness.log'
+          $executable = 'dist-dev\win-unpacked\DSH Desktop Dev.exe'
+          if (Test-Path $userData) { Remove-Item -Recurse -Force $userData }
+          $desktop = Start-Process -FilePath $executable -PassThru
+          try {
+            $deadline = (Get-Date).AddSeconds(75)
+            $ready = $false
+            while ((Get-Date) -lt $deadline) {
+              if ($desktop.HasExited) {
+                throw "DSH Desktop Dev exited before Harness was ready (exit code $($desktop.ExitCode))."
+              }
+              if (Test-Path $logPath) {
+                $log = Get-Content -Raw $logPath
+                $match = [regex]::Match($log, '\[desktop\] endpoint (http://127\.0\.0\.1:\d+)')
+                if ($match.Success) {
+                  try {
+                    $response = Invoke-WebRequest -UseBasicParsing -Uri $match.Groups[1].Value -TimeoutSec 2
+                    if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+                      Start-Sleep -Seconds 5
+                      $stableLog = Get-Content -Raw $logPath
+                      if ($stableLog -match '\[stderr\]') {
+                        throw 'Harness reported stderr after HTTP became ready.'
+                      }
+                      if ($desktop.HasExited) {
+                        throw "DSH Desktop Dev exited after Harness became ready (exit code $($desktop.ExitCode))."
+                      }
+                      $ready = $true
+                      break
+                    }
+                  } catch { }
+                }
+              }
+              Start-Sleep -Milliseconds 500
+            }
+            if (-not $ready) { throw 'Packaged Harness did not become ready within 75 seconds.' }
+            Write-Host 'Packaged Windows Harness smoke test passed.'
+          } finally {
+            if (Test-Path $logPath) {
+              Write-Host '--- harness.log ---'
+              Get-Content $logPath
+            }
+            if (-not $desktop.HasExited) { Stop-Process -Id $desktop.Id -Force }
+          }
+      - name: Publish validated Windows development pre-release
+        if: github.event_name == 'workflow_dispatch' && inputs.windows_prerelease_tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE_TAG: ${{ inputs.windows_prerelease_tag }}
+        run: |
+          gh release create $env:PRERELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --prerelease `
+            --title 'DSH Desktop Windows Harness Test' `
+            --notes "Windows x64 development build for validating the Harness startup fix from PR #39. This build uses an isolated app identity and user data directory, and has passed the packaged Windows Harness smoke test." `
+            'dist-dev/dsh-desktop-dev-windows-x64-setup.exe#DSH Desktop Dev Windows x64 Setup'
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           name: windows-x64
           path: |
             dist/dsh-desktop-windows-x64-setup.exe
             dist/dsh-desktop-windows-x64-setup.exe.blockmap
             dist/latest.yml
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: windows-x64-dev
+          path: |
+            dist-dev/dsh-desktop-dev-windows-x64-setup.exe
+            dist-dev/dsh-desktop-dev-windows-x64-setup.exe.blockmap
+            dist-dev/latest.yml
           if-no-files-found: error
 
   publish:
@@ -325,3 +407,29 @@ jobs:
               --title "DSH Desktop $RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY"
           fi
+      - name: Mirror release assets to Tencent COS
+        env:
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+          COS_BUCKET: ${{ vars.COS_BUCKET }}
+        run: |
+          set -euo pipefail
+          test -n "$COS_SECRET_ID" && test -n "$COS_SECRET_KEY" || { echo "::error::Missing secrets COS_SECRET_ID/COS_SECRET_KEY"; exit 1; }
+          test -n "$COS_BUCKET" || { echo "::error::Missing variable COS_BUCKET"; exit 1; }
+          curl -sSfL -o coscli https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-linux-amd64
+          chmod +x coscli
+          cat > "$HOME/.cos.yaml" <<YAML
+          cos:
+            base:
+              secretid: ${COS_SECRET_ID}
+              secretkey: ${COS_SECRET_KEY}
+              sessiontoken: ""
+              protocol: https
+            buckets:
+            - name: ${COS_BUCKET}
+              endpoint: cos.accelerate.myqcloud.com
+              accelerate: true
+              alias: ""
+          YAML
+          chmod 600 "$HOME/.cos.yaml"
+          ./coscli cp release-assets/ "cos://${COS_BUCKET}/releases/latest/" -r --routines 10 --thread-num 8 --long-links-nums 20 --disable-crc64
