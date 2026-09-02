@@ -8,11 +8,11 @@ import { projectRoot } from './patch-path'
 const artifacts = {
   core: {
     file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: '263eeb851bd50f19b441843be26897b2483e8cca0a754fd9ddc0d982ad74d134'
+    sha256: '36db528dc325ed1a37583f878969b77ff66d9f89959a7e50c2405fcacca13d93'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: '2d128e4698f17f6225210cbb420e4b18e6c056a92d2686bf3bf498348b8327b7'
+    sha256: 'ccb7805a92669fc21ded7df69fa22f77cce4c3265bfdd9a160b5c583ebc462c9'
   }
 } as const
 
@@ -38,6 +38,15 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(archive).not.toContain('conversation.input.dock')
     expect(archive).not.toContain('conversation.hero.inputAccessory')
     expect(archive).not.toContain('conversation.chat.turnTail')
+  })
+
+  it('ships the complete-JSX Slides route and its Host quality gates', async () => {
+    const archive = gunzipSync(await artifact('core')).toString('utf8')
+
+    expect(archive).toContain('workflow: direct Slides JSX authoring')
+    expect(archive).toContain('readability, collision, source-relationship, template-fidelity')
+    expect(archive).toContain('submit every adapted page through ppt_write_page')
+    expect(archive).not.toContain('ppt_write_template_page')
   })
 
   it('renders the hero composer dock after the resident input card', async () => {
