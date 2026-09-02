@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902.tgz',
-    sha256: '704038f119f5889190cecdb2ce51bfff3e34f2d3f0377576f433c31a118cae1d'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-layout.tgz',
+    sha256: 'c0b4aad5c304a0918d26ea04a88a4ed82c3daa6bd5f2b68e7d8b58a4df5c1c13'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902.tgz',
-    sha256: '4182b8c17ae2b394ea26f3c2e311637660ccfc21273d6ad71567c214c299557a'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-layout.tgz',
+    sha256: '79f6d16fefacb6a283fa552c6a9b8373c93eb70ec0f4dec7b452bc53c390fee5'
   }
 } as const
 
