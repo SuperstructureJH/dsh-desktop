@@ -8,11 +8,11 @@ import { projectRoot } from './patch-path'
 const artifacts = {
   core: {
     file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: '36db528dc325ed1a37583f878969b77ff66d9f89959a7e50c2405fcacca13d93'
+    sha256: 'f3da9fd978b8b850954ebb9e40c96e9656eaa68b43e371bcd5f45b73b5d0ece3'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: 'ccb7805a92669fc21ded7df69fa22f77cce4c3265bfdd9a160b5c583ebc462c9'
+    sha256: '55933aee661f9ab9b46658572a273ede40afb58b5d09256abe1f331a3ca221e4'
   }
 } as const
 
@@ -90,6 +90,31 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(accessory).toBeGreaterThan(-1)
     expect(left).toBeGreaterThan(accessory)
     expect(client).toContain('"conversation.input.accessory": {')
+  })
+
+  it('keeps the empty prompt top-aligned and places the selected template inline before text', async () => {
+    const client = await readFile(path.join(
+      projectRoot,
+      'node_modules',
+      '@deepseek-ai',
+      'dsh-client-ui-conversation',
+      'lib',
+      'client.js'
+    ), 'utf8')
+    const promptRow = client.indexOf('className: InputBar_module_css_default.promptRow')
+    const accessory = client.indexOf('className: InputBar_module_css_default.accessory', promptRow)
+    const scroll = client.indexOf('ref: scrollRef', promptRow)
+
+    expect(promptRow).toBeGreaterThan(-1)
+    expect(accessory).toBeGreaterThan(promptRow)
+    expect(scroll).toBeGreaterThan(accessory)
+    expect(client).toContain('.JyqXLa_promptRow{display:contents}')
+    expect(client).toContain(
+      '.JyqXLa_accessory{align-items:flex-start;flex:0 0 auto;min-width:0;padding-left:16px;display:none}'
+    )
+    expect(client).toContain('>.JyqXLa_scroll .JyqXLa_input{padding-left:0}')
+    expect(client).toContain('>.JyqXLa_scroll .JyqXLa_placeholder{left:0}')
+    expect(client).not.toContain('.JyqXLa_accessory{align-items:center;gap:8px;padding:10px 12px 0;display:flex}')
   })
 
   it('ships every JavaScript chunk imported by the Host entry', async () => {
