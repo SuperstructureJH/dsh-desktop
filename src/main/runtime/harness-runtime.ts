@@ -13,6 +13,7 @@ export interface HarnessRuntimeOptions {
   dshPatchPath: string
   dshHome: string
   logPath: string
+  environment?: NodeJS.ProcessEnv
   launchProcess(
     executablePath: string,
     args: string[],
@@ -232,9 +233,11 @@ export function buildHarnessSpawnOptions(
   launchDirectory: string,
   dshHome: string,
   platform: NodeJS.Platform = process.platform,
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  injectedEnvironment: NodeJS.ProcessEnv = {}
 ): SpawnOptionsWithoutStdio {
-  const { ELECTRON_RUN_AS_NODE: _runAsNode, ...parentEnvironment } = environment
+  const mergedEnvironment = { ...environment, ...injectedEnvironment }
+  const { ELECTRON_RUN_AS_NODE: _runAsNode, ...parentEnvironment } = mergedEnvironment
   const pathKey = platform === 'win32' ? 'Path' : 'PATH'
 
   // ELECTRON_RUN_AS_NODE must not reach the Harness process itself: the macOS
@@ -264,7 +267,7 @@ export function buildHarnessSpawnOptions(
       // the dedicated lock-recovery runner instead (see pnpm-runner.mjs).
       npm_config_side_effects_cache: 'false',
       PNPM_CONFIG_SIDE_EFFECTS_CACHE: 'false',
-      [pathKey]: resolveEnvironmentPath(environment, platform)
+      [pathKey]: resolveEnvironmentPath(mergedEnvironment, platform)
     },
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
@@ -400,7 +403,8 @@ export class HarnessRuntime {
           launchDirectory,
           this.options.dshHome,
           process.platform,
-          resolveShellEnvironment()
+          resolveShellEnvironment(),
+          this.options.environment
         )
       )
     } catch (error) {

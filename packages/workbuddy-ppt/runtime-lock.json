@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "platforms": {
+    "darwin-arm64": {
+      "slidep": "5.4.1",
+      "editorEngine": "0.2.112-wb",
+      "runtimeTree": {
+        "fileCount": 9920,
+        "sha256": "8b2ed6017d4cccb16bc6bd4c31e242968c6b31f6c5b1f66bb3d19a1b0bb01bcf"
+      },
+      "files": {
+        "manifest.json": "cbeaba6fb3008601c55156ef872de7fd06437e797a71cd86f107a02089502a6a",
+        "skills/tencent-pptx/SKILL.md": "06d318a6b2d46052084e9b52d43f1e7c8e4824f74dc6990106ef2c9121c8da50",
+        "slidep/package.json": "016788a7df8f4420903cfb253c18227206817edff96ee682849c8799c7794734",
+        "slidep/dist/slidep-start.js": "9f068441c2aecb43a26f90be1fa5b0b691777cf01555c79a0d5ff333957cfc4b",
+        "slidep/dist/slidep-validate.js": "22ca8b7bd0d21c1d5ba17f70ed568fcbc83ead1d797b0c6d8b4bff30e07c314f",
+        "tencent-docs-ai-engine/bin/darwin-arm64/editor_sdk": "7d55e4c0840465dcd91fc1d865126b6e79321392cbb0d999b9d450d4f4b8bba2",
+        "tencent-docs-ai-engine/bin/darwin-arm64/icudt72l.dat": "a405960537e72ec6e23b88bad4cce8bc4daa134d5845f3f10da0c7ada06e0331"
+      }
+    }
+  }
+}

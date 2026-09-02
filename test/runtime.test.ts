@@ -134,6 +134,25 @@ describe('Harness launch contract', () => {
     }
   })
 
+  it('injects the packaged WorkBuddy PPT runtime into the Harness process', () => {
+    const options = buildHarnessSpawnOptions(
+      '/launch-root',
+      '/harness',
+      'darwin',
+      { PATH: '/usr/bin' },
+      {
+        DSH_WORKBUDDY_PPT_RUNTIME_ROOT:
+          '/Applications/DSH Desktop.app/Contents/Resources/workbuddy-ppt-runtime'
+      }
+    )
+
+    expect(options.env).toMatchObject({
+      PATH: '/usr/bin',
+      DSH_WORKBUDDY_PPT_RUNTIME_ROOT:
+        '/Applications/DSH Desktop.app/Contents/Resources/workbuddy-ppt-runtime'
+    })
+  })
+
   it('finds the Windows PATH when the environment block stores it lowercase', () => {
     // Windows environment variable names are case-insensitive and the captured
     // block is not normalised, so a machine whose registry PATH value name is

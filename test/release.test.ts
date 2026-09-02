@@ -265,9 +265,11 @@ describe('GitHub release contract', () => {
       path.join(projectRoot, 'electron-builder.dev.cjs'),
       'utf8'
     )
+    const baseConfig = await readFile(path.join(projectRoot, 'electron-builder.cjs'), 'utf8')
     const main = await readFile(path.join(projectRoot, 'src', 'main', 'index.ts'), 'utf8')
 
     expect(packageJson.scripts['package:dev:dir']).toContain('npm run build')
+    expect(packageJson.scripts['package:dev:dir']).toContain('npm run runtime:verify')
     expect(packageJson.scripts['package:dev:dir']).toContain('electron-builder.dev.cjs')
     expect(packageJson.scripts['package:dev:mac:arm64']).toContain('verify-target.mjs darwin arm64')
     expect(packageJson.scripts['package:dev:mac:arm64']).toContain('electron-builder.dev.cjs')
@@ -277,6 +279,9 @@ describe('GitHub release contract', () => {
     expect(packageJson.scripts['package:dev:win']).toContain('electron-builder.dev.cjs')
     expect(packageJson.scripts['package:dev:win']).toContain('--publish never')
     expect(developmentConfig).toContain("appId: 'io.dsh.desktop.dev'")
+    expect(developmentConfig).toContain("require('./electron-builder.cjs')")
+    expect(baseConfig).toContain('DSH_WORKBUDDY_PPT_RUNTIME_ROOT')
+    expect(baseConfig).toContain("to: 'workbuddy-ppt-runtime'")
     expect(developmentConfig).toContain("productName: 'DSH Desktop Dev'")
     expect(developmentConfig).toContain("output: 'dist-dev'")
     expect(developmentConfig).toContain("dshDesktopChannel: 'development'")

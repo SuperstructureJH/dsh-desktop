@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-expanded-gallery.tgz',
-    sha256: 'c6b607bcc3b90f1abda279455669185153464ecce4e00a86ea3395c061a6b308'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
+    sha256: 'bd469e8931ca1566a265b11865b87f30115b2597c7932d98d59d31a4fc071f41'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-expanded-gallery.tgz',
-    sha256: 'ae329876072ef65480be1e3ef1b746dd4f39717669350ccca9b85cb7a3b8c05c'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
+    sha256: '9d434e6b8fc3232bc4c08a9f854da813e1fa1bf9bd1a6e93730b0f9c811e21e1'
   }
 } as const
 
@@ -30,9 +30,9 @@ describe('WorkBuddy PPT built-in plugin', () => {
   it('ships a standard Composer client closure without the removed legacy runtime', async () => {
     const archive = gunzipSync(await artifact('adapter')).toString('utf8')
 
+    expect(archive).toContain('conversation.input.left')
     expect(archive).toContain('conversation.composer.dock')
     expect(archive).not.toContain('@deepseek-ai/dsh-client-runtime/client')
-    expect(archive).not.toContain('conversation.input.left')
     expect(archive).not.toContain('conversation.input.dock')
     expect(archive).not.toContain('conversation.hero.inputAccessory')
     expect(archive).not.toContain('conversation.chat.turnTail')
@@ -65,6 +65,8 @@ describe('WorkBuddy PPT built-in plugin', () => {
 
     expect(chunk).toBeDefined()
     expect(archive).toContain(`package/lib/${chunk}`)
+    expect(archive).toContain('workbuddy-ppt-runtime')
+    expect(archive).toContain('selected_template_id')
   })
 
   it('declares both local artifacts and mounts only the standard adapter', async () => {

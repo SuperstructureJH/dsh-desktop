@@ -1,7 +1,8 @@
 const packageJson = require('./package.json')
+const baseConfig = require('./electron-builder.cjs')
 
 module.exports = {
-  ...packageJson.build,
+  ...baseConfig,
   appId: 'io.dsh.desktop.dev',
   productName: 'DSH Desktop Dev',
   directories: {

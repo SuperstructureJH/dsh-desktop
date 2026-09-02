@@ -2384,6 +2384,16 @@ async function bootstrap(): Promise<void> {
     dshPatchPath: desktopResourcePath('dsh-desktop.patch.yml'),
     dshHome: join(app.getPath('userData'), 'harness'),
     logPath: join(app.getPath('logs'), 'harness.log'),
+    ...(app.isPackaged
+      ? {
+          environment: {
+            DSH_WORKBUDDY_PPT_RUNTIME_ROOT: join(
+              process.resourcesPath,
+              'workbuddy-ppt-runtime'
+            )
+          }
+        }
+      : {}),
     launchProcess: (executablePath, args, options) =>
       process.platform === 'darwin'
         ? launchDisclaimedUtilityProcess(utilityProcess, args, options, {
