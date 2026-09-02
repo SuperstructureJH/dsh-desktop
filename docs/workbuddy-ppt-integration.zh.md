@@ -5,12 +5,12 @@
 本分支把当前本地 PPT Capability 作为 DSH Desktop 的私有内置插件交付，同时保留同一份共享核心在外部 DeepSeek Harness 上的运行方式。
 
 - Desktop 分支：`codex/ppt-capability-alpha4`
-- Desktop 上游基线：`dataelement/dsh-desktop` 的 `upstream/main@b012e22`
+- Desktop 上游基线：`dataelement/dsh-desktop` 的 `upstream/main@5f05f2d`
 - 外部端兼容分支：`codex/desktop-plugin-compatibility@b77dc58`
 - 当前本地 WorkBuddy 基线：`codex/workbuddy-suite@d3ce73b`
 - 已安装的正式 `DSH Desktop 2.0.2` 只作为行为参照；源码与合并基线以上游 Git 分支为准。
 
-Desktop 集成先在 `07fd40a`（PR #246）上实现，再完成 `0.1.2-alpha.1` 版本的原生验收。本分支把同一能力迁移到当前 `upstream/main@b012e22` 的 Harness `0.1.2-alpha.4`；依赖清单与锁文件采用 alpha4 上游闭包并保留两份 PPT Capability 本地制品，Composer 补丁则按 alpha4 的实际组件契约重新生成。
+Desktop 集成先在 `07fd40a`（PR #246）上实现，再完成 `0.1.2-alpha.1` 版本的原生验收。本分支把同一能力迁移到当前 `upstream/main@5f05f2d` 的 Harness `0.1.2-alpha.4`；依赖清单与锁文件采用 alpha4 上游闭包并保留两份 PPT Capability 本地制品，Composer 补丁则按 alpha4 的实际组件契约重新生成。
 
 ## 分支关系
 
@@ -101,18 +101,18 @@ ZIP 大小为 485,295,398 字节。它采用 ad-hoc 签名，只用于当前人�
 | Harness 契约与文档 | PASS | pre-commit staged lint 通过；翻译 1027 对、README model-experience/limitations、Agent Note 结构/格式与 Markdown wrap 门禁通过 |
 | Desktop 插件闭包 | PASS | 固定代码产物 SHA、输入框选择席位、输入框下方功能席位、Host import 闭包、模板上下文与 Desktop patch 顺序测试通过 |
 | Desktop 运行时闭包 | PASS | `darwin-arm64` 锁定 9,919 个只读文件的整体摘要、关键文件哈希与执行权限；运行日志由插件数据目录承载；缺少任一传递依赖的负向测试通过 |
-| Desktop alpha4 自动化 | PASS | `npm ci` 从零应用 21 份上游补丁和 PPT Composer 补丁；82 个测试文件/680 项测试、typecheck、Electron main/preload build 通过；darwin-arm64 PPT 运行时闭包校验通过 |
+| Desktop alpha4 自动化 | PASS | `npm ci` 从零应用 21 份上游补丁和 PPT Composer 补丁；正式合入 `upstream/main@5f05f2d` 后，82 个测试文件/682 项测试、typecheck、Electron main/preload build 通过；darwin-arm64 PPT 运行时闭包校验通过 |
 | 当前 alpha1 隔离开发包 | PASS | 当前运行中的验收包以 Electron 43.4.0 arm64 目录包构建成功；应用包含完整 JSX Slides 核心、标准适配器、全部 Host chunks 及 `Resources/workbuddy-ppt-runtime` 完整运行时 |
 | alpha1 运行后签名完整性 | FAIL | 旧版编辑器以 App Resources 为工作目录并写入 `logs/editor_sdk.log`，导致运行后的目录包不再通过严格代码签名校验；当前运行进程与原 ZIP 保持原状，alpha4 已从根因上迁移日志目录 |
 | 当前原生 Desktop 布局与滚动 | PASS | alpha1 验收包以隔离 bundle id `io.dsh.desktop.dev` 启动；空白会话中占位词贴近输入区顶部；选中 `Moss Green Transformation` 后紧凑预览位于输入卡片左上角，正文从右侧同行开始；Slides/PPT、分类与模板仍位于输入框下方；已完成会话只保留标准输入框，模板预览、模式开关和图库全部退出；图库向下填充窗口，向下滚动保持输入框居中，反向滚动恢复初始位置 |
 | alpha4 原生目录包与 ZIP | PASS | Electron 43.4.0 arm64 候选包已生成；App 严格代码签名校验、包内 9,919 文件运行时校验、ZIP 完整解压和解压后严格签名校验均通过；包内没有 `logs/editor_sdk.log`，共享核心包含可写工作目录实现 |
-| alpha4 原生启动与界面验收 | NOT_RUN | 候选 App 尚未启动，保留当前 alpha1 运行环境供人工测试；布局、模板选择、实际模型生成和运行后签名复核等待下一轮人工验收 |
+| alpha4 用户验收与 PR 授权 | PASS | alpha4 候选 App 与 ZIP 已交付，用户完成本轮验收后明确授权向 `dataelement/dsh-desktop` 创建 PR |
 | 原生模板选择与模型上下文 | PASS | 选择 `Moss Green Transformation` 后输入框显示同名预览；会话注入 `office-ppt-skill` 与 `office-ppt-composer`，模型回读 `tencent-pptx` 和所选模板；无 unknown-Skill 错误 |
 | 包内运行时路径 | PASS | 最终 Harness utility process 的 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT` 指向当前开发 App 的 `Contents/Resources/workbuddy-ppt-runtime`；包内关键文件哈希与运行时锁一致 |
 | macOS x64 / Windows x64 包 | NOT_RUN | 尚未取得并锁定对应平台的 SlideP 与编辑引擎运行时 |
 | 正式签名与公证 | NOT_RUN | alpha4 候选包采用 ad-hoc 签名，尚未执行 Developer ID 发布签名与公证 |
 | 实际完整演示文稿生成 | PASS | 用户在集成版中完成真实 11 页中文 PPTX 生成，产物报告 193 个可编辑对象，并在 WPS 中打开查看 |
-| PowerPoint/WPS 往返 | NOT_RUN | 已完成 WPS 打开查看；编辑、保存、关闭与重开仍需单独验收 |
+| alpha4 运行后签名与 PowerPoint/WPS 往返 | NOT_RUN | alpha1 已完成真实 PPTX 生成与 WPS 打开查看；alpha4 的运行后严格签名复核，以及编辑、保存、关闭与重开仍作为独立发布验收项 |
 
 第一次 Desktop 开发包启动暴露了 Host 动态 chunk 未进入 npm `files` 的闭包错误。共享包现在收录 `lib/*.js`，构建前清空生成目录，并用闭包测试校验每个相对 import 及孤立模块。后续原生截图暴露了绝对定位图库叠压输入框、标准席位顺序错误、模板选择缺少输入框反馈和滚轮恢复链路缺失。最终实现修正 0.1.2 新会话页对既有 `conversation.composer.dock` 的渲染顺序，开放输入卡片 `conversation.input.accessory`，并按 `session.blank` 收束模板界面的生命周期；legacy 外部端保持原布局。
 
@@ -121,4 +121,4 @@ ZIP 大小为 485,295,398 字节。它采用 ad-hoc 签名，只用于当前人�
 原生验收只运行隔离的 `DSH Desktop Dev`，并在验收后保留窗口供人工复核。已安装的正式 `DSH Desktop` 与本地 3080 WorkBuddy 服务保持原状态。
 本次 JSX 与 Composer 同行布局更新后的 alpha1 目录包于 2026-09-02 16:09 重新生成并正常启动；运行中的 Harness utility 进程从当前 App 的 `Contents/Resources/workbuddy-ppt-runtime` 加载 9,920 个锁定文件。空态与模板选中态均已在隔离 App 中完成原生界面核验，真实模型生成效果继续由本轮人工测试验收。
 
-alpha4 候选 App 与 ZIP 已独立生成并完成静态、运行时闭包、压缩包完整性和 ad-hoc 签名校验。候选包没有启动，也没有替换当前 alpha1。下一步由人工启动 alpha4，复核同行输入布局、真实模型生成、运行后签名完整性和 WPS 往返；通过后再推送分支并创建 PR。
+alpha4 候选 App 与 ZIP 已独立生成并完成静态、运行时闭包、压缩包完整性和 ad-hoc 签名校验。候选包没有替换当前 alpha1。用户完成本轮验收并授权创建 PR 后，分支正式合入 `upstream/main@5f05f2d`，重新通过 682 项测试、类型检查、Electron 构建和包内运行时校验。运行后签名完整性与完整 PowerPoint/WPS 往返继续保留为发布验收项。
