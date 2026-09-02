@@ -7,17 +7,36 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-writable-editor.tgz',
-    sha256: '99d8f0266db73babed41b149af84a9641594465e0fd786ca8b02933ad600c99f'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz',
+    sha256: '282831db2e0388ee813eeb15ad6c4abf6914287108dfaec93d5ce260ea4783c8'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: '55933aee661f9ab9b46658572a273ede40afb58b5d09256abe1f331a3ca221e4'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz',
+    sha256: '8806676eb2fe7a74a2037dfe2f38e878aaa3656b97396070da46e8bc987bdb8c'
   }
 } as const
 
 async function artifact(name: keyof typeof artifacts): Promise<Buffer> {
   return readFile(path.join(projectRoot, 'packages', 'workbuddy-ppt', artifacts[name].file))
+}
+
+function tarEntries(archive: Buffer): Map<string, Buffer> {
+  const tar = gunzipSync(archive)
+  const entries = new Map<string, Buffer>()
+  let offset = 0
+  while (offset + 512 <= tar.length) {
+    const header = tar.subarray(offset, offset + 512)
+    const name = header.subarray(0, 100).toString('utf8').replace(/\0.*$/u, '')
+    if (name.length === 0) break
+    const prefix = header.subarray(345, 500).toString('utf8').replace(/\0.*$/u, '')
+    const sizeText = header.subarray(124, 136).toString('ascii').replace(/\0.*$/u, '').trim()
+    const size = Number.parseInt(sizeText || '0', 8)
+    const contentOffset = offset + 512
+    const fullName = prefix.length === 0 ? name : `${prefix}/${name}`
+    entries.set(fullName, tar.subarray(contentOffset, contentOffset + size))
+    offset = contentOffset + Math.ceil(size / 512) * 512
+  }
+  return entries
 }
 
 describe('WorkBuddy PPT built-in plugin', () => {
@@ -28,7 +47,8 @@ describe('WorkBuddy PPT built-in plugin', () => {
   })
 
   it('ships a standard Composer client closure without the removed legacy runtime', async () => {
-    const archive = gunzipSync(await artifact('adapter')).toString('utf8')
+    const entries = tarEntries(await artifact('adapter'))
+    const archive = entries.get('package/lib/client.js')?.toString('utf8') ?? ''
 
     expect(archive).toContain('conversation.input.accessory')
     expect(archive).toContain('conversation.composer.dock')
@@ -41,12 +61,16 @@ describe('WorkBuddy PPT built-in plugin', () => {
   })
 
   it('ships the complete-JSX Slides route and its Host quality gates', async () => {
-    const archive = gunzipSync(await artifact('core')).toString('utf8')
+    const entries = tarEntries(await artifact('core'))
+    const archive = entries.get('package/lib/index.js')?.toString('utf8') ?? ''
 
     expect(archive).toContain('workflow: direct Slides JSX authoring')
-    expect(archive).toContain('readability, collision, source-relationship, template-fidelity')
+    expect(archive).toContain('readability, collision, template fidelity, renderer validation')
     expect(archive).toContain('submit every adapted page through ppt_write_page')
     expect(archive).not.toContain('ppt_write_template_page')
+    expect(archive).not.toContain('ppt_get_template_reference')
+    expect(archive).not.toContain('pptd_render')
+    expect(archive).not.toContain('ppt_update_slide')
   })
 
   it('renders the template chooser after the resident input card with the current input zone', async () => {
@@ -70,7 +94,7 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(below).toBeGreaterThan(input)
   })
 
-  it('renders the PPT reference in the input card accessory seat', async () => {
+  it('renders the selected template reference in the input card accessory seat', async () => {
     const client = await readFile(path.join(
       projectRoot,
       'node_modules',
@@ -115,14 +139,27 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(client).toContain('tag.textContent = css$1 + pptAccessoryCss')
   })
 
-  it('ships every JavaScript chunk imported by the Host entry', async () => {
-    const archive = gunzipSync(await artifact('core')).toString('utf8')
-    const chunk = /from "\.\/(pptd-[A-Za-z0-9_-]+\.js)"/u.exec(archive)?.[1]
+  it('ships a production archive with only the Slides compiler route', async () => {
+    const entries = tarEntries(await artifact('core'))
+    const names = [...entries.keys()]
+    const host = entries.get('package/lib/index.js')?.toString('utf8') ?? ''
+    const manifest = JSON.parse(entries.get('package/package.json')?.toString('utf8') ?? '{}') as {
+      bin?: Record<string, string>
+      exports?: Record<string, unknown>
+      dependencies?: Record<string, string>
+    }
 
-    expect(chunk).toBeDefined()
-    expect(archive).toContain(`package/lib/${chunk}`)
-    expect(archive).toContain('workbuddy-ppt-runtime')
-    expect(archive).toContain('selected_template_id')
+    expect(host).toContain('workbuddy-ppt-runtime')
+    expect(host).toContain('selected_template_id')
+    expect(host).not.toContain('PPT mode')
+    expect(names).not.toContain('package/lib/bin.js')
+    expect(names).not.toContain('package/lib/pptd.js')
+    expect(names).not.toContain('package/skills/kimi-ppt/SKILL.md')
+    expect(manifest.bin).toBeUndefined()
+    expect(manifest.exports?.['./pptd']).toBeUndefined()
+    for (const dependency of ['@aiden0z/pptx-renderer', 'js-yaml', 'jsdom', 'pptxgenjs', 'sharp']) {
+      expect(manifest.dependencies?.[dependency]).toBeUndefined()
+    }
   })
 
   it('declares both local artifacts and mounts only the standard adapter', async () => {

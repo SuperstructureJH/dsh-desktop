@@ -91,7 +91,7 @@ describe('WorkBuddy PPT Desktop runtime package gate', () => {
     await expect(execFileAsync(process.execPath, [verifierPath, '--optional'], {
       env: environmentWithoutRuntime()
     })).resolves.toMatchObject({
-      stdout: expect.stringContaining('packaging this platform with the bundled PPTD workflow')
+      stdout: expect.stringContaining('packaging this platform with the Slides plugin disabled')
     })
   })
 

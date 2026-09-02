@@ -1,35 +1,26 @@
 # PPT Capability 内置产物
 
-本目录固定 DSH Desktop 私有内置插件所需的代码产物与平台运行时契约：
+本目录固定 DSH Desktop 内置 Slides/JSX 能力的代码产物与平台运行时契约：
 
-- `dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-writable-editor.tgz`：共享 Host、PPTD 渲染器、Skill 注册、模板状态、策略、审计与交付核心；`editor_sdk` 使用插件数据目录保存日志，包内 runtime 保持只读。
-- `deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz`：Harness 0.1.2 标准 Composer 适配器；空白会话中，已选模板以紧凑预览显示在输入区左上角，正文从右侧同行开始，未选择时占位词贴近顶部；Slides/PPT 与模板参考区在输入框下方展开；任务开始后整组模板界面收起。
-- `runtime-lock.json`：按平台固定 `tencent-pptx` Skill、SlideP、Tencent Docs 编辑引擎和关键文件 SHA-256。
+- `dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz`：Slides Host、模板状态、`tencent-pptx` Skill 注入、五个生成工具、质量检查、审计与文件交付。
+- `deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz`：标准 Composer 适配器。模板选择区位于输入框下方；选中模板后，缩略图在输入区左侧与正文同行；任务开始后选择界面收起。
+- `runtime-lock.json`：固定 `tencent-pptx` Skill、SlideP、Tencent Docs 编辑引擎和目标平台关键文件 SHA-256。
 
-源码来自相邻 `deepseek-harness` 工作树的 `codex/desktop-plugin-compatibility` 分支，以
-`codex/workbuddy-suite` 的稳定提交 `d3ce73b` 为基线；标准 Composer 适配器来自桌面兼容提交 `60b8806`，共享核心包含提交 `b77dc58` 的只读运行时修复。两个产物通过 Desktop 根 `package.json` 的仓库相对
-`file:` 依赖安装；构建补丁只挂载适配器，适配器在同一 Cordis fiber 下组合共享核心。
+桌面发布包只提供 Slides 入口。代码产物移除了 PPTD CLI、PPTD 编译器和独立 PPT 模式工具链。模板预览继续使用 332 张源页图片；这些图片是 Slides 选模板和逐页参考的必要素材。
 
-SHA-256：
+产物来自相邻 DeepSeek Harness 工作树 `codex/desktop-plugin-compatibility`，以 `b77dc58` 为源码基点，并应用 Slides-only 发布重构。根 `package.json` 通过仓库相对 `file:` 路径安装两个 tarball；Desktop patch 只挂载标准适配器，适配器在同一 Cordis fiber 中组合 Host 核心。
+
+SHA-256 与大小：
 
 ```text
-99d8f0266db73babed41b149af84a9641594465e0fd786ca8b02933ad600c99f  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-writable-editor.tgz
-55933aee661f9ab9b46658572a273ede40afb58b5d09256abe1f331a3ca221e4  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz
+282831db2e0388ee813eeb15ad6c4abf6914287108dfaec93d5ce260ea4783c8  33181365  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz
+8806676eb2fe7a74a2037dfe2f38e878aaa3656b97396070da46e8bc987bdb8c   8814028  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz
 ```
 
 ## 桌面运行时闭包
 
-包含 Slides 能力的桌面构建设置绝对路径 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT`。`npm run runtime:verify` 先按
-`runtime-lock.json` 检查平台、版本、完整文件树、关键哈希和可执行权限，Electron Builder 再把整个目录复制到
-`Contents/Resources/workbuddy-ppt-runtime`（Windows 为对应 Resources 目录）。Desktop main 仅在包内清单存在时把
-`DSH_WORKBUDDY_PPT_RUNTIME_ROOT` 传给 Harness 子进程。打包后的 Slides 路线直接从资源目录加载 Skill、SlideP
-和编辑引擎，不依赖用户目录或单独部署的 PPT 服务。包内 runtime 只提供可执行文件与静态资产；`editor_sdk`
-的工作目录位于插件数据根目录下，运行日志不会改写 App Resources。
+包含 Slides 能力的构建设置 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT`。`npm run runtime:verify` 按 `runtime-lock.json` 校验平台、版本、完整文件树、关键哈希和执行权限，Electron Builder 再把运行时复制到 `Resources/workbuddy-ppt-runtime`。Desktop main 仅在包内 manifest 存在时向 Harness 进程注入准确路径。
 
-当前仓库已锁定并验证 `darwin-arm64`。该平台的 arm64 打包命令使用严格门禁并生成完整的内置 Slides 能力。
-macOS x64 与 Windows x64 使用 `runtime:verify:optional`：构建环境提供匹配平台的受控运行时目录时完成同一套
-校验和内置；未提供时生成保留 PPTD/Kimi 路线的 Desktop 包，且不会注入不存在的 Slides 运行时路径。
-运行时包含无法从公开 npm 重新获取的许可二进制，因此源码仓库保存版本锁与打包规则；新增平台的完整
-Slides 能力需要提供对应运行时并加入同一份锁。
+当前仓库锁定并验证 `darwin-arm64`。macOS x64 与 Windows x64 使用可选门禁：构建机提供匹配平台的运行时时启用 Slides；省略运行时时生成 PPT Capability 未启用的桌面包。
 
-更新产物时，应同时更新两个 tarball、根依赖、这里的哈希、运行时锁、插件闭包测试和集成说明。
+更新产物时，同步更新两个 tarball、根依赖与锁文件、这里的哈希、集成测试和集成说明。

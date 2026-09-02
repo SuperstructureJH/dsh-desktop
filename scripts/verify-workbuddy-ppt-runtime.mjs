@@ -118,7 +118,7 @@ export async function verifyWorkBuddyPptRuntime(
 async function main() {
   const root = process.env.DSH_WORKBUDDY_PPT_RUNTIME_ROOT
   if (!root && process.argv.includes('--optional')) {
-    process.stdout.write('WorkBuddy PPT Slides runtime is not configured; packaging this platform with the bundled PPTD workflow.\n')
+    process.stdout.write('PPT Capability runtime is not configured; packaging this platform with the Slides plugin disabled.\n')
     return
   }
   if (!root) throw new Error('DSH_WORKBUDDY_PPT_RUNTIME_ROOT is required for Desktop packaging')
