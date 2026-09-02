@@ -19,12 +19,17 @@ SHA-256：
 
 ## 桌面运行时闭包
 
-桌面构建必须设置绝对路径 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT`。`npm run runtime:verify` 先按
+包含 Slides 能力的桌面构建设置绝对路径 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT`。`npm run runtime:verify` 先按
 `runtime-lock.json` 检查平台、版本、完整文件树、关键哈希和可执行权限，Electron Builder 再把整个目录复制到
-`Contents/Resources/workbuddy-ppt-runtime`（Windows 为对应 Resources 目录）。Desktop main 通过
-`DSH_WORKBUDDY_PPT_RUNTIME_ROOT` 把该目录传给 Harness 子进程。打包后的应用直接从资源目录加载
-Skill、SlideP 和编辑引擎，不依赖用户目录或单独部署的 PPT 服务。包内 runtime 只提供可执行文件与静态资产；`editor_sdk` 的工作目录位于插件数据根目录下，运行日志不会改写 App Resources。
+`Contents/Resources/workbuddy-ppt-runtime`（Windows 为对应 Resources 目录）。Desktop main 仅在包内清单存在时把
+`DSH_WORKBUDDY_PPT_RUNTIME_ROOT` 传给 Harness 子进程。打包后的 Slides 路线直接从资源目录加载 Skill、SlideP
+和编辑引擎，不依赖用户目录或单独部署的 PPT 服务。包内 runtime 只提供可执行文件与静态资产；`editor_sdk`
+的工作目录位于插件数据根目录下，运行日志不会改写 App Resources。
 
-当前仓库已锁定并验证 `darwin-arm64`。运行时包含无法从公开 npm 重新获取的许可二进制，因此源码仓库保存版本锁与打包规则，内部构建环境提供受控运行时目录；最终 Desktop 安装包包含完整文件。新增 macOS x64 或 Windows x64 产物前，需要提供对应平台运行时并加入同一份锁。
+当前仓库已锁定并验证 `darwin-arm64`。该平台的 arm64 打包命令使用严格门禁并生成完整的内置 Slides 能力。
+macOS x64 与 Windows x64 使用 `runtime:verify:optional`：构建环境提供匹配平台的受控运行时目录时完成同一套
+校验和内置；未提供时生成保留 PPTD/Kimi 路线的 Desktop 包，且不会注入不存在的 Slides 运行时路径。
+运行时包含无法从公开 npm 重新获取的许可二进制，因此源码仓库保存版本锁与打包规则；新增平台的完整
+Slides 能力需要提供对应运行时并加入同一份锁。
 
 更新产物时，应同时更新两个 tarball、根依赖、这里的哈希、运行时锁、插件闭包测试和集成说明。

@@ -1,7 +1,9 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   runtimeTreeDigest,
@@ -9,6 +11,13 @@ import {
 } from '../scripts/verify-workbuddy-ppt-runtime.mjs'
 
 const temporary = []
+const execFileAsync = promisify(execFile)
+const verifierPath = path.resolve(import.meta.dirname, '../scripts/verify-workbuddy-ppt-runtime.mjs')
+
+function environmentWithoutRuntime() {
+  const { DSH_WORKBUDDY_PPT_RUNTIME_ROOT: _runtimeRoot, ...environment } = process.env
+  return environment
+}
 
 afterEach(async () => {
   await Promise.all(temporary.splice(0).map(root => rm(root, { recursive: true, force: true })))
@@ -78,6 +87,20 @@ async function fixture(platform = 'darwin', arch = 'arm64') {
 }
 
 describe('WorkBuddy PPT Desktop runtime package gate', () => {
+  it('allows a platform package without a configured optional Slides runtime', async () => {
+    await expect(execFileAsync(process.execPath, [verifierPath, '--optional'], {
+      env: environmentWithoutRuntime()
+    })).resolves.toMatchObject({
+      stdout: expect.stringContaining('packaging this platform with the bundled PPTD workflow')
+    })
+  })
+
+  it('keeps the self-contained runtime verifier strict', async () => {
+    await expect(execFileAsync(process.execPath, [verifierPath], {
+      env: environmentWithoutRuntime()
+    })).rejects.toThrow('DSH_WORKBUDDY_PPT_RUNTIME_ROOT is required for Desktop packaging')
+  })
+
   it('accepts a complete runtime for the target platform', async () => {
     const { root, lockPath } = await fixture()
     await expect(verifyWorkBuddyPptRuntime(root, 'darwin', 'arm64', lockPath)).resolves.toMatchObject({

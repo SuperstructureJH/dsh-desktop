@@ -33,15 +33,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "runtime:verify": "node scripts/verify-workbuddy-ppt-runtime.mjs",
+    "runtime:verify:optional": "node scripts/verify-workbuddy-ppt-runtime.mjs --optional",
     "package:dir": "npm run runtime:verify && npm run build && electron-builder --dir --config electron-builder.cjs",
     "package:dev:dir": "npm run runtime:verify && npm run build && electron-builder --dir --config electron-builder.dev.cjs",
     "package:dev:mac:arm64": "node scripts/verify-target.mjs darwin arm64 && npm run runtime:verify && npm run build && electron-builder --mac --arm64 --publish never --config electron-builder.dev.cjs",
-    "package:dev:mac:x64": "node scripts/verify-target.mjs darwin x64 && npm run runtime:verify && npm run build && electron-builder --mac --x64 --publish never --config electron-builder.dev.cjs",
-    "package:dev:win": "node scripts/verify-target.mjs win32 x64 && npm run runtime:verify && npm run build && electron-builder --win --x64 --publish never --config electron-builder.dev.cjs",
+    "package:dev:mac:x64": "node scripts/verify-target.mjs darwin x64 && npm run runtime:verify:optional && npm run build && electron-builder --mac --x64 --publish never --config electron-builder.dev.cjs",
+    "package:dev:win": "node scripts/verify-target.mjs win32 x64 && npm run runtime:verify:optional && npm run build && electron-builder --win --x64 --publish never --config electron-builder.dev.cjs",
     "package:mac": "npm run runtime:verify && npm run build && electron-builder --mac --publish never --config electron-builder.cjs",
     "package:mac:arm64": "node scripts/verify-target.mjs darwin arm64 && npm run runtime:verify && npm run build && electron-builder --mac --arm64 --publish never --config electron-builder.cjs",
-    "package:mac:x64": "node scripts/verify-target.mjs darwin x64 && npm run runtime:verify && npm run build && electron-builder --mac --x64 --publish never --config electron-builder.cjs",
-    "package:win": "node scripts/verify-target.mjs win32 x64 && npm run runtime:verify && npm run build && electron-builder --win --x64 --publish never --config electron-builder.cjs"
+    "package:mac:x64": "node scripts/verify-target.mjs darwin x64 && npm run runtime:verify:optional && npm run build && electron-builder --mac --x64 --publish never --config electron-builder.cjs",
+    "package:win": "node scripts/verify-target.mjs win32 x64 && npm run runtime:verify:optional && npm run build && electron-builder --win --x64 --publish never --config electron-builder.cjs"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "file:packages/harness-0.1.2-alpha.4/npm-vendor/deepseek-ai-cordis-4.0.2.tgz",
