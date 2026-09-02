@@ -13,8 +13,8 @@
 SHA-256 与大小：
 
 ```text
-282831db2e0388ee813eeb15ad6c4abf6914287108dfaec93d5ce260ea4783c8  33181365  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz
-8806676eb2fe7a74a2037dfe2f38e878aaa3656b97396070da46e8bc987bdb8c   8814028  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz
+4aec563ee15a632333b2d7f73faba98d3825246500e7eaa11a41f841a82fc873  33181364  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz
+cb9ca9211d3b33dd70d6b3fa23dc0bfa593edcbade81de1fdf274ad044b8fca7   8814031  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz
 ```
 
 ## 桌面运行时闭包

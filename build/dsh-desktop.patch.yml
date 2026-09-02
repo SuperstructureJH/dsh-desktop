@@ -25,6 +25,7 @@
     # Desktop. This row loads the Harness 0.1.2 standard Composer client only.
     - id: experimental-office-ppt-standard-adapter
       name: '@deepseek-ai/dsh-experimental-office-ppt-standard-adapter'
+      disabled: !!js "!process.env.DSH_WORKBUDDY_PPT_RUNTIME_ROOT"
       config:
         root: !!js dshHomePath('office-ppt')
 
