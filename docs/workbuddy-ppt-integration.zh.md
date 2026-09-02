@@ -115,7 +115,8 @@ ZIP 大小为 485,295,398 字节。它采用 ad-hoc 签名，只用于当前人�
 | alpha4 用户验收与 PR 授权 | PASS | alpha4 候选 App 与 ZIP 已交付，用户完成本轮验收后明确授权向 `dataelement/dsh-desktop` 创建 PR |
 | 原生模板选择与模型上下文 | PASS | 选择 `Moss Green Transformation` 后输入框显示同名预览；会话注入 `office-ppt-skill` 与 `office-ppt-composer`，模型回读 `tencent-pptx` 和所选模板；无 unknown-Skill 错误 |
 | 包内运行时路径 | PASS | 最终 Harness utility process 的 `DSH_WORKBUDDY_PPT_RUNTIME_ROOT` 指向当前开发 App 的 `Contents/Resources/workbuddy-ppt-runtime`；包内关键文件哈希与运行时锁一致 |
-| macOS x64 / Windows x64 基础包 | IN_PROGRESS | 平台命令允许省略未配置的 Slides 运行时并保留 PPTD/Kimi 路线；Windows CI 正在验证实际打包，macOS x64 尚未运行 |
+| Windows x64 基础包 | PASS | GitHub Actions `33619715932` 在 Windows x64 完成 687 项测试、打包与安装包 smoke test；产物省略未配置的 Slides 运行时并保留 PPTD/Kimi 路线 |
+| macOS x64 基础包 | NOT_RUN | 平台命令允许省略未配置的 Slides 运行时并保留 PPTD/Kimi 路线；本轮尚未执行实际打包 |
 | macOS x64 / Windows x64 Slides 路线 | NOT_RUN | 对应平台的 SlideP 与编辑引擎运行时尚未取得并加入运行时锁 |
 | 正式签名与公证 | NOT_RUN | alpha4 候选包采用 ad-hoc 签名，尚未执行 Developer ID 发布签名与公证 |
 | 实际完整演示文稿生成 | PASS | 用户在集成版中完成真实 11 页中文 PPTX 生成，产物报告 193 个可编辑对象，并在 WPS 中打开查看 |
