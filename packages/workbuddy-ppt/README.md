@@ -1,4 +1,4 @@
-# WorkBuddy PPT 内置产物
+# PPT Capability 内置产物
 
 本目录固定 DSH Desktop 私有内置插件所需的代码产物与平台运行时契约：
 

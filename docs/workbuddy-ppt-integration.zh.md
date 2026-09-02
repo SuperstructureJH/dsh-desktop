@@ -1,10 +1,10 @@
-# WorkBuddy PPT 桌面集成说明
+# PPT Capability 桌面集成说明
 
 ## 目标与基线
 
-本分支把当前本地 WorkBuddy PPT 能力作为 DSH Desktop 的私有内置插件交付，同时保留同一份共享核心在外部 DeepSeek Harness 上的运行方式。
+本分支把当前本地 PPT Capability 作为 DSH Desktop 的私有内置插件交付，同时保留同一份共享核心在外部 DeepSeek Harness 上的运行方式。
 
-- Desktop 分支：`codex/workbuddy-desktop-integration`
+- Desktop 分支：`codex/ppt-capability-integration`
 - Desktop 上游基线：`dataelement/dsh-desktop` 的 `upstream/main@31aa27f`
 - 外部端兼容分支：`codex/desktop-plugin-compatibility@3fe6e5e`
 - 当前本地 WorkBuddy 基线：`codex/workbuddy-suite@d3ce73b`
