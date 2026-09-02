@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-layout.tgz',
-    sha256: 'c0b4aad5c304a0918d26ea04a88a4ed82c3daa6bd5f2b68e7d8b58a4df5c1c13'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-expanded-gallery.tgz',
+    sha256: 'c6b607bcc3b90f1abda279455669185153464ecce4e00a86ea3395c061a6b308'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-layout.tgz',
-    sha256: '79f6d16fefacb6a283fa552c6a9b8373c93eb70ec0f4dec7b452bc53c390fee5'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-expanded-gallery.tgz',
+    sha256: 'ae329876072ef65480be1e3ef1b746dd4f39717669350ccca9b85cb7a3b8c05c'
   }
 } as const
 
@@ -30,11 +30,33 @@ describe('WorkBuddy PPT built-in plugin', () => {
   it('ships a standard Composer client closure without the removed legacy runtime', async () => {
     const archive = gunzipSync(await artifact('adapter')).toString('utf8')
 
-    expect(archive).toContain('conversation.input.left')
-    expect(archive).toContain('conversation.input.dock')
+    expect(archive).toContain('conversation.composer.dock')
     expect(archive).not.toContain('@deepseek-ai/dsh-client-runtime/client')
+    expect(archive).not.toContain('conversation.input.left')
+    expect(archive).not.toContain('conversation.input.dock')
     expect(archive).not.toContain('conversation.hero.inputAccessory')
     expect(archive).not.toContain('conversation.chat.turnTail')
+  })
+
+  it('renders the hero composer dock after the resident input card', async () => {
+    const client = await readFile(path.join(
+      projectRoot,
+      'node_modules',
+      '@deepseek-ai',
+      'dsh-client-ui-conversation',
+      'lib',
+      'client.js'
+    ), 'utf8')
+    const start = client.indexOf('zone !== void 0 && renderSlot("conversation.input.dock", zone)')
+    const input = client.indexOf('inputBar,', start)
+    const below = client.indexOf(
+      'hero && zone !== void 0 && renderSlot("conversation.composer.dock", zone)',
+      input
+    )
+
+    expect(start).toBeGreaterThan(-1)
+    expect(input).toBeGreaterThan(start)
+    expect(below).toBeGreaterThan(input)
   })
 
   it('ships every JavaScript chunk imported by the Host entry', async () => {

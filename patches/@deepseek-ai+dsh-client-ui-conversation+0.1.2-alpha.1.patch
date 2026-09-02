@@ -1,0 +1,14 @@
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
+index 67f6d0a..12683fb 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
++++ b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
+@@ -14247,7 +14247,8 @@ window.__ModuleLoader__.load({
+ 					}),
+ 					hero && heroWorkspaceRow,
+ 					zone !== void 0 && renderSlot("conversation.input.dock", zone),
+-					inputBar
++					inputBar,
++					hero && zone !== void 0 && renderSlot("conversation.composer.dock", zone)
+ 				]
+ 			});
+ 			const phase = settling ? "settling" : hero ? "hero" : "active";
