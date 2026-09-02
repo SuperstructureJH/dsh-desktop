@@ -36,7 +36,7 @@ async function fixture(platform = 'darwin', arch = 'arm64') {
     await mkdir(path.dirname(destination), { recursive: true })
     await writeFile(destination, content)
   }
-  if (platform !== 'win32') {
+  if (platform !== 'win32' && process.platform !== 'win32') {
     await chmod(path.join(root, `tencent-docs-ai-engine/bin/${expectedPlatform}/editor_sdk`), 0o755)
   }
   const manifest = Buffer.from(JSON.stringify({
@@ -106,6 +106,14 @@ describe('WorkBuddy PPT Desktop runtime package gate', () => {
     await rm(path.join(root, 'slidep/node_modules/transitive.js'))
     await expect(verifyWorkBuddyPptRuntime(root, 'darwin', 'arm64', lockPath)).rejects.toThrow(
       'runtime file count'
+    )
+  })
+
+  it.skipIf(process.platform === 'win32')('rejects a non-executable POSIX editor binary', async () => {
+    const { root, lockPath } = await fixture()
+    await chmod(path.join(root, 'tencent-docs-ai-engine/bin/darwin-arm64/editor_sdk'), 0o644)
+    await expect(verifyWorkBuddyPptRuntime(root, 'darwin', 'arm64', lockPath)).rejects.toThrow(
+      'editor_sdk must be executable'
     )
   })
 })

@@ -106,7 +106,9 @@ export async function verifyWorkBuddyPptRuntime(
   if (tree.sha256 !== platformLock.runtimeTree.sha256) {
     throw new Error('WorkBuddy PPT runtime tree SHA-256 mismatch')
   }
-  if (platform !== 'win32') {
+  // Windows does not expose POSIX executable bits, including for a fixture or
+  // cross-target runtime. Native macOS/Linux packaging still enforces them.
+  if (platform !== 'win32' && process.platform !== 'win32') {
     const mode = (await stat(path.join(root, `tencent-docs-ai-engine/bin/${expectedPlatform}/${editorBinary}`))).mode
     if ((mode & 0o111) === 0) throw new Error('WorkBuddy PPT editor_sdk must be executable')
   }
