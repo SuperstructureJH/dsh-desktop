@@ -49,7 +49,7 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(archive).not.toContain('ppt_write_template_page')
   })
 
-  it('renders the hero composer dock after the resident input card', async () => {
+  it('renders the template chooser after the resident input card with the current input zone', async () => {
     const client = await readFile(path.join(
       projectRoot,
       'node_modules',
@@ -58,15 +58,15 @@ describe('WorkBuddy PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
-    const start = client.indexOf('zone !== void 0 && renderSlot("conversation.input.dock", zone)')
-    const input = client.indexOf('inputBar,', start)
+    const owner = client.indexOf('extensionZone: zone')
+    const input = client.indexOf('className: clsx(InputBar_module_css_default.card', owner)
     const below = client.indexOf(
-      'hero && zone !== void 0 && renderSlot("conversation.composer.dock", zone)',
+      'extensionZone !== void 0 ? renderSlot("conversation.composer.dock", extensionZone) : null',
       input
     )
 
-    expect(start).toBeGreaterThan(-1)
-    expect(input).toBeGreaterThan(start)
+    expect(owner).toBeGreaterThan(-1)
+    expect(input).toBeGreaterThan(owner)
     expect(below).toBeGreaterThan(input)
   })
 
@@ -79,16 +79,14 @@ describe('WorkBuddy PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
+    const owner = client.indexOf('extensionZone: zone')
     const accessory = client.indexOf(
-      'accessory: zone === void 0 ? void 0 : renderSlot("conversation.input.accessory", zone)'
-    )
-    const left = client.indexOf(
-      'leftItems: zone === void 0 ? null : renderSlot("conversation.input.left", zone)',
-      accessory
+      'children: accessory ?? renderSlot("conversation.input.accessory", extensionZone)'
     )
 
+    expect(owner).toBeGreaterThan(-1)
     expect(accessory).toBeGreaterThan(-1)
-    expect(left).toBeGreaterThan(accessory)
+    expect(accessory).toBeGreaterThan(owner)
     expect(client).toContain('"conversation.input.accessory": {')
   })
 
@@ -108,13 +106,13 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(promptRow).toBeGreaterThan(-1)
     expect(accessory).toBeGreaterThan(promptRow)
     expect(scroll).toBeGreaterThan(accessory)
-    expect(client).toContain('.JyqXLa_promptRow{display:contents}')
+    expect(client).toContain('.dYRH2G_promptRow{display:contents}')
     expect(client).toContain(
-      '.JyqXLa_accessory{align-items:flex-start;flex:0 0 auto;min-width:0;padding-left:16px;display:none}'
+      '.dYRH2G_accessory{align-items:flex-start;flex:0 0 auto;min-width:0;padding-left:16px;display:none}'
     )
-    expect(client).toContain('>.JyqXLa_scroll .JyqXLa_input{padding-left:0}')
-    expect(client).toContain('>.JyqXLa_scroll .JyqXLa_placeholder{left:0}')
-    expect(client).not.toContain('.JyqXLa_accessory{align-items:center;gap:8px;padding:10px 12px 0;display:flex}')
+    expect(client).toContain('>.dYRH2G_scroll .dYRH2G_input{padding-left:0}')
+    expect(client).toContain('>.dYRH2G_scroll .dYRH2G_placeholder{left:0}')
+    expect(client).toContain('tag.textContent = css$1 + pptAccessoryCss')
   })
 
   it('ships every JavaScript chunk imported by the Host entry', async () => {
