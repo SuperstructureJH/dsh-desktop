@@ -3,7 +3,7 @@
 本目录固定 DSH Desktop 私有内置插件所需的代码产物与平台运行时契约：
 
 - `dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz`：共享 Host、PPTD 渲染器、Skill 注册、模板状态、策略、审计与交付核心。
-- `deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz`：Harness 0.1.2 标准 Composer 适配器；已选模板显示在输入框内，Slides/PPT 与模板参考区在输入框下方展开。
+- `deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz`：Harness 0.1.2 标准 Composer 适配器；空白会话中，已选模板显示在输入框内部的参考附件区，Slides/PPT 与模板参考区在输入框下方展开；任务开始后整组模板界面收起。
 - `runtime-lock.json`：按平台固定 `tencent-pptx` Skill、SlideP、Tencent Docs 编辑引擎和关键文件 SHA-256。
 
 源码来自相邻 `deepseek-harness` 工作树的 `codex/desktop-plugin-compatibility` 分支，以
@@ -13,8 +13,8 @@
 SHA-256：
 
 ```text
-bd469e8931ca1566a265b11865b87f30115b2597c7932d98d59d31a4fc071f41  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz
-9d434e6b8fc3232bc4c08a9f854da813e1fa1bf9bd1a6e93730b0f9c811e21e1  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz
+263eeb851bd50f19b441843be26897b2483e8cca0a754fd9ddc0d982ad74d134  dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz
+2d128e4698f17f6225210cbb420e4b18e6c056a92d2686bf3bf498348b8327b7  deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz
 ```
 
 ## 桌面运行时闭包

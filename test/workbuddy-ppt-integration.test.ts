@@ -8,11 +8,11 @@ import { projectRoot } from './patch-path'
 const artifacts = {
   core: {
     file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: 'bd469e8931ca1566a265b11865b87f30115b2597c7932d98d59d31a4fc071f41'
+    sha256: '263eeb851bd50f19b441843be26897b2483e8cca0a754fd9ddc0d982ad74d134'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-self-contained.tgz',
-    sha256: '9d434e6b8fc3232bc4c08a9f854da813e1fa1bf9bd1a6e93730b0f9c811e21e1'
+    sha256: '2d128e4698f17f6225210cbb420e4b18e6c056a92d2686bf3bf498348b8327b7'
   }
 } as const
 
@@ -30,9 +30,11 @@ describe('WorkBuddy PPT built-in plugin', () => {
   it('ships a standard Composer client closure without the removed legacy runtime', async () => {
     const archive = gunzipSync(await artifact('adapter')).toString('utf8')
 
-    expect(archive).toContain('conversation.input.left')
+    expect(archive).toContain('conversation.input.accessory')
     expect(archive).toContain('conversation.composer.dock')
+    expect(archive).toContain('session.blank')
     expect(archive).not.toContain('@deepseek-ai/dsh-client-runtime/client')
+    expect(archive).not.toContain('conversation.input.left')
     expect(archive).not.toContain('conversation.input.dock')
     expect(archive).not.toContain('conversation.hero.inputAccessory')
     expect(archive).not.toContain('conversation.chat.turnTail')
@@ -57,6 +59,28 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(start).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(start)
     expect(below).toBeGreaterThan(input)
+  })
+
+  it('renders the PPT reference in the input card accessory seat', async () => {
+    const client = await readFile(path.join(
+      projectRoot,
+      'node_modules',
+      '@deepseek-ai',
+      'dsh-client-ui-conversation',
+      'lib',
+      'client.js'
+    ), 'utf8')
+    const accessory = client.indexOf(
+      'accessory: zone === void 0 ? void 0 : renderSlot("conversation.input.accessory", zone)'
+    )
+    const left = client.indexOf(
+      'leftItems: zone === void 0 ? null : renderSlot("conversation.input.left", zone)',
+      accessory
+    )
+
+    expect(accessory).toBeGreaterThan(-1)
+    expect(left).toBeGreaterThan(accessory)
+    expect(client).toContain('"conversation.input.accessory": {')
   })
 
   it('ships every JavaScript chunk imported by the Host entry', async () => {
