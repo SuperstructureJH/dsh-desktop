@@ -21,6 +21,13 @@
     - id: dsh-desktop-market-installer
       name: dsh-desktop-market-installer
 
+    # WorkBuddy PPT keeps one Host/render core across the external host and
+    # Desktop. This row loads the Harness 0.1.2 standard Composer client only.
+    - id: experimental-office-ppt-standard-adapter
+      name: '@deepseek-ai/dsh-experimental-office-ppt-standard-adapter'
+      config:
+        root: !!js dshHomePath('office-ppt')
+
 # dsh-market normally offers to restart its own Node process after mutations.
 # The desktop shell has the real lifecycle authority, so keep that behavior off
 # whenever the optional plugin is present in the composed profile.
