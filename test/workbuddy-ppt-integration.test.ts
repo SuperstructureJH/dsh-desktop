@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260903-fixed-gallery.tgz',
-    sha256: 'de48ae39bf4fce5fd35bbca0c73885ca0ef944d47a32e96e72cb8101dacc7aac'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260903-public-gallery.tgz',
+    sha256: 'f6682e3c42cc946f28cdddd51c177d1411139feabb51448508fc0dbeb48220e2'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260903-fixed-gallery.tgz',
-    sha256: 'a14e1e1d95d93a27d02fb1df061d6f1cbd5429539a95b4e091a76a5089b93b30'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260903-public-gallery.tgz',
+    sha256: 'e909330b53c179cca5ee49a9277ab1d87d3a84c5395e7e1cee8a50a1877f9184'
   }
 } as const
 
@@ -77,6 +77,14 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(archive).not.toContain('ppt_get_template_reference')
     expect(archive).not.toContain('pptd_render')
     expect(archive).not.toContain('ppt_update_slide')
+    for (const privateTemplateMarker of [
+      'DATA_ANALYSIS_TEMPLATE_DATA',
+      'VITALITY_BLUE_TEMPLATE_DATA',
+      'VITALITY_BLUE_PREVIEWS',
+      'vitality-blue-source-page',
+    ]) {
+      expect(archive).not.toContain(privateTemplateMarker)
+    }
   })
 
   it('renders the Slides action after agent preset and anchors the catalog after the input card', async () => {
@@ -88,7 +96,8 @@ describe('WorkBuddy PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
-    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})')
+    const cluster = client.indexOf('className: ConversationRoot_module_css_default.heroModeCluster')
+    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})', cluster)
     const modeActions = client.indexOf(
       'zone !== void 0 && renderSlot("conversation.hero.modeActions", zone)',
       agentPreset
@@ -100,8 +109,10 @@ describe('WorkBuddy PPT built-in plugin', () => {
       input
     )
 
-    expect(agentPreset).toBeGreaterThan(-1)
+    expect(cluster).toBeGreaterThan(-1)
+    expect(agentPreset).toBeGreaterThan(cluster)
     expect(modeActions).toBeGreaterThan(agentPreset)
+    expect(client).toContain('.HNmDuG_heroModeCluster{width:max-content;max-width:100%;flex:none;align-items:center;gap:2px;display:flex}')
     expect(client).toContain('"conversation.hero.modeActions": {')
     expect(owner).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(owner)
