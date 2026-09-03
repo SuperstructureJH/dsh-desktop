@@ -2,7 +2,17 @@ diff --git a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js 
 index 829b8cb..4e5b304 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
 +++ b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js
-@@ -14436,6 +14436,7 @@ window.__ModuleLoader__.load({
+@@ -14430,7 +14430,8 @@ window.__ModuleLoader__.load({
+ 							setPickerOpen(false);
+ 						}
+ 					}),
+-					renderSlot("conversation.hero.agentPreset", {})
++					renderSlot("conversation.hero.agentPreset", {}),
++					zone !== void 0 && renderSlot("conversation.hero.modeActions", zone)
+ 				]
+ 			});
+ 			const inert = sessionId === void 0 || hero && chipTitle === void 0;
+@@ -14436,6 +14437,7 @@ window.__ModuleLoader__.load({
  			const inert = sessionId === void 0 || hero && chipTitle === void 0;
  			const inputBar = renderSlot("conversation.composer.bar", {
  				variant: hero ? "hero" : "composer",
@@ -10,12 +20,12 @@ index 829b8cb..4e5b304 100644
  				...inert ? {
  					disabled: true,
  					placeholder: t("placeholder.workspace"),
-@@ -15271,3 +15272,4 @@ window.__ModuleLoader__.load({
+@@ -15271,3 +15273,4 @@ window.__ModuleLoader__.load({
 +		const pptAccessoryCss = ".dYRH2G_promptRow{display:contents}.dYRH2G_promptRow:has(.dYRH2G_accessory [data-slot=conversation\\.input\\.accessory]:not(:empty)){align-items:flex-start;gap:12px;min-width:0;display:flex}.dYRH2G_accessory{align-items:flex-start;flex:0 0 auto;min-width:0;padding-left:16px;display:none}.dYRH2G_accessory:has([data-slot=conversation\\.input\\.accessory]:not(:empty)){display:flex}.dYRH2G_promptRow:has(.dYRH2G_accessory [data-slot=conversation\\.input\\.accessory]:not(:empty))>.dYRH2G_scroll{flex:1 1 auto;min-width:0}.dYRH2G_promptRow:has(.dYRH2G_accessory [data-slot=conversation\\.input\\.accessory]:not(:empty))>.dYRH2G_scroll .dYRH2G_input{padding-left:0}.dYRH2G_promptRow:has(.dYRH2G_accessory [data-slot=conversation\\.input\\.accessory]:not(:empty))>.dYRH2G_scroll .dYRH2G_placeholder{left:0}";
  		const tagId$1 = "@deepseek-ai/dsh-client-ui-conversation/InputBar.module.css";
  		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
  			const tag = document.createElement("style");
-@@ -15276,6 +15278,6 @@ window.__ModuleLoader__.load({
+@@ -15276,6 +15279,6 @@ window.__ModuleLoader__.load({
  			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-conversation";
  			tag.dataset.pluginCss = tagId$1;
 -			tag.textContent = css$1;
@@ -23,7 +33,7 @@ index 829b8cb..4e5b304 100644
  			document.head.appendChild(tag);
  		}
  		var InputBar_module_css_default = {
-@@ -15292,6 +15294,7 @@ window.__ModuleLoader__.load({
+@@ -15292,6 +15295,7 @@ window.__ModuleLoader__.load({
  			"pending": "dYRH2G_pending",
  			"placeholder": "dYRH2G_placeholder",
  			"primary": "dYRH2G_primary",
@@ -31,7 +41,7 @@ index 829b8cb..4e5b304 100644
  			"retry": "dYRH2G_retry",
  			"root": "dYRH2G_root",
  			"row": "dYRH2G_row",
-@@ -15316,7 +15319,7 @@ window.__ModuleLoader__.load({
+@@ -15316,7 +15320,7 @@ window.__ModuleLoader__.load({
  		* The no-session state renders the SAME div inert as the Workspace-picker
  		* trigger instead of a parallel tree.
  		*/
@@ -40,7 +50,7 @@ index 829b8cb..4e5b304 100644
  			const input = useInput((s) => s);
  			const notice = useNotices((s) => s);
  			const commandMenuOpen = useMenuLauncher((source) => source === "command");
-@@ -15561,10 +15564,6 @@ window.__ModuleLoader__.load({
+@@ -15561,10 +15565,6 @@ window.__ModuleLoader__.load({
  							sessionId !== void 0 && (0, react_jsx_runtime.jsx)("div", {
  								className: InputBar_module_css_default.overlayAnchor,
  								children: renderSlot("conversation.input.overlay", {})
@@ -51,7 +61,7 @@ index 829b8cb..4e5b304 100644
  							}),
  							renderSlot("conversation.input.attachments", {
  								attachments,
-@@ -15578,13 +15577,19 @@ window.__ModuleLoader__.load({
+@@ -15578,13 +15578,19 @@ window.__ModuleLoader__.load({
  									size: imageSizeText(imageLimits.maxImageBytes)
  								}
  							}),
@@ -78,7 +88,7 @@ index 829b8cb..4e5b304 100644
  										(0, react_jsx_runtime.jsx)(ComposerContentEditable, {
  											editor: workspaceTrigger ? null : editor,
  											editable,
-@@ -15606,8 +15611,9 @@ window.__ModuleLoader__.load({
+@@ -15606,8 +15612,9 @@ window.__ModuleLoader__.load({
  											children: placeholderText
  										}),
  										(0, react_jsx_runtime.jsx)(DecoratorPortals, { editor: workspaceTrigger ? null : editor })
@@ -90,7 +100,7 @@ index 829b8cb..4e5b304 100644
  							}),
  							(0, react_jsx_runtime.jsxs)("div", {
  								className: InputBar_module_css_default.row,
-@@ -15713,7 +15719,7 @@ window.__ModuleLoader__.load({
+@@ -15713,7 +15720,7 @@ window.__ModuleLoader__.load({
  							})
  						]
  					}),
@@ -99,7 +109,22 @@ index 829b8cb..4e5b304 100644
  				]
  			});
  		});
-@@ -16166,6 +16172,10 @@ window.__ModuleLoader__.load({
+@@ -16086,10 +16093,14 @@ window.__ModuleLoader__.load({
+ 					"conversation.hero.workspace": {
+ 						kind: "single",
+ 						scope: "root"
+ 					},
+ 					"conversation.hero.agentPreset": {
+ 						kind: "single",
+ 						scope: "root"
++					},
++					"conversation.hero.modeActions": {
++						kind: "list",
++						scope: "session"
+ 					}
+ 				},
+ 				inject: (sessionId) => ({
+@@ -16166,6 +16177,10 @@ window.__ModuleLoader__.load({
  					"conversation.input.overlay": {
  						kind: "list",
  						scope: "session"
@@ -114,7 +139,20 @@ diff --git a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/types/clie
 index 2d41cda..45e15b3 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/types/client/contract/slots.d.ts
 +++ b/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/types/client/contract/slots.d.ts
-@@ -148,10 +148,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+@@ -132,6 +132,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+             scope: 'root';
+             owner: HeroAgentPresetOwnerProps;
+         };
++        /** Product-mode controls beside the blank-session agent preset. */
++        'conversation.hero.modeActions': {
++            kind: 'list';
++            scope: 'session';
++            owner: InputZone;
++        };
+         /** Full-width entries above the composer card. */
+         'conversation.input.dock': {
+             kind: 'list';
+@@ -148,10 +154,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
              kind: 'list';
              scope: 'session';
          };
@@ -132,7 +170,7 @@ index 2d41cda..45e15b3 100644
          };
          /** Compact controls at the left of the composer tool row. */
          'conversation.input.left': {
-@@ -290,8 +297,10 @@ export interface ComposerBarOwnerProps {
+@@ -290,8 +303,10 @@ export interface ComposerBarOwnerProps {
      /** Open the Workspace picker from the inert composer surface. */
      onRequestWorkspace?: () => void;
      placeholder?: string;
@@ -144,7 +182,7 @@ index 2d41cda..45e15b3 100644
  }
  /** Package-private operations injected into the resident composer bar. */
  export interface ComposerBarInjected {
-@@ -315,7 +324,7 @@ export interface InputControlOwnerProps {
+@@ -315,7 +330,7 @@ export interface InputControlOwnerProps {
      locked: boolean;
  }
  /** Full props of the resident composer bar. */
@@ -153,3 +191,12 @@ index 2d41cda..45e15b3 100644
  /** Owner values used to elect a composer takeover. */
  export interface ComposerChainProps {
      /** Current Session identity used by temporary business-owned entries. */
+@@ -336,7 +351,7 @@ export interface HeroBrandMarkOwnerProps {
+     className?: string | undefined;
+ }
+ /** Full props of the resident optional-Session Conversation shell. */
+-export type ConversationSlotProps = PropsRuntime<'conversation'> & PropsRenderSlots<'conversation.session' | 'conversation.session.header' | 'conversation.composer' | 'conversation.composer.bar' | 'conversation.input.dock' | 'conversation.hero.brand.mark' | 'conversation.hero.workspace' | 'conversation.hero.agentPreset'> & InjectFace<ConversationInjected> & PropsLocale<'conversation'>;
++export type ConversationSlotProps = PropsRuntime<'conversation'> & PropsRenderSlots<'conversation.session' | 'conversation.session.header' | 'conversation.composer' | 'conversation.composer.bar' | 'conversation.input.dock' | 'conversation.hero.brand.mark' | 'conversation.hero.workspace' | 'conversation.hero.agentPreset' | 'conversation.hero.modeActions'> & InjectFace<ConversationInjected> & PropsLocale<'conversation'>;
+ /** Shared target-neutral Conversation store handle. */
+ export type ConversationStore = ReturnType<typeof createConversationStore>;
+ /** Full props of the strict Session body. */

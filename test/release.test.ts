@@ -338,6 +338,7 @@ describe('GitHub release contract', () => {
     expect(developmentConfig).toContain("require('./electron-builder.cjs')")
     expect(developmentConfig).toContain('...baseConfig.mac')
     expect(developmentConfig).toContain('hardenedRuntime: false')
+    expect(developmentConfig).toContain('identity: null')
     expect(developmentConfig).toContain('afterPack: signAdHocDevelopmentMac')
     expect(developmentConfig).toContain("['--force', '--deep', '--sign', '-', appPath]")
     expect(baseConfig).toContain('DSH_WORKBUDDY_PPT_RUNTIME_ROOT')

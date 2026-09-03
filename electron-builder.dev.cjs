@@ -26,7 +26,11 @@ module.exports = {
     // Development packages use ad-hoc signatures. Hardened Runtime would make
     // macOS enforce a shared Team ID between the app and Electron's nested
     // frameworks, which local ad-hoc signatures cannot provide.
-    hardenedRuntime: false
+    hardenedRuntime: false,
+    // Keep the development artifact deterministic even when this machine has
+    // an Apple Development identity. afterPack signs the complete final tree;
+    // a second identity-based signing pass would replace only part of it.
+    identity: null
   },
   directories: {
     ...packageJson.build.directories,

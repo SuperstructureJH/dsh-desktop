@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260902-slides-only.tgz',
-    sha256: '4aec563ee15a632333b2d7f73faba98d3825246500e7eaa11a41f841a82fc873'
+    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-20260903-fixed-gallery.tgz',
+    sha256: 'de48ae39bf4fce5fd35bbca0c73885ca0ef944d47a32e96e72cb8101dacc7aac'
   },
   adapter: {
-    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260902-slides-only.tgz',
-    sha256: 'cb9ca9211d3b33dd70d6b3fa23dc0bfa593edcbade81de1fdf274ad044b8fca7'
+    file: 'deepseek-ai-dsh-experimental-office-ppt-standard-adapter-0.1.1-rc.2-desktop-20260903-fixed-gallery.tgz',
+    sha256: 'a14e1e1d95d93a27d02fb1df061d6f1cbd5429539a95b4e091a76a5089b93b30'
   }
 } as const
 
@@ -50,9 +50,15 @@ describe('WorkBuddy PPT built-in plugin', () => {
     const entries = tarEntries(await artifact('adapter'))
     const archive = entries.get('package/lib/client.js')?.toString('utf8') ?? ''
 
+    expect(archive).toContain('conversation.hero.modeActions')
     expect(archive).toContain('conversation.input.accessory')
     expect(archive).toContain('conversation.composer.dock')
     expect(archive).toContain('session.blank')
+    expect(archive).toContain('--office-ppt-template-panel-height')
+    expect(archive).toContain('data-native-wheel-owner')
+    expect(archive).not.toContain('centeredComposerScrollTop')
+    expect(archive).not.toContain('routeFlowWheel')
+    expect(archive).not.toContain('--office-ppt-flow-panel-height')
     expect(archive).not.toContain('@deepseek-ai/dsh-client-runtime/client')
     expect(archive).not.toContain('conversation.input.left')
     expect(archive).not.toContain('conversation.input.dock')
@@ -73,7 +79,7 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(archive).not.toContain('ppt_update_slide')
   })
 
-  it('renders the template chooser after the resident input card with the current input zone', async () => {
+  it('renders the Slides action after agent preset and anchors the catalog after the input card', async () => {
     const client = await readFile(path.join(
       projectRoot,
       'node_modules',
@@ -82,6 +88,11 @@ describe('WorkBuddy PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
+    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})')
+    const modeActions = client.indexOf(
+      'zone !== void 0 && renderSlot("conversation.hero.modeActions", zone)',
+      agentPreset
+    )
     const owner = client.indexOf('extensionZone: zone')
     const input = client.indexOf('className: clsx(InputBar_module_css_default.card', owner)
     const below = client.indexOf(
@@ -89,6 +100,9 @@ describe('WorkBuddy PPT built-in plugin', () => {
       input
     )
 
+    expect(agentPreset).toBeGreaterThan(-1)
+    expect(modeActions).toBeGreaterThan(agentPreset)
+    expect(client).toContain('"conversation.hero.modeActions": {')
     expect(owner).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(owner)
     expect(below).toBeGreaterThan(input)
