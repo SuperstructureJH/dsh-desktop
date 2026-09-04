@@ -109,11 +109,11 @@ describe('Kimi PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
-    const cluster = client.indexOf('className: ConversationRoot_module_css_default.heroModeCluster')
-    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})', cluster)
+    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})')
+    const cluster = client.indexOf('className: ConversationRoot_module_css_default.heroModeCluster', agentPreset)
     const modeActions = client.indexOf(
       'zone !== void 0 && renderSlot("conversation.hero.modeActions", zone)',
-      agentPreset
+      cluster
     )
     const owner = client.indexOf('extensionZone: zone')
     const input = client.indexOf('className: clsx(InputBar_module_css_default.card', owner)
@@ -122,8 +122,9 @@ describe('Kimi PPT built-in plugin', () => {
       input
     )
 
-    expect(cluster).toBeGreaterThan(-1)
-    expect(modeActions).toBeGreaterThan(agentPreset)
+    expect(agentPreset).toBeGreaterThan(-1)
+    expect(cluster).toBeGreaterThan(agentPreset)
+    expect(modeActions).toBeGreaterThan(cluster)
     expect(owner).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(owner)
     expect(catalog).toBeGreaterThan(input)
