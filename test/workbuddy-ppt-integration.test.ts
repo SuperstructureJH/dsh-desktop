@@ -113,6 +113,9 @@ describe('WorkBuddy PPT built-in plugin', () => {
     expect(agentPreset).toBeGreaterThan(cluster)
     expect(modeActions).toBeGreaterThan(agentPreset)
     expect(client).toContain('.HNmDuG_heroModeCluster{width:max-content;max-width:100%;flex:none;align-items:center;gap:2px;display:flex}')
+    expect(client).toContain(
+      '.HNmDuG_heroModeCluster [data-slot=conversation\\\\.hero\\\\.agentPreset]>span{min-width:0}'
+    )
     expect(client).toContain('"conversation.hero.modeActions": {')
     expect(owner).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(owner)
