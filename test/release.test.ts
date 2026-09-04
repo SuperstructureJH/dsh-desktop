@@ -149,6 +149,10 @@ describe('GitHub release contract', () => {
         portable?: unknown
       }
     }
+    const harnessNodeEntry = await readFile(
+      path.join(projectRoot, 'build', 'harness-node-entry.mjs'),
+      'utf8'
+    )
 
     expect(packageJson.build.artifactName).toBe('dsh-desktop-${os}-${arch}.${ext}')
     expect(packageJson.build.extraResources).toContainEqual({
@@ -159,6 +163,7 @@ describe('GitHub release contract', () => {
       from: 'build/windows-hidden-console.mjs',
       to: 'windows-hidden-console.mjs'
     })
+    expect(harnessNodeEntry).toContain("await import('./windows-hidden-console.mjs')")
     expect(packageJson.build.extraResources).toContainEqual({
       from: 'build/windows-child-process-hide.mjs',
       to: 'windows-child-process-hide.mjs'
