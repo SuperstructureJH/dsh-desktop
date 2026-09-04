@@ -8,7 +8,7 @@ import { projectRoot } from './patch-path'
 const artifacts = {
   core: {
     file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-kimi-20260904.tgz',
-    sha256: '4a4c2cebb3f5a0c5ad67625157398916de2bdf4f94d8d95092131c1c53d7bda3'
+    sha256: '7c7969d95c28bb04b7d7c8a907e88515f32069f7cb771d1a8170ebf4389d2a5d'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-kimi-ppt-standard-adapter-0.1.1-rc.2-desktop-kimi-20260904.tgz',
@@ -68,6 +68,17 @@ describe('Kimi PPT built-in plugin', () => {
     expect(archive).toContain(`package/lib/${chunk}`)
   })
 
+  it('exposes geometry-derived text capacity to the Kimi authoring workflow', async () => {
+    const entries = tarEntries(await artifact('core'))
+    const protocol = entries.get('package/lib/types/protocol.d.ts')?.toString('utf8') ?? ''
+    const host = entries.get('package/lib/index.js')?.toString('utf8') ?? ''
+    const skill = entries.get('package/skills/kimi-ppt/SKILL.md')?.toString('utf8') ?? ''
+
+    expect(protocol).toContain('readonly textCapacity?: number')
+    expect(host).toContain('textCapacity: zone.textCapacity ?? geometricTextCapacity(zone, fontSize)')
+    expect(skill).toContain('每个文本区的 `textCapacity` 是该区域的最大建议字符数')
+  })
+
   it('ships three core templates in each category plus the 58-page Vitality Blue pack', async () => {
     const entries = tarEntries(await artifact('core'))
     const designs = [...entries.keys()]
@@ -109,11 +120,11 @@ describe('Kimi PPT built-in plugin', () => {
       'lib',
       'client.js'
     ), 'utf8')
-    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})')
-    const cluster = client.indexOf('className: ConversationRoot_module_css_default.heroModeCluster', agentPreset)
+    const cluster = client.indexOf('className: ConversationRoot_module_css_default.heroModeCluster')
+    const agentPreset = client.indexOf('renderSlot("conversation.hero.agentPreset", {})', cluster)
     const modeActions = client.indexOf(
       'zone !== void 0 && renderSlot("conversation.hero.modeActions", zone)',
-      cluster
+      agentPreset
     )
     const owner = client.indexOf('extensionZone: zone')
     const input = client.indexOf('className: clsx(InputBar_module_css_default.card', owner)
@@ -122,9 +133,8 @@ describe('Kimi PPT built-in plugin', () => {
       input
     )
 
-    expect(agentPreset).toBeGreaterThan(-1)
-    expect(cluster).toBeGreaterThan(agentPreset)
-    expect(modeActions).toBeGreaterThan(cluster)
+    expect(cluster).toBeGreaterThan(-1)
+    expect(modeActions).toBeGreaterThan(agentPreset)
     expect(owner).toBeGreaterThan(-1)
     expect(input).toBeGreaterThan(owner)
     expect(catalog).toBeGreaterThan(input)
