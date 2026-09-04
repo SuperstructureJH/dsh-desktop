@@ -41,8 +41,20 @@ function tarEntries(archive: Buffer): Map<string, Buffer> {
 
 describe('Kimi PPT built-in plugin', () => {
   it('pins the reviewed plugin artifacts byte-for-byte', async () => {
+    const lock = JSON.parse(await readFile(path.join(projectRoot, 'package-lock.json'), 'utf8')) as {
+      packages: Record<string, { integrity?: string }>
+    }
+    const packagePaths = {
+      core: 'node_modules/dsh-workbuddy-ppt',
+      adapter: 'node_modules/@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter'
+    } as const
+
     for (const name of Object.keys(artifacts) as (keyof typeof artifacts)[]) {
-      expect(createHash('sha256').update(await artifact(name)).digest('hex')).toBe(artifacts[name].sha256)
+      const archive = await artifact(name)
+      expect(createHash('sha256').update(archive).digest('hex')).toBe(artifacts[name].sha256)
+      expect(lock.packages[packagePaths[name]]?.integrity).toBe(
+        `sha512-${createHash('sha512').update(archive).digest('base64')}`
+      )
     }
   })
 
