@@ -21,6 +21,8 @@ npm run dev
 
 `npm ci` runs the repository's `postinstall` hook. It reapplies the tracked `patch-package` patches, installs DSH brand assets into the pinned Harness frontend, and installs Electron.
 
+On macOS Apple Silicon, the first `npm run dev` also downloads the pinned PPT Capability runtime from its public binary release, verifies the archive SHA-256 and the complete extracted file tree, and stores it in the user cache. Later runs reuse and reverify that cache. The SlideP and Tencent Docs engine runtime is distributed separately as closed-source runtime material; it is not committed to this repository and is not covered by this repository's MIT license. Run `npm run runtime:ensure` to prepare it without starting Electron. Set `DSH_WORKBUDDY_PPT_RUNTIME_ROOT` to use an already staged verified runtime, or `DSH_WORKBUDDY_PPT_RUNTIME_CACHE` to choose another cache root.
+
 Development builds use the separate application name `DSH Desktop Dev` and the separate user-data directory `dsh-desktop-dev`, so they do not reuse production DSH Desktop data. Multiple development worktrees still share that development profile by default; avoid running them at the same time when testing profile, plugin, migration, or recovery changes.
 
 ## Validation
@@ -88,6 +90,8 @@ npm run package:mac:x64
 # Windows x64 NSIS installer, on a Windows x64 machine or runner
 npm run package:win
 ```
+
+The Apple Silicon packaging command uses the same runtime downloader and verification gate as local development, then embeds the verified runtime into the application resources. Published Desktop applications therefore remain self-contained and do not download executable code at application startup.
 
 Do not invoke `electron-builder --win` from macOS or Linux for a distributable Windows package. The target verification scripts intentionally reject host/target mismatches.
 

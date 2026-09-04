@@ -125,7 +125,7 @@ import { buildSafeModeViewModel, shouldStartInSafeMode } from './safe-mode'
 import { aboutDetail, bundledHarnessVersion } from './version-info'
 import { windowsMenuViewBounds } from './windows-menu-view'
 import { shouldKeepRunningInBackground } from './close-to-tray'
-import { bundledWorkBuddyPptRuntimeEnvironment } from './runtime/workbuddy-ppt-resource'
+import { workBuddyPptRuntimeEnvironment } from './runtime/workbuddy-ppt-resource'
 import {
   MAIN_WINDOW_RECOVERY_RELOAD_COOLDOWN_MS,
   shouldReloadAfterMainWindowRendererLoss
@@ -2412,9 +2412,10 @@ async function bootstrap(): Promise<void> {
   nativeTheme.themeSource = harnessThemePreference()
   ensureTray()
   createWindow()
-  const workBuddyPptRuntimeEnvironment = app.isPackaged
-    ? bundledWorkBuddyPptRuntimeEnvironment(process.resourcesPath)
-    : undefined
+  const workBuddyPptEnvironment = workBuddyPptRuntimeEnvironment(
+    process.resourcesPath,
+    app.isPackaged
+  )
   runtime = new HarnessRuntime({
     dshEntryPath: dshEntryPath(),
     nodeExecutablePath: bundledNodePath(),
@@ -2422,9 +2423,9 @@ async function bootstrap(): Promise<void> {
     dshPatchPath: desktopResourcePath('dsh-desktop.patch.yml'),
     dshHome: join(app.getPath('userData'), 'harness'),
     logPath: join(app.getPath('logs'), 'harness.log'),
-    ...(workBuddyPptRuntimeEnvironment === undefined
+    ...(workBuddyPptEnvironment === undefined
       ? {}
-      : { environment: workBuddyPptRuntimeEnvironment }),
+      : { environment: workBuddyPptEnvironment }),
     launchProcess: (executablePath, args, options) =>
       process.platform === 'darwin'
         ? launchDisclaimedUtilityProcess(utilityProcess, args, options, {

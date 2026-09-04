@@ -305,7 +305,8 @@ describe('GitHub release contract', () => {
       'package:dev:mac:x64',
       'package:dev:win'
     ]) {
-      expect(packageJson.scripts[script]).toContain('--publish never')
+      const builderScript = packageJson.scripts[`${script}:runtime`] ?? packageJson.scripts[script]
+      expect(builderScript).toContain('--publish never')
     }
   })
 
@@ -320,13 +321,17 @@ describe('GitHub release contract', () => {
     const baseConfig = await readFile(path.join(projectRoot, 'electron-builder.cjs'), 'utf8')
     const main = await readFile(path.join(projectRoot, 'src', 'main', 'index.ts'), 'utf8')
 
-    expect(packageJson.scripts['package:dev:dir']).toContain('npm run build')
-    expect(packageJson.scripts['package:dev:dir']).toContain('npm run runtime:verify')
-    expect(packageJson.scripts['package:dev:dir']).toContain('electron-builder.dev.cjs')
-    expect(packageJson.scripts['package:dev:mac:arm64']).toContain('verify-target.mjs darwin arm64')
-    expect(packageJson.scripts['package:dev:mac:arm64']).toContain('npm run runtime:verify')
-    expect(packageJson.scripts['package:dev:mac:arm64']).not.toContain('runtime:verify:optional')
-    expect(packageJson.scripts['package:dev:mac:arm64']).toContain('electron-builder.dev.cjs')
+    expect(packageJson.scripts.dev).toContain('run-with-workbuddy-ppt-runtime.mjs')
+    expect(packageJson.scripts['runtime:ensure']).toContain('ensure-workbuddy-ppt-runtime.mjs')
+    expect(packageJson.scripts['package:dev:dir']).toContain('run-with-workbuddy-ppt-runtime.mjs')
+    expect(packageJson.scripts['package:dev:dir:runtime']).toContain('npm run build')
+    expect(packageJson.scripts['package:dev:dir:runtime']).toContain('npm run runtime:verify')
+    expect(packageJson.scripts['package:dev:dir:runtime']).toContain('electron-builder.dev.cjs')
+    expect(packageJson.scripts['package:dev:mac:arm64']).toContain('run-with-workbuddy-ppt-runtime.mjs')
+    expect(packageJson.scripts['package:dev:mac:arm64:runtime']).toContain('verify-target.mjs darwin arm64')
+    expect(packageJson.scripts['package:dev:mac:arm64:runtime']).toContain('npm run runtime:verify')
+    expect(packageJson.scripts['package:dev:mac:arm64:runtime']).not.toContain('runtime:verify:optional')
+    expect(packageJson.scripts['package:dev:mac:arm64:runtime']).toContain('electron-builder.dev.cjs')
     expect(packageJson.scripts['package:dev:mac:x64']).toContain('verify-target.mjs darwin x64')
     expect(packageJson.scripts['package:dev:mac:x64']).toContain('runtime:verify:optional')
     expect(packageJson.scripts['package:dev:mac:x64']).toContain('electron-builder.dev.cjs')
@@ -345,7 +350,7 @@ describe('GitHub release contract', () => {
     expect(baseConfig).toContain('const runtimeResources = runtimeRoot')
     expect(baseConfig).not.toContain('is required for a self-contained Desktop package')
     expect(baseConfig).toContain("to: 'workbuddy-ppt-runtime'")
-    expect(main).toContain('bundledWorkBuddyPptRuntimeEnvironment(process.resourcesPath)')
+    expect(main).toContain('workBuddyPptRuntimeEnvironment(')
     expect(developmentConfig).toContain("productName: 'DSH Desktop Dev'")
     expect(developmentConfig).toContain("output: 'dist-dev'")
     expect(developmentConfig).toContain("dshDesktopChannel: 'development'")

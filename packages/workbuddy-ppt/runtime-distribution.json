@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "platforms": {
+    "darwin-arm64": {
+      "archive": "tar.gz",
+      "archiveSize": 207169828,
+      "archiveSha256": "ca273302786617b722e98aa0976386a497e287db72880d07257bb32cd3d33a1d",
+      "url": "https://github.com/SuperstructureJH/dsh-desktop/releases/download/ppt-capability-runtime-v1/ppt-capability-runtime-darwin-arm64-5.4.1-0.2.112-wb.tar.gz"
+    }
+  }
+}
