@@ -8,11 +8,11 @@ import { projectRoot } from './patch-path'
 const artifacts = {
   core: {
     file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-kimi-20260904.tgz',
-    sha256: '013621ccdb07dbfa441e9367c714c64915485ee160e3d51f091ec55766a8d7d7'
+    sha256: '4a4c2cebb3f5a0c5ad67625157398916de2bdf4f94d8d95092131c1c53d7bda3'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-kimi-ppt-standard-adapter-0.1.1-rc.2-desktop-kimi-20260904.tgz',
-    sha256: '455917d21483f932346e85ef60070a6feca25400f9596b9332187dcd6e9fb176'
+    sha256: 'dd8feab1d62643375fe7478b98a5c19748b03fdaea73dee59689636047a0ee3d'
   }
 } as const
 
@@ -68,8 +68,9 @@ describe('Kimi PPT built-in plugin', () => {
     expect(archive).toContain(`package/lib/${chunk}`)
   })
 
-  it('ships three templates in each of seven categories', async () => {
-    const designs = [...tarEntries(await artifact('core')).keys()]
+  it('ships three core templates in each category plus the 58-page Vitality Blue pack', async () => {
+    const entries = tarEntries(await artifact('core'))
+    const designs = [...entries.keys()]
       .filter(name => /^package\/skills\/kimi-ppt\/references\/[^/]+\/[^/]+\/design\.md$/u.test(name))
     const categories = designs.reduce<Record<string, number>>((counts, name) => {
       const category = name.split('/')[4]!
@@ -77,16 +78,26 @@ describe('Kimi PPT built-in plugin', () => {
       return counts
     }, {})
 
-    expect(designs).toHaveLength(21)
+    expect(designs).toHaveLength(22)
     expect(categories).toEqual({
       academic: 3,
-      business: 3,
+      business: 4,
       consulting: 3,
       finance: 3,
       promotion: 3,
       strategy: 3,
       work: 3
     })
+
+    const vitalityRoot = 'package/skills/kimi-ppt/references/business/curated-vitality-blue'
+    const vitalityPages = [...entries.keys()].filter(name =>
+      new RegExp(`^${vitalityRoot}/pages/\\d{2}\\.jpg$`, 'u').test(name)
+    )
+    const design = entries.get(`${vitalityRoot}/design.md`)?.toString('utf8') ?? ''
+    expect(vitalityPages).toHaveLength(58)
+    expect(design).toContain('shared slide layout 7')
+    expect(design).toContain('29729fab2132fc120eba39371e4093a51beefa099ac978965d92dc9965b3c68e')
+    expect(design).toContain('logo-free')
   })
 
   it('places the PPT action beside the agent preset and the catalog below the input', async () => {
