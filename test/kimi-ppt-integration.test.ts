@@ -7,12 +7,12 @@ import { projectRoot } from './patch-path'
 
 const artifacts = {
   core: {
-    file: 'dsh-workbuddy-ppt-0.1.1-rc.2-desktop-kimi-20260904.tgz',
-    sha256: '7c7969d95c28bb04b7d7c8a907e88515f32069f7cb771d1a8170ebf4389d2a5d'
+    file: 'dsh-kimi-ppt-0.1.1-rc.2-desktop-kimi-20260904.tgz',
+    sha256: '300bd0f4f423a6d046cb61b193e4b5d4e535ca3d5921d21bbc0dc4f4aa002464'
   },
   adapter: {
     file: 'deepseek-ai-dsh-experimental-kimi-ppt-standard-adapter-0.1.1-rc.2-desktop-kimi-20260904.tgz',
-    sha256: 'dd8feab1d62643375fe7478b98a5c19748b03fdaea73dee59689636047a0ee3d'
+    sha256: '97adcb338ced61cbbfaf9b453bf26a3c01265bd96b25778bd00061e092d10aa3'
   }
 } as const
 
@@ -45,7 +45,7 @@ describe('Kimi PPT built-in plugin', () => {
       packages: Record<string, { integrity?: string }>
     }
     const packagePaths = {
-      core: 'node_modules/dsh-workbuddy-ppt',
+      core: 'node_modules/dsh-kimi-ppt',
       adapter: 'node_modules/@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter'
     } as const
 
@@ -177,7 +177,7 @@ describe('Kimi PPT built-in plugin', () => {
     }
     const profilePatch = await readFile(path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'), 'utf8')
 
-    expect(manifest.dependencies['dsh-workbuddy-ppt']).toBe(
+    expect(manifest.dependencies['dsh-kimi-ppt']).toBe(
       `file:packages/kimi-ppt/${artifacts.core.file}`
     )
     expect(manifest.dependencies['@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter']).toBe(
@@ -185,6 +185,7 @@ describe('Kimi PPT built-in plugin', () => {
     )
     expect(profilePatch).toContain("name: '@deepseek-ai/dsh-experimental-kimi-ppt-standard-adapter'")
     expect(profilePatch).not.toContain('office-ppt-standard-adapter')
-    expect(profilePatch).not.toContain('name: dsh-workbuddy-ppt')
+    expect(profilePatch).not.toContain('name: dsh-kimi-ppt')
+    expect(profilePatch).not.toContain('workbuddy')
   })
 })
