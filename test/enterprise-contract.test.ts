@@ -1,0 +1,161 @@
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  API_PATHS,
+  CLIENT_ID,
+  createPkceTransaction,
+  parseAuthorization,
+  parseConfig,
+  parseModels,
+  parseToken,
+  parseUsage
+} from '../packages/dsh-desktop-enterprise/contract.js'
+import { createMockEnterpriseServer } from '../scripts/mock-bisheng-enterprise.mjs'
+
+let service: ReturnType<typeof createMockEnterpriseServer> | undefined
+
+afterEach(async () => {
+  await service?.close()
+  service = undefined
+})
+
+async function postJson(url: string, body: unknown, headers: Record<string, string> = {}) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body)
+  })
+}
+
+async function issueSession(origin: string) {
+  const pkce = createPkceTransaction()
+  const redirectUri = 'http://127.0.0.1:49152/dsh/callback'
+  const authorizationResponse = await postJson(`${origin}${API_PATHS.authorizations}`, {
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    code_challenge: pkce.codeChallenge,
+    code_challenge_method: 'S256',
+    state: pkce.state,
+    device_name: 'QA Mac'
+  })
+  const authorization = parseAuthorization(await authorizationResponse.json(), origin)
+  const browserResponse = await fetch(`${origin}/__mock/authorize`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      auth_id: authorization.auth_id,
+      email: 'alice@demo.bisheng.local',
+      password: 'WorkBuddy123!',
+      decision: 'allow'
+    })
+  })
+  const html = await browserResponse.text()
+  const callbackLiteral = /location\.replace\((".*?")\)/u.exec(html)?.[1]
+  expect(callbackLiteral).toBeTruthy()
+  const callback = new URL(JSON.parse(callbackLiteral!))
+  expect(callback.origin + callback.pathname).toBe(redirectUri)
+  expect(callback.searchParams.get('state')).toBe(pkce.state)
+  const ticket = callback.searchParams.get('identity_ticket')
+  expect(ticket).toMatch(/^ticket_/u)
+  const tokenResponse = await postJson(`${origin}${API_PATHS.token}`, {
+    grant_type: 'identity_ticket',
+    identity_ticket: ticket,
+    auth_id: authorization.auth_id,
+    code_verifier: pkce.codeVerifier
+  })
+  expect(tokenResponse.status).toBe(200)
+  return {
+    authorization,
+    pkce,
+    ticket,
+    raw: await tokenResponse.json()
+  }
+}
+
+describe('BiSheng client API 0.1.0 mock', () => {
+  it('runs config, PKCE login, models, usage, model streaming, refresh, and logout', async () => {
+    service = createMockEnterpriseServer({ port: 0 })
+    const origin = await service.listen()
+    const config = parseConfig(await (await fetch(`${origin}${API_PATHS.config}`)).json())
+    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.1.0' })
+
+    const issued = await issueSession(origin)
+    const session = parseToken(issued.raw, origin, 0)
+    expect(session).toMatchObject({
+      base: origin,
+      token_type: 'Bearer',
+      user: { id: 'user-alice' },
+      tenant: { id: 'tenant-demo' }
+    })
+
+    const replay = await postJson(`${origin}${API_PATHS.token}`, {
+      grant_type: 'identity_ticket', identity_ticket: issued.ticket,
+      auth_id: issued.authorization.auth_id, code_verifier: issued.pkce.codeVerifier
+    })
+    expect(replay.status).toBe(400)
+
+    const headers = { authorization: `Bearer ${issued.raw.access_token}` }
+    const models = parseModels(await (await fetch(`${origin}${API_PATHS.models}`, { headers })).json())
+    expect(models.map((model) => model.id)).toEqual(['bisheng:42'])
+    const usage = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}`, { headers })).json())
+    expect(usage).toMatchObject({ source: 'live', quota_state: 'available', limit: 100000 })
+
+    const chat = await postJson(`${origin}${API_PATHS.chat}`, {
+      model: 'bisheng:42', messages: [{ role: 'user', content: 'hello' }],
+      stream: true, stream_options: { include_usage: true }, n: 1
+    }, headers)
+    expect(chat.headers.get('content-type')).toContain('text/event-stream')
+    const stream = await chat.text()
+    expect(stream).toContain('Mock 联调成功')
+    expect(stream).toContain('"usage"')
+    expect(stream).toContain('data: [DONE]')
+
+    const refreshedResponse = await postJson(`${origin}${API_PATHS.token}`, {
+      grant_type: 'refresh_token', refresh_token: issued.raw.refresh_token
+    })
+    expect(refreshedResponse.status).toBe(200)
+    const refreshed = await refreshedResponse.json()
+    expect(refreshed.refresh_token).not.toBe(issued.raw.refresh_token)
+    expect(refreshed.session_id).toBe(issued.raw.session_id)
+
+    const logout = await postJson(`${origin}${API_PATHS.logout}`, {}, {
+      authorization: `Bearer ${refreshed.access_token}`
+    })
+    expect(logout.status).toBe(204)
+    expect((await fetch(`${origin}${API_PATHS.models}`, {
+      headers: { authorization: `Bearer ${refreshed.access_token}` }
+    })).status).toBe(401)
+  })
+
+  it('detects refresh-token replay and revokes the session family', async () => {
+    service = createMockEnterpriseServer({ port: 0 })
+    const origin = await service.listen()
+    const issued = await issueSession(origin)
+    const first = await postJson(`${origin}${API_PATHS.token}`, {
+      grant_type: 'refresh_token', refresh_token: issued.raw.refresh_token
+    })
+    const rotated = await first.json()
+    const replay = await postJson(`${origin}${API_PATHS.token}`, {
+      grant_type: 'refresh_token', refresh_token: issued.raw.refresh_token
+    })
+    expect(replay.status).toBe(401)
+    expect((await replay.json()).error.code).toBe('refresh_token_reused')
+    expect((await fetch(`${origin}${API_PATHS.models}`, {
+      headers: { authorization: `Bearer ${rotated.access_token}` }
+    })).status).toBe(401)
+  })
+
+  it('rejects callbacks outside 127.0.0.1 and unknown authorization fields', async () => {
+    service = createMockEnterpriseServer({ port: 0 })
+    const origin = await service.listen()
+    const pkce = createPkceTransaction()
+    const response = await postJson(`${origin}${API_PATHS.authorizations}`, {
+      client_id: CLIENT_ID,
+      redirect_uri: 'http://localhost:49152/dsh/callback',
+      code_challenge: pkce.codeChallenge,
+      code_challenge_method: 'S256',
+      state: pkce.state,
+      extra: true
+    })
+    expect(response.status).toBe(400)
+  })
+})
