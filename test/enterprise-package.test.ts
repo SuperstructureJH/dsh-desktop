@@ -60,6 +60,7 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain('state.tenant?.name')
     expect(client).not.toContain('state.user?.display_name')
     expect(client).not.toContain('state.usage)')
+    expect(client).not.toContain("h('div', { className: 'dshEnterpriseCard' }, status, accountContent, errorPanel)")
     expect(client).toContain("state.user?.id || '—'")
     expect(client).toContain('@keyframes dshEnterprisePulse')
     expect(client).toContain("state.modelUsage?.[model.id]")

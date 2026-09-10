@@ -221,7 +221,9 @@ window.__ModuleLoader__.load({
 
       return h('section', { className: 'dshEnterprise' },
         h('h2', null, copy.title),
-        h('div', { className: 'dshEnterpriseCard' }, status, accountContent, errorPanel),
+        status,
+        accountContent,
+        errorPanel,
         manualPanel,
         confirmationPanel)
     }
