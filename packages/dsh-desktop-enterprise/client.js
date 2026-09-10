@@ -11,18 +11,18 @@ window.__ModuleLoader__.load({
     const zh = navigator.language.toLowerCase().startsWith('zh')
     const copy = zh ? {
       nav: '账号与企业', title: '企业账号', platform: '毕昇平台地址',
-      login: '在浏览器中登录', loggingIn: '等待浏览器授权…', connected: '已连接',
-      refresh: '刷新模型与用量', logout: '退出登录', models: '可用模型', noModels: '当前账号没有可用模型。',
-      modelsUnavailable: '模型权限读取失败，企业模型已暂停。', usage: '本月用量', usageUnavailable: '用量暂不可用',
+      login: '在浏览器中登录', loggingIn: '等待浏览器授权…',
+      refresh: '刷新', logout: '退出登录', models: '可用模型', noModels: '当前账号没有可用模型。',
+      modelsUnavailable: '模型权限读取失败，企业模型已暂停。', usageUnavailable: '用量暂不可用',
       manualTitle: '粘贴一次性授权码', manualHint: '仅用于当前浏览器登录未能回传的情况。',
       ticket: '一次性授权码', submitTicket: '完成登录', secureUnavailable: '系统安全存储不可用，企业登录已停用。',
       confirmTitle: '确认毕昇平台', confirmLead: '确认后会停用当前企业模型连接，并在该平台新建一次 PKCE 登录。',
       confirm: '确认并登录', cancel: '取消', requestId: '请求 ID'
     } : {
       nav: 'Account & Enterprise', title: 'Enterprise account', platform: 'BiSheng platform URL',
-      login: 'Sign in in browser', loggingIn: 'Waiting for browser authorization…', connected: 'Connected',
-      refresh: 'Refresh models and usage', logout: 'Sign out', models: 'Available models', noModels: 'No models are assigned to this account.',
-      modelsUnavailable: 'Model access could not be verified. Enterprise models are paused.', usage: 'Monthly usage', usageUnavailable: 'Usage unavailable',
+      login: 'Sign in in browser', loggingIn: 'Waiting for browser authorization…',
+      refresh: 'Refresh', logout: 'Sign out', models: 'Available models', noModels: 'No models are assigned to this account.',
+      modelsUnavailable: 'Model access could not be verified. Enterprise models are paused.', usageUnavailable: 'Usage unavailable',
       manualTitle: 'Paste one-time ticket', manualHint: 'Use only when the active browser login could not return to Desktop.',
       ticket: 'One-time ticket', submitTicket: 'Complete sign-in', secureUnavailable: 'Operating-system secure storage is unavailable. Enterprise sign-in is disabled.',
       confirmTitle: 'Confirm BiSheng platform', confirmLead: 'Continuing pauses the current enterprise connection and starts a new PKCE login at this platform.',
@@ -38,14 +38,13 @@ window.__ModuleLoader__.load({
         .dshEnterprise h2{margin:0 0 8px;font-size:22px}.dshEnterprise h3{margin:0 0 8px;font-size:15px}
         .dshEnterpriseHint{color:var(--ds-text-secondary,#6d7178);line-height:1.55}
         .dshEnterpriseCard{margin-top:18px;padding:18px;border:1px solid var(--ds-border,#dfe1e5);border-radius:14px;background:var(--ds-bg-elevated,#fff)}
-        .dshEnterpriseRow{display:flex;align-items:center;justify-content:space-between;gap:16px}.dshEnterpriseStack{display:grid;gap:10px}
+        .dshEnterpriseStack{display:grid;gap:10px}
         .dshEnterpriseLabel{display:grid;gap:7px;font-size:13px;font-weight:650}.dshEnterpriseInput{box-sizing:border-box;width:100%;height:38px;padding:0 11px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:transparent;font:inherit}
         .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled{opacity:.5;cursor:default}
-        .dshEnterpriseStatus{display:inline-flex;align-items:center;gap:7px;font-weight:700}.dshEnterpriseDot{width:8px;height:8px;border-radius:50%;background:#98a0aa}.dshEnterpriseDot.connected{background:#17a673}
-        .dshEnterpriseMeta{display:grid;gap:12px;margin-top:15px}.dshEnterpriseMeta div{padding:11px;border-radius:10px;background:var(--ds-bg-secondary,#f5f6f8)}.dshEnterpriseMeta dt{margin-bottom:4px;color:var(--ds-text-secondary,#6d7178);font-size:12px}.dshEnterpriseMeta dd{margin:0;overflow-wrap:anywhere;font-size:14px}
+        .dshEnterpriseIdentity{display:flex;align-items:center;gap:8px;min-height:22px;font-size:13px;font-weight:650}.dshEnterpriseDot{width:8px;height:8px;border-radius:50%;background:#17a673;box-shadow:0 0 0 0 #17a67355;animation:dshEnterprisePulse 2.4s ease-in-out infinite}@keyframes dshEnterprisePulse{0%,100%{box-shadow:0 0 0 0 #17a67355}50%{box-shadow:0 0 0 5px #17a67300}}
         .dshEnterpriseModels{display:grid;gap:7px;margin:10px 0 0;padding:0;list-style:none}.dshEnterpriseModels li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-radius:9px;background:var(--ds-bg-secondary,#f0f2f5);font-size:12px}.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178);white-space:nowrap}.dshEnterpriseModels.paused{opacity:.5}
         .dshEnterpriseError{margin-top:12px;padding:10px 12px;border-radius:9px;color:#b42318;background:#fef3f2;font-size:13px;line-height:1.45}.dshEnterpriseConfirm{margin-top:18px;padding:18px;border:1px solid #8fb2ff;border-radius:14px;background:#edf4ff}.dshEnterpriseConfirm strong{display:block;margin:12px 0 4px;overflow-wrap:anywhere}
-        @media(max-width:640px){.dshEnterpriseMeta{grid-template-columns:1fr}.dshEnterpriseRow{align-items:flex-start;flex-direction:column}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseCard{background:#25262a;border-color:#45474f}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseMeta div,body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
+        @media(prefers-reduced-motion:reduce){.dshEnterpriseDot{animation:none}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseCard{background:#25262a;border-color:#45474f}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
       document.head.appendChild(style)
     }
 
@@ -81,6 +80,14 @@ window.__ModuleLoader__.load({
       try {
         localStorage.setItem(LAST_BASE_KEY, value.trim())
       } catch {}
+    }
+
+    function modelUsageText(usage) {
+      const value = usageText(usage)
+      if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) return value
+      const percentage = Math.max(0, usage.used / usage.limit * 100)
+      const formatted = new Intl.NumberFormat(zh ? 'zh-CN' : 'en-US', { maximumFractionDigits: 1 }).format(percentage)
+      return `${value} · ${formatted}%`
     }
 
     function EnterpriseSection() {
@@ -147,22 +154,18 @@ window.__ModuleLoader__.load({
       const models = Array.isArray(state?.models) ? state.models : []
       const canPaste = state?.phase === 'authorizing' && state?.loginExpiresAt
 
-      const status = connected ? h('div', { className: 'dshEnterpriseRow' },
-        h('span', { className: 'dshEnterpriseStatus' },
-          h('span', { className: 'dshEnterpriseDot connected' }),
-          `${copy.connected} · ${state.user?.display_name}`),
-        h('span', { className: 'dshEnterpriseHint' }, state.tenant?.name)) : null
+      const status = connected ? h('div', { className: 'dshEnterpriseIdentity' },
+        h('span', { className: 'dshEnterpriseDot', 'aria-hidden': 'true' }),
+        h('span', null, state.user?.id || '—')) : null
 
       const accountContent = connected
         ? h(React.Fragment, null,
-          h('dl', { className: 'dshEnterpriseMeta' },
-            h('div', null, h('dt', null, copy.usage), h('dd', null, usageText(state.usage)))),
           h('h3', { style: { marginTop: 18 } }, copy.models),
           models.length
             ? h('ul', { className: `dshEnterpriseModels${state.modelsAvailable ? '' : ' paused'}` },
               ...models.map((model) => h('li', { key: model.id },
                 h('span', null, model.display_name),
-                h('span', { className: 'dshEnterpriseModelUsage' }, usageText(state.modelUsage?.[model.id])))))
+                h('span', { className: 'dshEnterpriseModelUsage' }, modelUsageText(state.modelUsage?.[model.id])))))
             : h('p', { className: 'dshEnterpriseHint' }, copy.noModels),
           h('div', { className: 'dshEnterpriseActions' },
             h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.refresh', {}))) }, copy.refresh),

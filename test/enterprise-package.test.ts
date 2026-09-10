@@ -45,7 +45,7 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain("setBase('')")
   })
 
-  it('keeps sign-in focused and limits connected account metadata to usage and models', async () => {
+  it('keeps sign-in focused and limits the connected view to user id and per-model usage', async () => {
     const client = await readFile(
       path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
       'utf8'
@@ -56,8 +56,16 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain('copy.platformHint')
     expect(client).not.toContain('copy.sessionExpires')
     expect(client).not.toContain("h('dt', null, copy.platform)")
-    expect(client).toContain("h('div', null, h('dt', null, copy.usage)")
+    expect(client).not.toContain('copy.connected')
+    expect(client).not.toContain('state.tenant?.name')
+    expect(client).not.toContain('state.user?.display_name')
+    expect(client).not.toContain('state.usage)')
+    expect(client).toContain("state.user?.id || '—'")
+    expect(client).toContain('@keyframes dshEnterprisePulse')
     expect(client).toContain("state.modelUsage?.[model.id]")
+    expect(client).toContain('maximumFractionDigits: 1')
+    expect(client).not.toContain('Math.min(100')
+    expect(client).toContain("refresh: '刷新'")
     expect(client).toContain("className: 'dshEnterpriseButton primary'")
   })
 })
