@@ -74,6 +74,7 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain("className: 'dshEnterpriseIconButton'")
     expect(client).toContain("'aria-label': copy.refresh")
     expect(client).toContain("h('span', { 'aria-hidden': 'true' }, '↻')")
-    expect(client).toContain("className: 'dshEnterpriseButton primary'")
+    expect(client).toContain("h('button', { className: 'dshEnterpriseButton', disabled: busy || !base.trim()")
+    expect(client).not.toContain("h('button', { className: 'dshEnterpriseButton primary', disabled: busy || !base.trim()")
   })
 })
