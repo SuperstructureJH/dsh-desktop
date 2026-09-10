@@ -45,7 +45,7 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain("setBase('')")
   })
 
-  it('keeps sign-in focused and limits the connected view to user id and per-model usage', async () => {
+  it('keeps sign-in focused and shows model usage with hover percentages', async () => {
     const client = await readFile(
       path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
       'utf8'
@@ -63,9 +63,16 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain("state.user?.id || '—'")
     expect(client).toContain('@keyframes dshEnterprisePulse')
     expect(client).toContain("state.modelUsage?.[model.id]")
+    expect(client).toContain('.dshEnterpriseModels li:hover .dshEnterpriseModelUsageValue{display:none}')
+    expect(client).toContain('.dshEnterpriseModels li:hover .dshEnterpriseModelUsagePercent{display:inline}')
+    expect(client).toContain("className: 'dshEnterpriseModelUsageValue'")
+    expect(client).toContain("className: 'dshEnterpriseModelUsagePercent'")
     expect(client).toContain('maximumFractionDigits: 1')
     expect(client).not.toContain('Math.min(100')
     expect(client).toContain("refresh: '刷新'")
+    expect(client).toContain("className: 'dshEnterpriseIconButton'")
+    expect(client).toContain("'aria-label': copy.refresh")
+    expect(client).toContain("h('span', { 'aria-hidden': 'true' }, '↻')")
     expect(client).toContain("className: 'dshEnterpriseButton primary'")
   })
 })
