@@ -1,5 +1,5 @@
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
-import { DEFAULTS, ImageError, profile, safeError, validateConnection } from './provider.js'
+import { DEFAULTS, MODEL_CATALOG, ImageError, listModels, profile, safeError, validateConnection } from './provider.js'
 
 const KEY = credentialKey('dsh-image-generation', 'configuration')
 const EMPTY = () => ({ revision: 0, provider: 'bytedance', profiles: {} })
@@ -18,7 +18,7 @@ export function createSettings(ctx, validate = validateConnection) {
     const state = await read()
     const info = await ctx.credentials.describeRecord(KEY)
     return {
-      revision: state.revision, provider: state.provider, writable: info.writable,
+      revision: state.revision, provider: state.provider, writable: info.writable, catalogs: MODEL_CATALOG,
       profiles: Object.fromEntries(Object.entries(DEFAULTS).map(([provider, defaults]) => {
         const stored = state.profiles[provider]
         return [provider, { ...defaults, ...(stored ? profile(provider, stored) : {}), configured: Boolean(stored?.key), validation: stored?.validation ?? null }]
@@ -31,7 +31,7 @@ export function createSettings(ctx, validate = validateConnection) {
     if (!spec?.key) throw new ImageError('NOT_CONFIGURED', 'Configure the image tool in Settings > Plugins before generating an image.')
     return { provider: state.provider, ...profile(state.provider, spec), key: spec.key }
   }
-  async function save(input, signal) {
+  async function prepared(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ImageError('CONFIGURATION', 'Enter a valid image configuration.')
     const before = await read()
     if (!Number.isSafeInteger(input.revision) || input.revision !== before.revision) throw new ImageError('CONFLICT', 'The settings changed in another window. Reopen this card before saving.', 409)
@@ -43,6 +43,14 @@ export function createSettings(ctx, validate = validateConnection) {
     }
     const effectiveKey = key || previous?.key
     if (!effectiveKey || effectiveKey.length > 4096 || /[\s\x00-\x1f\x7f]/u.test(effectiveKey)) throw new ImageError('KEY_REQUIRED', 'Enter a valid API key.')
+    return { before, spec, effectiveKey }
+  }
+  async function models(input, signal) {
+    const { spec, effectiveKey } = await prepared(input)
+    return listModels(input.provider, spec, effectiveKey, { signal })
+  }
+  async function save(input, signal) {
+    const { before, spec, effectiveKey } = await prepared(input)
     if (!(await ctx.credentials.describeRecord(KEY)).writable) throw new ImageError('READ_ONLY', 'The host credential store is read-only.', 403)
     try {
       const validation = await validate(input.provider, spec, effectiveKey, { signal })
@@ -63,5 +71,5 @@ export function createSettings(ctx, validate = validateConnection) {
       throw safe
     }
   }
-  return { describe, active, save }
+  return { describe, active, save, models }
 }

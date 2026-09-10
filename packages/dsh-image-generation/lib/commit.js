@@ -9,15 +9,22 @@ export function writerPlan(ctx, root, exec) {
   })
 }
 
+export function writerEnvironment(runtime = process) {
+  // Tombstones clear ordinary parent entries too: no launch credentials or
+  // NODE_OPTIONS enter the asset writer, even if the host inherited them.
+  const env = Object.fromEntries(Object.keys(runtime.env).map(key => [key, undefined]))
+  if (runtime.platform === 'win32') env.SystemRoot = runtime.env.SystemRoot
+  // Desktop's macOS Host is an Electron utility process. Its executable runs
+  // this child script only in Node mode; this constant is launch configuration.
+  if (runtime.versions.electron) env.ELECTRON_RUN_AS_NODE = '1'
+  return env
+}
+
 export async function commitImage(ctx, root, data, exec) {
   const plan = writerPlan(ctx, root, exec)
   const signal = AbortSignal.any([AbortSignal.timeout(30_000), ...(exec.signal ? [exec.signal] : [])])
-  // Tombstones clear ordinary parent entries too: no launch credentials or
-  // NODE_OPTIONS enter the asset writer, even if the host inherited them.
-  const env = Object.fromEntries(Object.keys(process.env).map(key => [key, undefined]))
-  if (process.platform === 'win32') env.SystemRoot = process.env.SystemRoot
   const child = ctx.subprocess.spawn({
-    argv: plan.argv, cwd: root, env, signal, graceMs: 1000,
+    argv: plan.argv, cwd: root, env: writerEnvironment(), signal, graceMs: 1000,
     stdio: { stdin: { data: data.toString('base64') }, stdout: { maxBytes: 1024 }, stderr: { maxBytes: 2048 } },
   })
   const outcome = await child.done

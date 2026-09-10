@@ -1,5 +1,13 @@
 # Implementation and verification status
 
+## Image generation acceptance corrections — 2026-09-10
+
+- **Fixed and reproduced:** the original package throws `The image writer returned an invalid result` under its actual Electron Helper. Clearing the environment removed Node launch mode, so the child exited successfully without running the writer. The writer now declares `ELECTRON_RUN_AS_NODE=1` for Electron Hosts while continuing to clear credentials and NODE_OPTIONS. The old package reproduces the exact error; corrected source passes with the same Helper and in a real Electron 43.4.0 utility process, for both simulated providers.
+- **Implemented:** OpenAI one-click visible image-model discovery, explicit built-in versus provider-list provenance, ByteDance Seedream 5.0 Pro / 4.5 choices and custom endpoint IDs. Provider catalogs are filtered against the current Images API contract; fetching does not save configuration. API base and full image endpoint inputs normalize to the same stored base URL.
+- **PASS:** 21 focused tests plus 2 dependency-closure checks; full suite 90 files / 771 tests; TypeScript and production build; authenticated Host model discovery and save smoke. Browser inspection confirms matching 15 px title / 13 px description, font family, 14×16 px header padding and 74.5 px closed-card height across all five cards, in light/dark themes. The OpenAI model-fetch interaction passes against the loopback provider.
+- **PASS:** revised macOS arm64 DMG/ZIP build, strict deep signature check, final packaged Host save/model-list smoke and final packaged plugin code inside a real Electron utility process. Revised artifacts are delivered in `outputs/image-generation-plugin-20260910-r2` with provenance and hashes. The original package evidence below predates this correction.
+- **Pending:** user real-provider generation and downstream Office acceptance.
+
 ## Image generation plugin — 2026-09-10
 
 - **Implemented:** public `dsh-image-generation` package, default Desktop composition, shared `image_generate` tool and `generate-image` Skill, OpenAI / ByteDance adapters, plugin configuration card, automatic validation on save, host-only atomic credential storage, governed PNG output.
