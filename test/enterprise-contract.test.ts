@@ -95,11 +95,18 @@ describe('BiSheng client API 0.4.0 mock', () => {
 
     const headers = { authorization: `Bearer ${issued.raw.access_token}` }
     const models = parseModels(await (await fetch(`${origin}${API_PATHS.models}`, { headers })).json())
-    expect(models.map((model) => model.id)).toEqual(['bisheng:42'])
+    expect(models.map((model) => model.id)).toEqual([
+      'bisheng:42',
+      'openai:gpt-4.1',
+      'anthropic:claude-sonnet-4-5',
+      'moonshot:kimi-k2'
+    ])
     const usage = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}`, { headers })).json())
-    expect(usage).toMatchObject({ source: 'live', quota_state: 'available', limit: 100000 })
+    expect(usage).toMatchObject({ source: 'live', quota_state: 'available', used: 15248, limit: 300000 })
     const modelUsageBefore = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}?model=bisheng%3A42`, { headers })).json())
-    expect(modelUsageBefore).toMatchObject({ source: 'live', quota_state: 'available', limit: 100000 })
+    expect(modelUsageBefore).toMatchObject({ source: 'live', quota_state: 'available', used: 128, limit: 100000 })
+    const gptUsage = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}?model=openai%3Agpt-4.1`, { headers })).json())
+    expect(gptUsage).toMatchObject({ source: 'live', quota_state: 'available', used: 8640, limit: 50000 })
 
     const chat = await postJson(`${origin}${API_PATHS.chat}`, {
       model: 'bisheng:42', messages: [{ role: 'user', content: 'hello' }],
