@@ -44,4 +44,20 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain('localStorage.setItem(LAST_BASE_KEY')
     expect(client).not.toContain("setBase('')")
   })
+
+  it('keeps sign-in focused and limits connected account metadata to usage and models', async () => {
+    const client = await readFile(
+      path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
+      'utf8'
+    )
+
+    expect(client).not.toContain('copy.lead')
+    expect(client).not.toContain('copy.disconnected')
+    expect(client).not.toContain('copy.platformHint')
+    expect(client).not.toContain('copy.sessionExpires')
+    expect(client).not.toContain("h('dt', null, copy.platform)")
+    expect(client).toContain("h('div', null, h('dt', null, copy.usage)")
+    expect(client).toContain("state.modelUsage?.[model.id]")
+    expect(client).toContain("className: 'dshEnterpriseButton primary'")
+  })
 })
