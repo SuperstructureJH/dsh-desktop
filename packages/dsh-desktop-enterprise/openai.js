@@ -165,6 +165,7 @@ function validUsage(value) {
   const prompt = value.prompt_tokens
   const completion = value.completion_tokens
   const total = value.total_tokens
+  if (prompt === null && completion === null && total === null) return undefined
   if (
     !Number.isSafeInteger(prompt) || prompt < 0 ||
     !Number.isSafeInteger(completion) || completion < 0 ||
@@ -334,7 +335,6 @@ export class EnterpriseLlmAdapter extends LlmAdapter {
     }
 
     if (!done || !stopped) throw new LlmError('BiSheng event stream closed before completion.', 'STREAM_CLOSED')
-    if (!usage) throw new LlmError('BiSheng event stream completed without authoritative usage.', 'USAGE_UNAVAILABLE')
     if (blocks.length === 0 && stopped.kind !== 'error') {
       throw new LlmError('BiSheng event stream completed without model output.', 'EMPTY_RESPONSE')
     }
@@ -362,7 +362,8 @@ export class EnterpriseLlmAdapter extends LlmAdapter {
         }
       }
     }
-    yield { type: 'usage', usage }
+    if (usage) yield { type: 'usage', usage }
+    await this.options.onComplete?.(options.model)
     yield { type: 'finish', reason: stopped }
   }
 }

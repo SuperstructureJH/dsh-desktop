@@ -184,7 +184,7 @@ export function createEnterpriseController(ctx, options = {}) {
     providerName: () => session?.tenant?.name ?? 'BiSheng Enterprise',
     models: () => modelsAvailable ? models : [],
     request: (body, signal, headers) => requestChat(body, signal, headers),
-    onComplete: () => { void refreshUsage().catch(() => undefined) }
+    onComplete: (model) => refreshUsage(model).catch(() => undefined)
   })
 
   const setFailure = (error) => {
@@ -319,9 +319,15 @@ export function createEnterpriseController(ctx, options = {}) {
     }
   }
 
-  const refreshUsage = async (signal) => {
+  const usagePath = (model) => {
+    if (typeof model !== 'string' || model.length === 0) return API_PATHS.usage
+    const params = new URLSearchParams({ model })
+    return `${API_PATHS.usage}?${params.toString()}`
+  }
+
+  const refreshUsage = async (model, signal) => {
     try {
-      usage = await authorizedJson(API_PATHS.usage, parseUsage, signal)
+      usage = await authorizedJson(usagePath(model), parseUsage, signal)
       return usage
     } catch (error) {
       usage = {
@@ -337,7 +343,7 @@ export function createEnterpriseController(ctx, options = {}) {
 
   const syncAccount = async (signal) => {
     await refreshModels(signal)
-    await refreshUsage(signal).catch(() => undefined)
+    await refreshUsage(undefined, signal).catch(() => undefined)
     phase = 'connected'
     lastError = undefined
   }
@@ -554,10 +560,10 @@ export function createEnterpriseController(ctx, options = {}) {
         await refreshModels().catch(() => undefined)
       }
     }
-    if (response.status === 429) void refreshUsage().catch(() => undefined)
+    if (response.status === 429) void refreshUsage(body?.model).catch(() => undefined)
     return response.ok
       ? trackResponse(response, controller, activeRequests, () => {
-        void refreshUsage().catch(() => undefined)
+        void refreshUsage(body?.model).catch(() => undefined)
       })
       : response
   }

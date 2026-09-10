@@ -1,4 +1,4 @@
-export declare const CONTRACT_VERSION = "0.1.0"
+export declare const CONTRACT_VERSION = "0.4.0"
 export declare const CLIENT_ID = "dsh-desktop"
 export declare const CALLBACK_PATH = "/dsh/callback"
 export declare const ACCESS_REFRESH_SKEW_MS = 60000
@@ -30,7 +30,7 @@ export declare function pkceChallenge(codeVerifier: string): string
 export declare function parseConfig(value: unknown): { enabled: false } | {
   enabled: true
   client_id: 'dsh-desktop'
-  contract_version: '0.1.0'
+  contract_version: '0.4.0'
 }
 export declare function parseAuthorization(value: unknown, base: string): {
   auth_id: string
@@ -47,7 +47,10 @@ export declare function parseModels(value: unknown): EnterpriseModel[]
 export declare function parseUsage(value: unknown): Record<string, unknown> & {
   source: 'live' | 'persisted' | 'unavailable'
   quota_state: 'available' | 'exhausted' | 'unavailable'
+  used: number | null
   limit: number | null
+  remaining: number | null
+  as_of: string | null
 }
 export declare function accessNeedsRefresh(session: { access_expires_at: string }, now?: number): boolean
 export declare function requestJson(base: string, path: string, options?: Record<string, unknown>): Promise<{

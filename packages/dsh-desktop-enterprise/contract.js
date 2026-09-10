@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { normalizeEnterpriseServerUrl } from './deep-link.js'
 
-export const CONTRACT_VERSION = '0.1.0'
+export const CONTRACT_VERSION = '0.4.0'
 export const CLIENT_ID = 'dsh-desktop'
 export const CALLBACK_PATH = '/dsh/callback'
 export const ACCESS_REFRESH_SKEW_MS = 60_000
@@ -175,6 +175,7 @@ export function parseUsage(value) {
     throw new Error('BiSheng usage response has an unsupported quota state.')
   }
   const nullableInteger = (field) => value[field] === null ? null : requiredInteger(value[field], field)
+  const nullableTimestamp = (field) => value[field] === null ? null : requiredTimestamp(value[field], field)
   return {
     month: requiredString(value.month, 'usage month', 16),
     billing_timezone: requiredString(value.billing_timezone, 'billing timezone', 128),
@@ -184,7 +185,7 @@ export function parseUsage(value) {
     limit: nullableInteger('limit'),
     remaining: nullableInteger('remaining'),
     source,
-    as_of: requiredTimestamp(value.as_of, 'usage timestamp'),
+    as_of: nullableTimestamp('as_of'),
     quota_state: quotaState
   }
 }

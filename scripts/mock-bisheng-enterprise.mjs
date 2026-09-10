@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 const HOST = '127.0.0.1'
 const DEFAULT_PORT = 17860
 const CLIENT_ID = 'dsh-desktop'
-const CONTRACT_VERSION = '0.1.0'
+const CONTRACT_VERSION = '0.4.0'
 const AUTH_TTL_MS = 5 * 60 * 1000
 const TICKET_TTL_MS = 60 * 1000
 const ACCESS_TTL_SECONDS = 300
@@ -248,7 +248,7 @@ export function createMockEnterpriseServer(options = {}) {
           const user = state.users.get(ticket.userId)
           const session = { id: opaque('session_'), userId: user.id, expiresAt: Date.now() + REFRESH_TTL_SECONDS * 1000, revoked: false }
           state.sessions.set(session.id, session)
-          state.usage.set(session.id, 128)
+          state.usage.set(session.id, { total: 128, models: new Map([['bisheng:42', 128]]) })
           return sendJson(response, 200, tokenPayload(state, session, user), id)
         }
         if (body.grant_type === 'refresh_token') {
@@ -275,7 +275,13 @@ export function createMockEnterpriseServer(options = {}) {
       if (request.method === 'GET' && url.pathname === '/api/v1/dsh/usage') {
         const session = sessionFromAccess(state, request)
         if (!session) return sendError(response, 401, 'invalid_access_token', 'Access token is invalid.', 'authentication_error', id)
-        const used = state.usage.get(session.id) ?? 0
+        const user = state.users.get(session.userId)
+        const usage = state.usage.get(session.id) ?? { total: 0, models: new Map() }
+        const model = url.searchParams.get('model')
+        if (model && !user.models.includes(model)) {
+          return sendError(response, 403, 'model_not_allowed', 'Model is not assigned to this user.', 'permission_error', id)
+        }
+        const used = model ? usage.models.get(model) ?? 0 : usage.total
         const limit = 100000
         const now = new Date()
         const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
@@ -296,7 +302,11 @@ export function createMockEnterpriseServer(options = {}) {
         if (body.stream !== true || body.stream_options?.include_usage !== true) return sendError(response, 400, 'invalid_request', 'Streaming with usage is required.', 'invalid_request_error', id)
         const prompt = JSON.stringify(body.messages ?? []).length % 40 + 12
         const completion = 24
-        state.usage.set(session.id, (state.usage.get(session.id) ?? 0) + prompt + completion)
+        const currentUsage = state.usage.get(session.id) ?? { total: 0, models: new Map() }
+        const tokens = prompt + completion
+        currentUsage.total += tokens
+        currentUsage.models.set(body.model, (currentUsage.models.get(body.model) ?? 0) + tokens)
+        state.usage.set(session.id, currentUsage)
         response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': id, connection: 'keep-alive' })
         response.write(`data: ${JSON.stringify({ id: `chatcmpl-${randomUUID()}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] })}\n\n`)
         if (body.model === 'bisheng:reasoner') response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '先验证登录与权限。' }, finish_reason: null }] })}\n\n`)

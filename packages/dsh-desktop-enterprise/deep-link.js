@@ -16,12 +16,8 @@ export function normalizeEnterpriseServerUrl(value, options = {}) {
   if (url.pathname !== '/' && url.pathname !== '') {
     throw new Error('The BiSheng platform address must be an origin without a path.')
   }
-  const insecureLoopback =
-    options.allowInsecureLoopback === true &&
-    url.protocol === 'http:' &&
-    url.hostname === '127.0.0.1'
-  if (url.protocol !== 'https:' && !insecureLoopback) {
-    throw new Error('The BiSheng platform address must use HTTPS.')
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('The BiSheng platform address must use HTTP or HTTPS.')
   }
   return url.origin
 }
