@@ -191,7 +191,7 @@ window.__ModuleLoader__.load({
           state?.secureStorageAvailable === false
             ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)
             : h('div', { className: 'dshEnterpriseActions' },
-              h('button', { className: 'dshEnterpriseButton primary', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
+              h('button', { className: 'dshEnterpriseButton', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
 
       const failure = error || state?.error
       const errorPanel = failure
