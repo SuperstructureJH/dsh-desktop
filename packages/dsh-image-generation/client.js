@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-image-generation',
   factory: require => {
     const React = require('react')
-    const { IconChevronDownOutline14 } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { IconChevronDownOutline14, Menu } = require('@deepseek-ai/dsh-client-ui-primitives')
     const h = React.createElement
     const NS = 'settings.imageGeneration'
     const zh = {
@@ -44,7 +44,8 @@ window.__ModuleLoader__.load({
       .dshImageDescription{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.5}
       .dshImageChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .16s}.dshImageHeader[aria-expanded=true] .dshImageChevron{transform:rotate(180deg)}
       .dshImageBody{border-top:.5px solid var(--dsw-alias-border-l2);margin:0 16px;padding-bottom:8px;display:flex;flex-direction:column;gap:12px}.dshImageFields{border:0;margin:0;padding:0;display:flex;flex-direction:column;min-width:0}
-      .dshImageField{display:flex;flex-direction:column;gap:6px;padding:12px 0;font-size:13px;font-weight:500;line-height:1.5;color:var(--dsw-alias-label-primary)}.dshImageField+.dshImageField{border-top:.5px solid var(--dsw-alias-border-l2)}.dshImageField input,.dshImageField select{box-sizing:border-box;width:100%;min-width:0;height:34px;padding:0 12px;border:.5px solid var(--dsw-alias-border-l4);border-radius:8px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);font:inherit;font-weight:400}
+      .dshImageField{display:flex;flex-direction:column;gap:6px;padding:12px 0;font-size:13px;font-weight:500;line-height:1.5;color:var(--dsw-alias-label-primary)}.dshImageField+.dshImageField{border-top:.5px solid var(--dsw-alias-border-l2)}.dshImageField input,.dshImageSelectTrigger{box-sizing:border-box;width:100%;min-width:0;height:34px;padding:0 12px;border:.5px solid var(--dsw-alias-border-l4);border-radius:8px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);font:inherit;font-weight:400}
+      .dshImageSelect{width:100%;min-width:0}.dshImageSelectTrigger{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;text-align:left}.dshImageSelectValue{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.dshImageSelectTrigger:disabled{opacity:.4;cursor:default}
       .dshImageField input::placeholder{color:var(--dsw-alias-label-tertiary)}
       .dshImageAdvanced{margin-top:12px}.dshImageAdvanced summary{cursor:pointer;font-size:13px;color:var(--dsw-alias-label-secondary)}.dshImageAdvanced[open]{display:flex;flex-direction:column}
       .dshImageHint{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary);margin:0}.dshImageActions{border-top:.5px solid var(--dsw-alias-border-l2);display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:12px 0 4px;flex-wrap:wrap}
@@ -60,6 +61,38 @@ window.__ModuleLoader__.load({
       try { data = await response.json() } catch { throw { code: 'RESPONSE' } }
       if (!response.ok) throw data
       return data
+    }
+    function ImageSelect({ name, label, value, options, onChange, disabled }) {
+      const [open, setOpen] = React.useState(false)
+      const trigger = React.useRef(null)
+      const labels = React.useRef(new Map())
+      const id = React.useId()
+      const close = restoreFocus => { setOpen(false); if (restoreFocus) trigger.current?.focus() }
+      React.useEffect(() => { if (disabled) setOpen(false) }, [disabled])
+      React.useEffect(() => {
+        if (!open) return
+        // The shared portaled Menu completes its measurement before focus moves.
+        const frame = requestAnimationFrame(() => (labels.current.get(value) || labels.current.get(options[0]?.id))?.closest('button')?.focus())
+        return () => cancelAnimationFrame(frame)
+      }, [open])
+      const keyDown = event => {
+        if (disabled) return
+        if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); close(true); return }
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+        event.preventDefault(); event.stopPropagation()
+        if (!open) { setOpen(true); return }
+        const buttons = options.map(option => labels.current.get(option.id)?.closest('button')).filter(Boolean)
+        const current = buttons.indexOf(document.activeElement)
+        const index = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+        buttons[index]?.focus()
+      }
+      return h('div', { className: 'dshImageField', onKeyDown: keyDown }, h('span', { id: `${id}-label` }, label),
+        h(Menu, { open: open && !disabled, onClose: () => close(false), selectedId: value, portal: true, dense: true, className: 'dshImageSelect',
+          items: options.map(option => ({ ...option, disabled, label: h('span', { ref: node => { if (node) labels.current.set(option.id, node); else labels.current.delete(option.id) } }, option.label) })),
+          onSelect: selected => { if (!disabled) { close(true); onChange(selected) } },
+          anchor: h('button', { ref: trigger, name, type: 'button', disabled, className: 'dshImageSelectTrigger', 'aria-labelledby': `${id}-label ${id}-value`,
+            'aria-haspopup': 'menu', 'aria-expanded': open && !disabled, onClick: () => setOpen(previous => !previous) },
+            h('span', { id: `${id}-value`, className: 'dshImageSelectValue' }, options.find(option => option.id === value)?.label || value), h(IconChevronDownOutline14)) }))
     }
     function ImageCard({ t }) {
       const [expanded, setExpanded] = React.useState(false)
@@ -133,12 +166,13 @@ window.__ModuleLoader__.load({
         expanded && h('form', { id: `${id}-body`, className: 'dshImageBody', onSubmit: save, 'aria-busy': busy || fetching || loading },
           loading ? h('p', { className: 'dshImageHint' }, t('loading')) : draft && h(React.Fragment, null,
             h('fieldset', { className: 'dshImageFields', disabled: busy || fetching || !saved.writable },
-              h('label', { className: 'dshImageField' }, t('provider'), h('select', { name: 'provider', value: provider, onChange: event => { setProvider(event.target.value); setStatus(''); setError('') } },
-                h('option', { value: 'bytedance' }, t('bytedance')), h('option', { value: 'openai' }, t('openai')))),
+              h(ImageSelect, { name: 'provider', label: t('provider'), value: provider, disabled: busy || fetching || !saved.writable,
+                options: [{ id: 'bytedance', label: t('bytedance') }, { id: 'openai', label: t('openai') }],
+                onChange: value => { setProvider(value); setStatus(''); setError('') } }),
               field('apiKey', 'apiKey', 'password', t(draft.configured ? 'savedKey' : 'keyPlaceholder')),
-              h('label', { className: 'dshImageField' }, t('modelSelect'), h('select', { name: 'model', value: customModels[provider] || !catalog.models.includes(draft.model) ? '__custom__' : draft.model,
-                onChange: event => { const custom = event.target.value === '__custom__'; setCustomModels(previous => ({ ...previous, [provider]: custom })); if (!custom) edit('model', event.target.value) } },
-                ...catalog.models.map(model => h('option', { key: model, value: model }, model)), h('option', { value: '__custom__' }, t('customModel')))),
+              h(ImageSelect, { name: 'model', label: t('modelSelect'), value: customModels[provider] || !catalog.models.includes(draft.model) ? '__custom__' : draft.model, disabled: busy || fetching || !saved.writable,
+                options: [...catalog.models.map(model => ({ id: model, label: model })), { id: '__custom__', label: t('customModel') }],
+                onChange: value => { const custom = value === '__custom__'; setCustomModels(previous => ({ ...previous, [provider]: custom })); if (!custom) edit('model', value) } }),
               (customModels[provider] || !catalog.models.includes(draft.model)) && field('model', 'model'),
               catalog.canFetch && h('button', { className: 'dshImageFetch', type: 'button', disabled: !draft.apiKey.trim() && !draft.configured, onClick: fetchModels }, t(fetching ? 'fetchingModels' : 'fetchModels')),
               catalog.source === 'provider' && catalog.models.length === 0 && h('p', { className: 'dshImageHint', role: 'status' }, t('emptyModels')),

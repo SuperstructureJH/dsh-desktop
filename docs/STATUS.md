@@ -1,5 +1,12 @@
 # Implementation and verification status
 
+## Shared image-setting dropdowns — 2026-09-10
+
+- **Implemented:** provider and image-model fields use the Harness `Menu` component, with theme-aware surfaces, selected checks, viewport placement and scrolling. The controls retain their existing dimensions and support arrow keys, Home/End, Enter and Escape with focus restoration. Save and model discovery use the existing configuration contract.
+- **PASS:** 36 image regressions plus 2 dependency-closure checks, TypeScript, production build and syntax/diff checks. Actual Harness browser inspection confirms the white light-theme model list, dark-theme provider menu, keyboard selection, custom model input, Escape preserving the settings dialog, and automatic Save validation against the isolated loopback provider.
+- **Compatibility:** the OpenAI adapter uses the Images API with a configurable base URL. Compatible services must accept the current generation parameters and return `data[0].b64_json`; Save reads model metadata, and discovery filters the provider list to supported GPT Image identifiers. Custom model IDs remain available. Seedream has its own request adapter.
+- **PASS:** r5 macOS arm64 development DMG/ZIP, strict deep signature, final packaged Host configuration/model/history-preview smoke and source/tarball/app/ZIP parity (14 source/tarball files; 13 Desktop files). Artifacts and browser screenshots are in `outputs/image-generation-plugin-20260910-r5`. The previous complete-suite and Electron writer gates remain recorded under r4; this revision changes the configuration client.
+
 ## Direct image calls, concise settings and image preview — 2026-09-10
 
 - **Implemented:** saved image configuration authorizes direct `image_generate` calls through the standard ToolRuntime; the plugin's additional approval request is removed. Deployment guards and workspace policy continue to apply. The settings card uses the requested description, Seedream / OpenAI labels and essential fields, with automatic validation on Save and concise error feedback.
