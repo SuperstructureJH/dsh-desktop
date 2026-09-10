@@ -120,39 +120,59 @@ hash 前缀。
 ## 四、验证
 
 - `npm ci`：990 个包，20 个 patch 全绿，brand assets 注入正常
-- `npx vitest run`：**749 / 750 通过**，1 个已知失败见下
+- `npx vitest run`：**751 / 751 全绿**
 - `tsc --noEmit -p tsconfig.node.json`：通过
 - `npm run build`：通过
 - `node scripts/verify-harness-auth.mjs`：通过（401 → 303 换 cookie → 200）
-- 直接用 Desktop 的启动参数引导 `desktop-safe-mode` profile：正常服务（401）
+- 用 Desktop 的完整启动路径引导 `web` 与 `desktop-safe-mode`：自带 Node 与 macOS
+  Electron utility process 两条路径都正常服务（401）
 
-## 五、遗留问题
+## 五、启动入口契约变更（真机暴露，最初被误判）
 
-### `test/safe-mode-runtime.test.ts` 失败（测试设施，非产品回归）
+0.1.5 把 CLI 从「模块顶层无条件执行」改成了「入口点门禁 + 具名导出」：
 
-该用例用 `--import` + `module.registerHooks()` 注入「缺少 PPT 依赖」的故障。
-在 0.1.5 上，**只要注册了任何用户级 ESM loader 钩子，Harness 就会在
-`DSH entry loaded` 之后静默退出 0，不启动服务**——已分别验证：
+```js
+// 0.1.2 lib/bin.js
+const invocation = parseDshArgs(process.argv.slice(2), readVersion());
+switch (invocation.mode) { ... }
 
-| 场景 | 结果 |
+// 0.1.5 lib/bin.js
+async function runCli() { ... }
+if (import.meta.main) await runCli();
+export { runCli };
+```
+
+`build/harness-node-entry.mjs` 是 `await import(dshEntryPath)` 把 bin.js **当模块导入**的，
+所以 `import.meta.main === false`，`runCli()` 根本不会执行——进程加载完什么也不做，
+事件循环一空就 exit 0，**没有任何报错**。桌面端只能看到
+`Harness stopped unexpectedly (exit code 0 (0x00000000))`。
+
+对照实验（同一个自带 Node、同样参数、干净 DSH_HOME）：
+
+| 启动方式 | 结果 |
 | --- | --- |
-| 无钩子 + `--expose-internals` | 正常服务（401） |
-| `registerHooks` 抛错版 | 静默退出 0 |
-| `registerHooks` 纯透传版 | 静默退出 0 |
-| `registerHooks` 且不带 `--expose-internals` | 静默退出 0 |
-| `module.register()`（worker 线程 loader） | 静默退出 0 |
+| 直接 `node bin.js web …` | 起服务（401） |
+| 经 `harness-node-entry.mjs` 导入 | 加载后静默 exit 0 |
 
-也就是说和钩子是否抛错、是否拿得到内部 loader 都无关。Desktop 真实启动路径不注册任何
-钩子，已单独验证可以正常引导并服务，所以这不是产品回归；但这条用例的故障注入手段需要
-换一种实现，且上游把这种失败静默吞掉本身值得反馈。
+修复：入口在 import 之后显式调用导出的 `runCli()`，老版本没有该导出时保持原有的
+import 副作用行为。`test/harness-node-entry.test.ts` 增加回归用例，同时锁住上游两端契约
+（`import.meta.main` 门禁 + `runCli` 导出）与入口的调用方式。
 
-顺带一提：这条证据也否掉了 patch 重构方案里「用 `module.registerHooks()` 替代
-`cordis-plugin-loader` 补丁」的设想。
+已验证：自带 Node 与 macOS Electron utility process 两条路径都能正常起服务（401）。
 
-### 其他
+> **订正**：本文档早先版本把 `test/safe-mode-runtime.test.ts` 的失败归因为
+> 「0.1.5 下注册任何 ESM loader 钩子都会导致引导静默退出」。那是错的——当时的对照组用的是
+> **直接执行 bin.js**，绕开了 wrapper，所以才正常。钩子与此无关，真正原因就是上面这条入口
+> 契约变更。修复后该用例通过，测试套件 **751/751 全绿**。
+
+## 六、遗留问题
 
 - 中间版本 `0.1.3-alpha.2` / `0.1.5-alpha.1` / `0.1.5-alpha.2` 未逐版比对，只做了两端对比。
   session 日志的磁盘格式如有迁移步骤需另行确认。
-- 尚未做真机 Electron 冷启动回归（4 个 desktop 插件镜像、无 plugin-recovery UI）。
+- 尚未做真机 Electron 冷启动回归（5 个 desktop 插件镜像、无 plugin-recovery UI）。
+- 真机日志里看到用户 profile 的第三方插件 `dsh-usage-stats` 在 0.1.5 下报
+  `invalid unit name 'usage-stats-aliases'`（`dsh-storage-json` 收紧了 unit 名校验），
+  以及 `dsh-better-sidebar` peer 校验失败导致 generation 迁移被冻结。这两条是
+  **第三方插件与 0.1.5 的兼容问题**，不属于本次改动，但会影响真机验证，需单独跟进。
 - PPT bundle 是在现有 tarball 上做的定点修改后 `npm pack` 重打，没有跑完整的
   `npm run ppt:build`（会重新截图 16 套模板）。建议在合并前跑一次完整重建对齐产物。
