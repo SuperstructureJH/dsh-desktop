@@ -1,5 +1,13 @@
 # Implementation and verification status
 
+## Conversation image preview session identity — 2026-09-10
+
+- **Root cause:** Desktop creates `session-<uuid>` IDs; the preview route accepted bare UUIDs. The existing smoke fixture also used a bare UUID, so it missed the production request rejection. The screenshot's stored successful image result and its 4,635,310-byte PNG are intact.
+- **Corrected:** bounded, opaque session IDs are resolved by the Harness session controller. File access comes exclusively from the session's successful image tool result and retains path, symlink, size, PNG and SHA-256 checks. The Host smoke fixture now uses Desktop's `session-<uuid>` form.
+- **PASS:** the updated regression cases reproduce six failures against the old route; the fix passes 42 plugin tests plus 2 dependency-closure checks. TypeScript, production build, source and final-packaged Host authentication/configuration/model/PNG smoke, and strict deep development signature pass.
+- **PASS:** read-only replay of the user's actual stored session returns its original 2560×1440 PNG with matching hash. An isolated Harness page replaying that same session displays the thumbnail automatically, opens the decoded original on click, and closes with Esc. Simulated historical records also pass thumbnail/expand/close. Screenshots, checks and r7 macOS arm64 DMG/ZIP/tarball are in `outputs/image-generation-plugin-20260910-r7`.
+- **Scope:** the running user application remains unchanged; install r7 to apply the fix there. This revision reuses the existing provider-generated image. Paid generation, native Office delivery, other platforms and notarization are separate acceptance steps.
+
 ## Expanded Seedream presets — 2026-09-10
 
 - **Implemented:** the built-in catalog includes `doubao-seedream-5-0-pro-260628`, `doubao-seedream-5-0-260128`, `doubao-seedream-5-0-lite-260128`, `doubao-seedream-4-5-251128` and `doubao-seedream-4-0-250828`, with custom model/endpoint entry retained. The existing saved model and default remain in place.
