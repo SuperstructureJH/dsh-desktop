@@ -20,16 +20,16 @@ http://127.0.0.1:17860
 
 | 身份 | 账号 | 密码 | 模型 |
 | --- | --- | --- | --- |
-| 员工 | `alice@demo.bisheng.local` | `WorkBuddy123!` | 毕昇 Mock Chat |
-| 管理员 | `admin@demo.bisheng.local` | `Admin123!` | 毕昇 Mock Chat、毕昇 Mock Reasoner |
+| 员工 | `alice@demo.bisheng.local` | `WorkBuddy123!` | DeepSeek V3、GPT-4.1、Claude Sonnet 4.5、Kimi K2 |
+| 管理员 | `admin@demo.bisheng.local` | `Admin123!` | 员工模型 + 毕昇 Mock Reasoner |
 
 ## 验证步骤
 
 1. 输入 Mock BASE，点击「在浏览器中登录」。
 2. 使用测试账号登录并允许授权；回调页显示登录成功后，DSH Desktop 应自动回到前台。
-3. 账号页显示用户、租户、可用模型与本月用量，不展示平台地址和会话到期时间。
-4. 在模型选择器中选择毕昇 Mock 模型并发送消息；回复包含“Mock 联调成功”。
-5. 点击「刷新模型与用量」，用量应增加。
+3. 账号页显示用户、租户、本月总用量，以及四个可用模型各自不同的用量；不展示平台地址和会话到期时间。
+4. 在模型选择器中依次选择 DeepSeek、GPT、Claude 或 Kimi Mock 模型并发送消息；回复包含当前模型名称和“Mock 联调成功”。
+5. 点击「刷新模型与用量」，刚调用的模型用量和本月总用量应同时增加。
 6. 点击「退出登录」，企业 provider 立即移除，本地加密凭证清空，Mock 会话被撤销。
 
 浏览器回传被拦截时，页面会显示当前 `identity_ticket`。保持 Desktop 当前登录事务不变，将该票据粘贴到账号页完成兑换。

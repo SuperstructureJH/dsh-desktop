@@ -12,25 +12,62 @@ const ACCESS_TTL_SECONDS = 300
 const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60
 const MAX_BODY = 128 * 1024
 
+const EMPLOYEE_MODELS = [
+  'bisheng:42',
+  'openai:gpt-4.1',
+  'anthropic:claude-sonnet-4-5',
+  'moonshot:kimi-k2'
+]
+
+const INITIAL_MODEL_USAGE = {
+  'bisheng:42': 128,
+  'openai:gpt-4.1': 8640,
+  'anthropic:claude-sonnet-4-5': 4320,
+  'moonshot:kimi-k2': 2160,
+  'bisheng:reasoner': 640
+}
+
+const MODEL_LIMITS = {
+  'bisheng:42': 100000,
+  'openai:gpt-4.1': 50000,
+  'anthropic:claude-sonnet-4-5': 50000,
+  'moonshot:kimi-k2': 80000,
+  'bisheng:reasoner': 30000
+}
+
+const MONTHLY_LIMIT = 300000
+
 const USERS = [
   {
     id: 'user-alice', username: 'alice', displayName: 'Alice 演示员工',
     email: 'alice@demo.bisheng.local', password: 'WorkBuddy123!',
     tenant: { id: 'tenant-demo', name: '毕昇演示企业' },
-    models: ['bisheng:42']
+    models: EMPLOYEE_MODELS
   },
   {
     id: 'user-admin', username: 'admin', displayName: 'Admin 演示管理员',
     email: 'admin@demo.bisheng.local', password: 'Admin123!',
     tenant: { id: 'tenant-demo', name: '毕昇演示企业' },
-    models: ['bisheng:42', 'bisheng:reasoner']
+    models: [...EMPLOYEE_MODELS, 'bisheng:reasoner']
   }
 ]
 
 const MODELS = {
   'bisheng:42': {
     id: 'bisheng:42', object: 'model', created: 1788883200, owned_by: 'bisheng',
-    display_name: '毕昇 Mock Chat', capabilities: { streaming: true, tools: true, reasoning_content: false }
+    display_name: 'DeepSeek V3 · Mock', capabilities: { streaming: true, tools: true, reasoning_content: false }
+  },
+  'openai:gpt-4.1': {
+    id: 'openai:gpt-4.1', object: 'model', created: 1788883200, owned_by: 'openai',
+    display_name: 'GPT-4.1 · Mock', capabilities: { streaming: true, tools: true, reasoning_content: false }
+  },
+  'anthropic:claude-sonnet-4-5': {
+    id: 'anthropic:claude-sonnet-4-5', object: 'model', created: 1788883200, owned_by: 'anthropic',
+    display_name: 'Claude Sonnet 4.5 · Mock', capabilities: { streaming: true, tools: true, reasoning_content: true }
+  },
+  'moonshot:kimi-k2': {
+    id: 'moonshot:kimi-k2', object: 'model', created: 1788883200, owned_by: 'moonshot',
+    display_name: 'Kimi K2 · Mock', capabilities: { streaming: true, tools: true, reasoning_content: true }
   },
   'bisheng:reasoner': {
     id: 'bisheng:reasoner', object: 'model', created: 1788883200, owned_by: 'bisheng',
@@ -247,8 +284,10 @@ export function createMockEnterpriseServer(options = {}) {
           ticket.consumed = true
           const user = state.users.get(ticket.userId)
           const session = { id: opaque('session_'), userId: user.id, expiresAt: Date.now() + REFRESH_TTL_SECONDS * 1000, revoked: false }
+          const models = new Map(user.models.map((model) => [model, INITIAL_MODEL_USAGE[model] ?? 0]))
+          const total = [...models.values()].reduce((sum, value) => sum + value, 0)
           state.sessions.set(session.id, session)
-          state.usage.set(session.id, { total: 128, models: new Map([['bisheng:42', 128]]) })
+          state.usage.set(session.id, { total, models })
           return sendJson(response, 200, tokenPayload(state, session, user), id)
         }
         if (body.grant_type === 'refresh_token') {
@@ -282,7 +321,7 @@ export function createMockEnterpriseServer(options = {}) {
           return sendError(response, 403, 'model_not_allowed', 'Model is not assigned to this user.', 'permission_error', id)
         }
         const used = model ? usage.models.get(model) ?? 0 : usage.total
-        const limit = 100000
+        const limit = model ? MODEL_LIMITS[model] : MONTHLY_LIMIT
         const now = new Date()
         const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
         return sendJson(response, 200, {
@@ -309,8 +348,9 @@ export function createMockEnterpriseServer(options = {}) {
         state.usage.set(session.id, currentUsage)
         response.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': id, connection: 'keep-alive' })
         response.write(`data: ${JSON.stringify({ id: `chatcmpl-${randomUUID()}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] })}\n\n`)
-        if (body.model === 'bisheng:reasoner') response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '先验证登录与权限。' }, finish_reason: null }] })}\n\n`)
-        response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: 'Mock 联调成功：当前请求已通过 DSH access token 调用毕昇模型。' }, finish_reason: null }] })}\n\n`)
+        const selectedModel = MODELS[body.model]
+        if (selectedModel.capabilities.reasoning_content) response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '先验证登录、模型权限与用量。' }, finish_reason: null }] })}\n\n`)
+        response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: `Mock 联调成功：当前请求已通过 DSH access token 调用 ${selectedModel.display_name}。` }, finish_reason: null }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion } })}\n\n`)
         response.end('data: [DONE]\n\n')
