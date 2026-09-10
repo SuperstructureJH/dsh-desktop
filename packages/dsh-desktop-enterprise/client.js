@@ -7,6 +7,7 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useCallback, useEffect, useState } = React
+    const LAST_BASE_KEY = 'dshDesktopEnterprise.lastBase'
     const zh = navigator.language.toLowerCase().startsWith('zh')
     const copy = zh ? {
       nav: '账号与企业', title: '企业账号', lead: '登录毕昇企业账号，使用当前账号获准调用的模型。',
@@ -69,9 +70,24 @@ window.__ModuleLoader__.load({
       return `${usage.used.toLocaleString()} / ${usage.limit.toLocaleString()}`
     }
 
+    function readLastBase() {
+      try {
+        return localStorage.getItem(LAST_BASE_KEY) || ''
+      } catch {
+        return ''
+      }
+    }
+
+    function rememberBase(value) {
+      if (typeof value !== 'string' || !value.trim()) return
+      try {
+        localStorage.setItem(LAST_BASE_KEY, value.trim())
+      } catch {}
+    }
+
     function EnterpriseSection() {
       const [state, setState] = useState(null)
-      const [base, setBase] = useState('')
+      const [base, setBase] = useState(readLastBase)
       const [ticket, setTicket] = useState('')
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
@@ -80,7 +96,10 @@ window.__ModuleLoader__.load({
       const refreshState = useCallback(async () => {
         const next = await api('/api/enterprise.state')
         setState(next)
-        if (next.base) setBase(next.base)
+        if (next.base) {
+          setBase(next.base)
+          rememberBase(next.base)
+        }
         return next
       }, [])
 
@@ -150,15 +169,15 @@ window.__ModuleLoader__.load({
             : h('p', { className: 'dshEnterpriseHint' }, copy.noModels),
           h('div', { className: 'dshEnterpriseActions' },
             h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.refresh', {}))) }, copy.refresh),
-            h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => { setState(await api('/api/enterprise.logout', {})); setBase('') }) }, copy.logout)))
+            h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.logout', {}))) }, copy.logout)))
         : h(React.Fragment, null,
           h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, copy.platform,
-            h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'http://bisheng.example.com', value: base, onChange: (event) => setBase(event.target.value) }),
+            h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'http://bisheng.example.com', value: base, onChange: (event) => { setBase(event.target.value); rememberBase(event.target.value) } }),
             h('span', { className: 'dshEnterpriseHint' }, copy.platformHint)),
           state?.secureStorageAvailable === false
             ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)
             : h('div', { className: 'dshEnterpriseActions' },
-              h('button', { className: 'dshEnterpriseButton primary', disabled: busy || !base.trim(), onClick: () => run(async () => { const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
+              h('button', { className: 'dshEnterpriseButton primary', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
 
       const failure = error || state?.error
       const errorPanel = failure
@@ -182,7 +201,7 @@ window.__ModuleLoader__.load({
           h('p', { className: 'dshEnterpriseHint' }, copy.confirmLead),
           h('strong', null, confirmation.base),
           h('div', { className: 'dshEnterpriseActions' },
-            h('button', { className: 'dshEnterpriseButton primary', disabled: busy, onClick: () => run(async () => { const result = await api('/api/enterprise.deep-link.confirm', { base: confirmation.base }); setConfirmation(null); setBase(result.base); openAuthorization(result); await refreshState() }) }, copy.confirm),
+            h('button', { className: 'dshEnterpriseButton primary', disabled: busy, onClick: () => run(async () => { const result = await api('/api/enterprise.deep-link.confirm', { base: confirmation.base }); setConfirmation(null); setBase(result.base); rememberBase(result.base); openAuthorization(result); await refreshState() }) }, copy.confirm),
             h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => setConfirmation(null) }, copy.cancel)))
         : null
 

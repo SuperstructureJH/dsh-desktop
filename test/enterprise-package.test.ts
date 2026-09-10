@@ -33,4 +33,15 @@ describe('DSH Desktop enterprise package', () => {
       stderr: ''
     })
   })
+
+  it('keeps the last BiSheng platform URL after enterprise sign-out', async () => {
+    const client = await readFile(
+      path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
+      'utf8'
+    )
+
+    expect(client).toContain('dshDesktopEnterprise.lastBase')
+    expect(client).toContain('localStorage.setItem(LAST_BASE_KEY')
+    expect(client).not.toContain("setBase('')")
+  })
 })
