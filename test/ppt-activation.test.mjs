@@ -9,7 +9,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SkillRegistry, isModelInvocable, isUserInvocable } from '@deepseek-ai/dsh-skill'
-import { SystemPrompt, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import { PERSONA_PREFIX_SECTION, SystemPrompt, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { apply } from 'dsh-ppt'
 
 const cleanups = []
@@ -23,7 +23,7 @@ async function fixture(existingRoot) {
   const root = existingRoot ?? await mkdtemp(path.join(os.tmpdir(), 'dsh-ppt-activation-'))
   if (!existingRoot) cleanups.push(() => rm(root, { recursive: true, force: true }))
   const ctx = new Context()
-  const prompt = ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, persona: 'Default persona.' })
+  const prompt = ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'Default persona.' })
   await prompt
   cleanups.push(() => prompt.dispose())
   const skills = ctx.plugin(SkillRegistry)
@@ -56,7 +56,7 @@ async function fixture(existingRoot) {
     await scope.ctx.plugin({
       inject: ['systemPrompt'],
       apply(c) {
-        c.systemPrompt.section({ name: 'deployment:persona', order: 0, text: 'My custom preset.', complete })
+        c.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: 'My custom preset.', complete })
       }
     })
     return instance
