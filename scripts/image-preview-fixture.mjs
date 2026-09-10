@@ -15,7 +15,7 @@ export async function imagePreviewFixture(home) {
   const png = await sharp(Buffer.from('<svg width="960" height="540" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#739fae"/><stop offset="1" stop-color="#dce3c1"/></linearGradient></defs><rect width="960" height="540" fill="url(#sky)"/><circle cx="700" cy="125" r="50" fill="#ffe9a3"/><path d="M0 360L200 120L470 400L630 230L960 430V540H0" fill="#406e6d"/><path d="M0 450L240 350L510 470L800 330L960 390V540H0" fill="#294d51"/><text x="32" y="510" fill="#ffffff" font-size="24">Image preview fixture</text></svg>')).png().toBuffer()
   const asset = await materialize(cwd, png)
   const image = { ...asset, asset_id: `sha256:${asset.sha256}`, media_type: 'image/png', width: 960, height: 540, bytes: png.length, provider: 'bytedance', model: 'doubao-seedream-5-0-pro-260628' }
-  const id = randomUUID()
+  const id = `session-${randomUUID()}`
   const session = Session.create(id, undefined, { version: 0, id, createdAt: Date.now(), isSeeded: false, cwd, delegationDepth: 0 })
   session.append('turn/start', { turn: 1 })
   session.append('step/start', { turn: 1, step: 1 })

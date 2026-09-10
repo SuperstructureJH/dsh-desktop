@@ -40,8 +40,9 @@ export async function previewImage(ctx, request) {
     const url = new URL(request.url)
     const sessionId = url.searchParams.get('session')
     const sha = url.searchParams.get('asset')
-    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(sessionId ?? '') || !/^[a-f0-9]{64}$/.test(sha ?? '')) throw new ImageError('PREVIEW', 'Invalid image reference.', 400)
-    // Use the same cold/live session authority as the Harness session API.
+    if (!sessionId || sessionId.length > 1024 || /[\u0000-\u001f\u007f]/.test(sessionId) || !/^[a-f0-9]{64}$/.test(sha ?? '')) throw new ImageError('PREVIEW', 'Invalid image reference.', 400)
+    // Harness IDs are opaque (Desktop uses session-<uuid>). The controller
+    // resolves their identity; only the authorized result supplies a file path.
     const inspection = await ctx.sessionController.inspect(sessionId, request.signal)
     const image = referencedImage(inspection.events, sha)
     if (!image || !inspection.meta.cwd) throw new ImageError('PREVIEW', 'Image is unavailable in this session.', 404)

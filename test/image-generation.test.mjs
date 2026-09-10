@@ -297,18 +297,17 @@ describe('image tool and durable Office assets', () => {
 
 
 describe('session-authorized generated image previews', () => {
-  async function previewFixture() {
+  async function previewFixture(id = `session-${randomUUID()}`) {
     const workspace = await temp()
     const png = await sharp({ create: { width: 16, height: 9, channels: 4, background: '#112233' } }).png().toBuffer()
     const asset = await materialize(workspace, png)
     const image = { ...asset, asset_id: `sha256:${asset.sha256}`, media_type: 'image/png', width: 16, height: 9, bytes: png.length, provider: 'bytedance', model: DEFAULTS.bytedance.model }
-    const id = randomUUID()
     const content = [{ type: 'text', text: JSON.stringify(image) }]
     const events = [{ type: 'tool/call', data: { callId: 'image-call', name: 'image_generate' } },
       { type: 'tool/result', surfaceOp: 'append', data: { message: { source: { callId: 'image-call' }, content: [{ type: 'tool-result', content }] } } }]
     const log = vi.fn()
     const ctx = { sessionController: { inspect: vi.fn(async session => ({ meta: { cwd: workspace }, events: session === id ? events : [] })) }, logger: { info: log } }
-    const request = (session = id, sha = image.sha256) => new Request(`http://localhost/api/image-generation.preview?session=${session}&asset=${sha}`)
+    const request = (session = id, sha = image.sha256) => new Request(`http://localhost/api/image-generation.preview?${new URLSearchParams({ session, asset: sha })}`)
     return { workspace, png, image, id, content, events, ctx, request, target: path.join(workspace, image.workspace_path) }
   }
   it('serves historical successful PNGs with integrity, cache, content-type and audit checks', async () => {
@@ -320,6 +319,13 @@ describe('session-authorized generated image previews', () => {
     expect(result.headers.get('cache-control')).toBe('no-store')
     expect(result.headers.get('x-content-type-options')).toBe('nosniff')
     expect(f.ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('preview allowed'), f.id, f.image.sha256)
+  })
+  it.each([randomUUID(), 'session-1', 'imported:landscape'])('resolves the opaque Harness session ID %s', async id => {
+    const f = await previewFixture(id)
+    const result = await previewImage(f.ctx, f.request())
+    expect(result.status).toBe(200)
+    expect(Buffer.from(await result.arrayBuffer())).toEqual(f.png)
+    expect(f.ctx.sessionController.inspect).toHaveBeenCalledWith(id, expect.any(AbortSignal))
   })
   it('requires a successful image tool result in the requested session', async () => {
     const f = await previewFixture()
@@ -333,11 +339,15 @@ describe('session-authorized generated image previews', () => {
     f.events.splice(0, 2, { type: 'tool/code-dispatch', data: { name: 'image_generate', subCallId: 'ptc', content: f.content } })
     expect((await previewImage(f.ctx, f.request())).status).toBe(200)
   })
-  it('rejects path traversal and invalid asset contracts before reading a session', async () => {
+  it('validates query bounds and resolves session identity through the Host', async () => {
     const f = await previewFixture()
-    expect((await previewImage(f.ctx, f.request('../outside'))).status).toBe(400)
+    for (const id of ['', 'a'.repeat(1025), 'session-\u0000']) {
+      expect((await previewImage(f.ctx, f.request(id))).status).toBe(400)
+    }
     expect((await previewImage(f.ctx, f.request(f.id, '../secret'))).status).toBe(400)
     expect(f.ctx.sessionController.inspect).not.toHaveBeenCalled()
+    expect((await previewImage(f.ctx, f.request('../outside'))).status).toBe(404)
+    expect(f.ctx.sessionController.inspect).toHaveBeenCalledWith('../outside', expect.any(AbortSignal))
     expect(imageResult([null, { type: 'text', text: 'broken' }])).toBeUndefined()
     for (const change of [{ bytes: -1 }, { bytes: 1000000000 }, { workspace_path: '/etc/passwd' }, { media_type: 'text/html' }, { asset_id: 'wrong' }]) {
       expect(imageResult([{ type: 'text', text: JSON.stringify({ ...f.image, ...change }) }])).toBeUndefined()
