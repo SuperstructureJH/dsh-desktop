@@ -8,7 +8,16 @@ export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 const OPENAI_IMAGES = new Set(['gpt-image-2.5-sunburst', 'gpt-image-2.5-sunburst-2026-09-08', 'gpt-image-2.5-flare', 'gpt-image-2.5-flare-2026-09-08', 'gpt-image-2', 'gpt-image-2-2026-04-21', 'gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini'])
 export const MODEL_CATALOG = Object.freeze({
   openai: { source: 'builtin', canFetch: true, models: [...OPENAI_IMAGES] },
-  bytedance: { source: 'builtin', canFetch: false, models: ['doubao-seedream-5-0-pro-260628', DEFAULTS.bytedance.model] },
+  // Ark image model list, checked 2026-09-10:
+  // https://docs.volcengine.com/docs/82379/1330310
+  // Both 5.0 and 5.0 Lite IDs are explicitly supported by the provider.
+  bytedance: { source: 'builtin', canFetch: false, models: [
+    'doubao-seedream-5-0-pro-260628',
+    'doubao-seedream-5-0-260128',
+    'doubao-seedream-5-0-lite-260128',
+    DEFAULTS.bytedance.model,
+    'doubao-seedream-4-0-250828',
+  ] },
 })
 
 export class ImageError extends Error {
@@ -155,7 +164,7 @@ export function generationBody(provider, spec, args) {
     ...(provider === 'openai'
       ? { n: 1, quality: 'auto', output_format: 'png' }
       // Ark defaults to single-image generation. Use its shared single-image
-      // fields for 4.5, 5.0 Pro and opaque endpoint IDs; group controls belong
+      // fields for Seedream 4.x / 5.x and opaque endpoint IDs; group controls belong
       // to a separate capability and 5.0 Pro rejects them.
       : { response_format: 'b64_json', watermark: false }),
   }

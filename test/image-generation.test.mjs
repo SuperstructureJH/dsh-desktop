@@ -16,7 +16,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import sharp from 'sharp'
 import { apply, imageTool } from '../packages/dsh-image-generation/index.js'
 import { createSettings } from '../packages/dsh-image-generation/lib/settings.js'
-import { DEFAULTS, generate, generationBody, ImageError, profile, readBounded, validateConnection } from '../packages/dsh-image-generation/lib/provider.js'
+import { DEFAULTS, MODEL_CATALOG, generate, generationBody, ImageError, profile, readBounded, validateConnection } from '../packages/dsh-image-generation/lib/provider.js'
 import { normalizeImage } from '../packages/dsh-image-generation/lib/assets.js'
 import { materialize } from '../packages/dsh-image-generation/lib/storage.js'
 import { previewImage, imageResult } from '../packages/dsh-image-generation/lib/preview.js'
@@ -36,12 +36,21 @@ async function server() {
     if (delay) await new Promise(resolve => setTimeout(resolve, delay))
     const probe = status === 200 && !malformed && req.url.endsWith('/images/generations') && body && !Object.hasOwn(JSON.parse(body), 'prompt')
     const input = body && JSON.parse(body)
-    // The 5.0 Pro contract supports single images and rejects group controls.
+    // Provider-documented canvas ranges, independent of the production catalog.
     // Treat an opaque endpoint as 5.0 Pro too: its ID conveys no capabilities.
-    if (status === 200 && input?.prompt && ['doubao-seedream-5-0-pro-260628', 'ep-custom'].includes(input.model)) {
-      const parameter = ['sequential_image_generation', 'sequential_image_generation_options'].find(field => Object.hasOwn(input, field)) || (input.stream === true ? 'stream' : undefined)
+    const canvas = {
+      'doubao-seedream-5-0-pro-260628': [921600, 4624220],
+      'doubao-seedream-5-0-260128': [3686400, 16777216],
+      'doubao-seedream-5-0-lite-260128': [3686400, 16777216],
+      'doubao-seedream-4-5-251128': [3686400, 16777216],
+      'doubao-seedream-4-0-250828': [921600, 16777216],
+      'ep-custom': [921600, 4624220],
+    }[input?.model]
+    if (status === 200 && input?.prompt && canvas) {
+      const singleOnly = ['doubao-seedream-5-0-pro-260628', 'ep-custom'].includes(input.model)
+      const parameter = singleOnly && (['sequential_image_generation', 'sequential_image_generation_options'].find(field => Object.hasOwn(input, field)) || (input.stream === true ? 'stream' : undefined))
       const [width, height] = input.size.split('x').map(Number)
-      const invalidSize = !(width * height >= 921600 && width * height <= 4624220 && width / height >= 1 / 16 && width / height <= 16)
+      const invalidSize = !(width * height >= canvas[0] && width * height <= canvas[1] && width / height >= 1 / 16 && width / height <= 16)
       if (parameter || invalidSize) {
         res.writeHead(400, { 'content-type': 'application/json', 'x-request-id': 'seedream-contract-request' })
         res.end(JSON.stringify({ error: { code: 'InvalidParameter', param: parameter || 'size', message: parameter ? `The parameter ${parameter} is not supported by this model.` : 'The size is outside the supported range.' } }))
@@ -174,7 +183,7 @@ describe('image settings save and provider requests', () => {
     expect(generationBody('bytedance', profile('bytedance'), args)).not.toHaveProperty('quality')
     await expect(readBounded(new Response('too much'), 2)).rejects.toMatchObject({ code: 'TOO_LARGE' })
   })
-  it.each(['doubao-seedream-5-0-pro-260628', DEFAULTS.bytedance.model, 'ep-custom'])('generates every supported aspect ratio with the single-image contract for %s', async model => {
+  it.each([...MODEL_CATALOG.bytedance.models, 'ep-custom'])('generates every supported aspect ratio with the single-image contract for %s', async model => {
     const s = await server()
     for (const aspect_ratio of ['1:1', '16:9', '9:16', '4:3', '3:4']) {
       expect(await generate('bytedance', { baseUrl: s.baseUrl, model }, 'test-image-key', { prompt: 'A flower', aspect_ratio })).toEqual(s.png)
