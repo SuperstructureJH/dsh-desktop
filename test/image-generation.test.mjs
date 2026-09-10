@@ -34,6 +34,19 @@ async function server() {
     if (redirect) { res.writeHead(307, { Location: redirect }); res.end(); return }
     if (delay) await new Promise(resolve => setTimeout(resolve, delay))
     const probe = status === 200 && !malformed && req.url.endsWith('/images/generations') && body && !Object.hasOwn(JSON.parse(body), 'prompt')
+    const input = body && JSON.parse(body)
+    // The 5.0 Pro contract supports single images and rejects group controls.
+    // Treat an opaque endpoint as 5.0 Pro too: its ID conveys no capabilities.
+    if (status === 200 && input?.prompt && ['doubao-seedream-5-0-pro-260628', 'ep-custom'].includes(input.model)) {
+      const parameter = ['sequential_image_generation', 'sequential_image_generation_options'].find(field => Object.hasOwn(input, field)) || (input.stream === true ? 'stream' : undefined)
+      const [width, height] = input.size.split('x').map(Number)
+      const invalidSize = !(width * height >= 921600 && width * height <= 4624220 && width / height >= 1 / 16 && width / height <= 16)
+      if (parameter || invalidSize) {
+        res.writeHead(400, { 'content-type': 'application/json', 'x-request-id': 'seedream-contract-request' })
+        res.end(JSON.stringify({ error: { code: 'InvalidParameter', param: parameter || 'size', message: parameter ? `The parameter ${parameter} is not supported by this model.` : 'The size is outside the supported range.' } }))
+        return
+      }
+    }
     res.writeHead(probe ? 400 : status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(probe ? { error: { code: 'MissingParameter', message: 'The request is missing a required parameter: prompt.' } } : status !== 200 ? { error: { message: 'secret-echo-key' } } : malformed ? {} : req.url.endsWith('/images/generations')
       ? { data: [{ b64_json: png.toString('base64') }] }
@@ -159,6 +172,48 @@ describe('image settings save and provider requests', () => {
     expect(generationBody('bytedance', profile('bytedance'), args)).toMatchObject({ size: '2560x1440', response_format: 'b64_json' })
     expect(generationBody('bytedance', profile('bytedance'), args)).not.toHaveProperty('quality')
     await expect(readBounded(new Response('too much'), 2)).rejects.toMatchObject({ code: 'TOO_LARGE' })
+  })
+  it.each(['doubao-seedream-5-0-pro-260628', DEFAULTS.bytedance.model, 'ep-custom'])('generates every supported aspect ratio with the single-image contract for %s', async model => {
+    const s = await server()
+    for (const aspect_ratio of ['1:1', '16:9', '9:16', '4:3', '3:4']) {
+      expect(await generate('bytedance', { baseUrl: s.baseUrl, model }, 'test-image-key', { prompt: 'A flower', aspect_ratio })).toEqual(s.png)
+    }
+    expect(s.calls).toHaveLength(5)
+  })
+  it('reports the rejected parameter and request ID through ToolRuntime while keeping provider echoes private', async () => {
+    const f = await fixture(); const s = await server()
+    await f.settings.save(saveInput('bytedance', s.baseUrl))
+    const original = globalThis.fetch
+    const stub = vi.spyOn(globalThis, 'fetch').mockImplementation((url, options) => String(url).endsWith('/images/generations')
+      ? Promise.resolve(Response.json({ error: { code: 'InvalidParameter', message: 'The parameter `sequential_image_generation` is not supported. Bearer test-image-key. PRIVATE-PROMPT' } }, { status: 400, headers: { 'x-request-id': 'req-123' } }))
+      : original(url, options))
+    f.ctx.tools.register(imageTool(f.services, f.settings))
+    const result = await f.ctx.tools.execute({ callId: 'provider-error', name: 'image_generate', arguments: { prompt: 'PRIVATE-PROMPT' }, agent: f.agent, signal: new AbortController().signal })
+    const text = JSON.stringify(result)
+    expect(result.isError).toBe(true)
+    for (const value of ['sequential_image_generation', 'unsupported', 'InvalidParameter', 'req-123', 'HTTP 400']) expect(text).toContain(value)
+    for (const value of ['test-image-key', 'PRIVATE-PROMPT', 'Bearer']) {
+      expect(text).not.toContain(value)
+      expect(JSON.stringify(f.log.mock.calls)).not.toContain(value)
+    }
+    expect(JSON.stringify(f.log.mock.calls)).toContain('req-123')
+    expect(stub).toHaveBeenCalledTimes(1)
+  })
+  it.each([401, 403, 404, 429, 500])('preserves HTTP %s classification with private or malformed error bodies', async status => {
+    const fetchImpl = vi.fn(async () => Response.json({ error: { code: 'private-key', param: 'private-key', message: 'private-key' }, request_id: 'private-key' }, { status }))
+    try {
+      await generate('openai', profile('openai'), 'private-key', { prompt: 'Flower' }, { fetchImpl })
+      expect.unreachable()
+    } catch (error) {
+      expect(error.code).toBe(({ 401: 'AUTH', 403: 'PERMISSION', 404: 'MODEL', 429: 'QUOTA', 500: 'PROVIDER_ERROR' })[status])
+      expect(error.message).toContain(`HTTP ${status}`)
+      expect(error.message).not.toContain('private-key')
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+  it.each(['<html>Gateway error</html>', 'x'.repeat(65537)])('preserves provider status when the error response is invalid or oversized (%#)', async body => {
+    await expect(generate('bytedance', profile('bytedance'), 'key', { prompt: 'Flower' }, { fetchImpl: async () => new Response(body, { status: 400 }) }))
+      .rejects.toMatchObject({ code: 'PARAMETERS', providerStatus: 400 })
   })
 })
 

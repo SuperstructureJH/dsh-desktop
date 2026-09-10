@@ -26,7 +26,13 @@ if (process.argv.includes('--worker')) {
   const png = await sharp({ create: { width: 256, height: 192, channels: 4, background: '#12345680' } }).png().toBuffer()
   const server = createServer(async (request, response) => {
     let body = ''; for await (const part of request) body += part
-    assert.ok(JSON.parse(body).prompt); calls++
+    const input = JSON.parse(body)
+    assert.ok(input.prompt); calls++
+    if (input.model === 'doubao-seedream-5-0-pro-260628' && (['sequential_image_generation', 'sequential_image_generation_options'].some(field => Object.hasOwn(input, field)) || input.stream === true)) {
+      response.writeHead(400, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ error: { code: 'InvalidParameter', param: 'sequential_image_generation', message: 'The parameter is unsupported for this model.' } }))
+      return
+    }
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }))
   })
@@ -42,7 +48,7 @@ if (process.argv.includes('--worker')) {
       const meta = await sharp(data).metadata(); assert.equal(meta.format, 'png'); assert.equal(meta.hasAlpha, true)
     }
     assert.equal(calls, 2)
-    console.log(`PASS: real Electron ${process.versions.electron} utility Host, both adapters and sandboxed PNG writer (loopback simulation).`)
+    console.log(`PASS: real Electron ${process.versions.electron} utility Host, OpenAI and Seedream 5.0 Pro single-image contract, sandboxed PNG writer (loopback simulation).`)
   } finally {
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve))
     for (const fork of forks.reverse()) await fork.dispose()

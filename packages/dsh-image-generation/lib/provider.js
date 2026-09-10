@@ -54,6 +54,39 @@ export async function readBounded(response, maxBytes, signal) {
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
 }
 
+const IMAGE_PARAMETERS = new Set(['model', 'prompt', 'size', 'response_format', 'output_format', 'quality', 'n', 'watermark', 'stream', 'sequential_image_generation', 'sequential_image_generation_options', 'image', 'background', 'moderation'])
+// Keep actionable identifiers, rather than forwarding a provider's free-form
+// message: an upstream error can echo credentials, prompts or a proxy HTML page.
+function providerFailure(response, payload, key, probe) {
+  const error = payload?.error
+  const identifier = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(value) && !(key && value.includes(key)) ? value : undefined
+  const details = {
+    providerStatus: response.status,
+    providerCode: identifier(error?.code),
+    requestId: identifier(response.headers.get('x-request-id') || response.headers.get('x-tt-logid') || payload?.request_id || error?.request_id),
+  }
+  const upstreamMessage = typeof error?.message === 'string' ? error.message : ''
+  // Only infer a field from a parameter-specific phrase, never from arbitrary
+  // mentions of model/prompt elsewhere in the provider response.
+  const named = upstreamMessage.match(/\b(?:parameter|argument|field)\s*[:=]?\s*[`'"\[]?([a-z_]+)\b/i)?.[1]
+  const parameter = IMAGE_PARAMETERS.has(error?.param) ? error.param : IMAGE_PARAMETERS.has(named) ? named : undefined
+  if (parameter) details.parameter = parameter
+  const errors = {
+    401: ['AUTH', 'The API key is invalid or expired.'],
+    403: ['PERMISSION', 'This API key lacks access. Enable the model and check account verification.'],
+    404: ['MODEL', 'The model or API endpoint is unavailable.'],
+    429: ['QUOTA', 'The provider quota or rate limit has been reached.'],
+    400: ['PARAMETERS', probe ? 'The provider did not confirm the required-prompt check. Verify the API URL and model.' : 'The provider rejected the image parameters.'],
+  }
+  let [code, message] = errors[response.status] ?? ['PROVIDER_ERROR', 'The image provider could not complete the request.']
+  if (response.status === 400 && parameter) {
+    const unsupported = /not support|unsupported|不支持/i.test(upstreamMessage)
+    message = unsupported ? `The image parameter "${parameter}" is unsupported for this model.` : `The provider rejected the image parameter "${parameter}".`
+  }
+  const context = [`HTTP ${details.providerStatus}`, details.providerCode && `code=${details.providerCode}`, details.requestId && `request_id=${details.requestId}`].filter(Boolean).join('; ')
+  return Object.assign(new ImageError(code, `${message} (${context})`, 502), details)
+}
+
 async function request(url, key, { signal, body, maxBytes = 2 * 1024 * 1024, fetchImpl = fetch, parameterProbe = false } = {}) {
   try {
     const response = await fetchImpl(url, {
@@ -62,10 +95,11 @@ async function request(url, key, { signal, body, maxBytes = 2 * 1024 * 1024, fet
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
     if (!response.ok) {
+      let payload
+      try { payload = JSON.parse((await readBounded(response, 64 * 1024, signal)).toString('utf8')) }
+      catch { signal?.throwIfAborted() /* Preserve HTTP status for non-JSON/oversized error bodies. */ }
       if (parameterProbe && response.status === 400) {
-        const raw = await readBounded(response, 64 * 1024, signal)
-        let error
-        try { error = JSON.parse(raw.toString('utf8')).error } catch { /* fail closed below */ }
+        const error = payload?.error
         // Ark has no documented runtime Models API. A request with the required
         // prompt omitted reaches authentication/parameter validation without
         // submitting an inference job. Accept only the prompt-required error.
@@ -74,18 +108,8 @@ async function request(url, key, { signal, body, maxBytes = 2 * 1024 * 1024, fet
         if (/^(?:MissingParameter|InvalidParameter)(?:\.[A-Za-z]+)?$/.test(code ?? '')
           && (error?.param === 'prompt' || /\bprompt\b/i.test(message))
           && /required|missing|empty|not provided|not set|不能为空|必填|缺少/i.test(message)) return { probe: 'connection' }
-        throw new ImageError('PARAMETERS', 'The provider did not confirm the expected parameter check. Verify the API URL and model.', 502)
       }
-      await response.body?.cancel()
-      const errors = {
-        401: ['AUTH', 'The API key is invalid or expired.'],
-        403: ['PERMISSION', 'This API key lacks access. Enable the model and check account verification.'],
-        404: ['MODEL', 'The model or API endpoint is unavailable.'],
-        429: ['QUOTA', 'The provider quota or rate limit has been reached.'],
-        400: ['PARAMETERS', 'The provider rejected the request. Check the model and supported image parameters.'],
-      }
-      const [code, message] = errors[response.status] ?? ['PROVIDER_ERROR', 'The image provider could not complete the request.']
-      throw new ImageError(code, message, 502)
+      throw providerFailure(response, payload, key, parameterProbe)
     }
     const data = await readBounded(response, maxBytes, signal)
     try { return JSON.parse(data.toString('utf8')) } catch { throw new ImageError('RESPONSE', 'The provider returned invalid JSON.', 502) }
@@ -130,7 +154,10 @@ export function generationBody(provider, spec, args) {
     size: sizes[ratio],
     ...(provider === 'openai'
       ? { n: 1, quality: 'auto', output_format: 'png' }
-      : { response_format: 'b64_json', sequential_image_generation: 'disabled', watermark: false }),
+      // Ark defaults to single-image generation. Use its shared single-image
+      // fields for 4.5, 5.0 Pro and opaque endpoint IDs; group controls belong
+      // to a separate capability and 5.0 Pro rejects them.
+      : { response_format: 'b64_json', watermark: false }),
   }
 }
 

@@ -40,7 +40,7 @@ export function imageTool(ctx, settings) {
         await assetDirectory(root)
         writerPlan(ctx, root, exec)
         const spec = await settings.active()
-        ctx.logger.info('image-generation: generation started; provider=%s', spec.provider)
+        ctx.logger.info('image-generation: generation started; provider=%s model=%s', spec.provider, spec.model)
         const raw = await generate(spec.provider, spec, spec.key, args, { signal: exec.signal })
         const image = await normalizeImage(raw)
         // Recheck live session permissions after a potentially long provider call.
@@ -50,7 +50,7 @@ export function imageTool(ctx, settings) {
         return { ...asset, asset_id: `sha256:${asset.sha256}`, media_type: 'image/png', width: image.width, height: image.height, bytes: image.data.length, provider: spec.provider, model: spec.model }
       } catch (error) {
         const safe = safeError(error)
-        ctx.logger.info('image-generation: generation failed; code=%s', safe.code)
+        ctx.logger.info('image-generation: generation failed; code=%s http=%s provider_code=%s parameter=%s request_id=%s', safe.code, safe.providerStatus, safe.providerCode, safe.parameter, safe.requestId)
         throw safe
       }
     },
