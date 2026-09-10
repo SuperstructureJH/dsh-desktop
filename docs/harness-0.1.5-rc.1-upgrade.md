@@ -165,7 +165,46 @@ import 副作用行为。`test/harness-node-entry.test.ts` 增加回归用例，
 > **直接执行 bin.js**，绕开了 wrapper，所以才正常。钩子与此无关，真正原因就是上面这条入口
 > 契约变更。修复后该用例通过，测试套件 **751/751 全绿**。
 
-## 六、遗留问题
+## 六、connection 路由的 inject 归属（真机暴露）
+
+0.1.5 的 `ctx.connection.rpc.handle()` 会把 RPC 通道注册成一条 **webServer 路由**，
+而且注册动作发生在「读取 `connection` 的那个 Context」上：
+
+```js
+// dsh-client-connection
+get rpc() { const owner = this.ctx; return { handle: (ch, h) => this.register(owner, ch, h) } }
+register(owner, channel, handler) { ... return owner.effect(() => owner.webServer.register(route), ...) }
+```
+
+内置 PPT 插件直接 `ctx.connection.rpc.handle(...)`，那个 Context 没有 `webServer`，
+于是抛 `cannot get property "webServer" without inject`，**整棵 plugin tree 加载失败**。
+桌面端的表现是：web profile 起不来 → 插件恢复 → 安全模式 → 再重启，每次冷启动空转约 90 秒。
+
+注意：只把 `"webServer"` 加进插件的 `inject` 数组**不管用**（实测 fiber.inject 和 store 里
+都有它，仍然报同样的错），因为出问题的不是插件自己的 Context。正确写法是把注册放进
+scoped inject——这也正是同一个包里 `registerPreviewAssets` 已经在用的模式：
+
+```js
+ctx.inject(["webServer"], (webCtx) => {
+  webCtx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
+  webCtx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
+});
+```
+
+顶层 `inject` 保持不变（不把 `webServer` 列为必需），这样没有 web server 的 profile 里
+插件的工具半边照常可用，只是不注册 RPC 通道。
+
+`test/ppt-activation.test.mjs` 与 `test/ppt-validation.test.mjs` 的假 host 需要补上
+`effect` / `webServer` 两个成员，否则 scoped 回调不会执行、RPC 通道注册不上。
+
+实测：干净 DSH_HOME 下用 Desktop 的完整启动参数引导 **web profile（含 PPT）**，
+两次冷启动分别 **5s / 4s** 就绪，`without inject` 失败数为 0。
+
+> 同一个 0.1.5 严格校验也打中了第三方插件 `dsh-plugin-width-slider`（同样的
+> `webServer` 报错）。那个不是我们的代码，需要插件作者跟进，或用户先禁用它。
+
+## 七、遗留问题
+
 
 - 中间版本 `0.1.3-alpha.2` / `0.1.5-alpha.1` / `0.1.5-alpha.2` 未逐版比对，只做了两端对比。
   session 日志的磁盘格式如有迁移步骤需另行确认。

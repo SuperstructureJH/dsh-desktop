@@ -192,7 +192,13 @@
 - [ ] 冷启动能进主界面；`harness.log` 里能看到 `[harness-node] invoking DSH runCli()`
       紧接着 `dsh web: http://127.0.0.1:<port>/?token=…`
 - [ ] 日志里**不应**出现「`DSH entry loaded` 之后直接 exited (exit code 0)」
+- [ ] **一次冷启动只应有一条 `[desktop] starting`**。若出现
+      `starting → Harness entry failed → plugin recovery → 安全模式 → 再 starting`
+      的连环，说明有插件加载失败，每轮空转约 30 秒（这就是"启动超级慢"的样子）
+- [ ] 日志里没有 `cannot get property "..." without inject` /
+      `failed to apply loader entry ...`
 - [ ] 安全模式同样能起来（`profile desktop-safe-mode` 那次也要有 `dsh web:` 行）
+- [ ] 冷启动到界面可用的时间应在 **10 秒以内**（干净 DSH_HOME 实测 4–6 秒）
 
 ## 7. 第三方插件兼容（真机独有，与本次改动无关但会挡住验证）
 
@@ -202,6 +208,9 @@
       （0.1.5 的 `dsh-storage-json` 收紧了 unit 名校验）
 - [ ] `dsh-better-sidebar`：peer 校验失败导致 generation 迁移被冻结
       （`@lexical/clipboard: typescript resolves outside the generation closure`）
+- [ ] `dsh-plugin-width-slider`：`cannot get property "webServer" without inject`
+      —— 与内置 PPT 插件同一个 0.1.5 破坏性改动，但这个插件不是我们的代码，
+      需要作者跟进或先禁用
 
 建议先用一个**干净的 `$DSH_HOME`** 跑完 §1–§5，再单独回来处理这两个插件的兼容，
 否则容易把插件问题误判成补丁问题。
