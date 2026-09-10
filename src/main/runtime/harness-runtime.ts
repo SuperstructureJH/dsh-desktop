@@ -327,6 +327,12 @@ export class HarnessRuntime {
   private launchDirectory?: string
   private url?: string
   private launchToken?: string
+  /**
+   * Wall clock for the current launch. Every log line carries `+<ms>` from it,
+   * so a slow start can be attributed to a phase instead of guessed at: the
+   * file otherwise timestamps only the `starting` line.
+   */
+  private launchClock?: number
   private readonly logLines: string[] = []
   private readonly logRemainders: Record<'stdout' | 'stderr', string> = {
     stdout: '',
@@ -392,6 +398,7 @@ export class HarnessRuntime {
     const startupTimeoutMs =
       this.options.startupTimeoutMs ?? (process.platform === 'win32' ? 120_000 : 45_000)
 
+    this.launchClock = Date.now()
     this.writeLog(`\n[desktop] starting ${new Date().toISOString()}`)
     this.writeLog(`[desktop] launch directory ${launchDirectory}`)
     this.writeLog(`[desktop] profile ${profile}`)
@@ -467,7 +474,7 @@ ${cause}`
     const startedAt = Date.now()
     const progressTimer = setInterval(
       () => this.writeLog(`[desktop] waiting for Harness (${Math.round((Date.now() - startedAt) / 1000)}s)`),
-      10_000
+      5_000
     )
     const ready = await waitUntilReady(
       url,
@@ -487,6 +494,7 @@ ${cause}`
     }
 
     this.url = url
+    this.writeLog('[desktop] Harness is ready')
     this.setState('ready', 'Harness is ready.')
   }
 
@@ -532,7 +540,11 @@ ${cause}`
     for (const line of lines) {
       if (line.length === 0) continue
       this.writeLog(`[${source}] ${line}`)
+      const hadToken = this.launchToken !== undefined
       this.launchToken ??= extractLaunchToken(line)
+      if (!hadToken && this.launchToken !== undefined) {
+        this.writeLog('[desktop] Harness announced its endpoint; probing until it answers')
+      }
     }
   }
 
@@ -564,7 +576,18 @@ ${cause}`
   private writeLog(line: string): void {
     this.logLines.push(line)
     if (this.logLines.length > 200) this.logLines.splice(0, this.logLines.length - 200)
-    this.logStream?.write(`${line}\n`)
+    this.logStream?.write(`${this.stampLog(line)}\n`)
+  }
+
+  /**
+   * Prefix a log line with milliseconds since this launch began. Only the file
+   * copy is stamped: `logLines` feeds recovery detection and failure-cause
+   * extraction, which match on the line text.
+   */
+  private stampLog(line: string): string {
+    if (this.launchClock === undefined) return line
+    const stamp = `+${String(Date.now() - this.launchClock).padStart(5)}ms `
+    return line.startsWith('\n') ? `\n${stamp}${line.slice(1)}` : `${stamp}${line}`
   }
 
   private closeLog(): void {
