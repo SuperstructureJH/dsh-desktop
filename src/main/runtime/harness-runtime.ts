@@ -398,8 +398,8 @@ export class HarnessRuntime {
     const startupTimeoutMs =
       this.options.startupTimeoutMs ?? (process.platform === 'win32' ? 120_000 : 45_000)
 
-    this.launchClock = Date.now()
-    this.writeLog(`\n[desktop] starting ${new Date().toISOString()}`)
+    this.launchClock ??= Date.now()
+    this.writeLog(`[desktop] starting ${new Date().toISOString()}`)
     this.writeLog(`[desktop] launch directory ${launchDirectory}`)
     this.writeLog(`[desktop] profile ${profile}`)
     this.writeLog(`[desktop] patch ${patchPath}`)
@@ -561,6 +561,17 @@ ${cause}`
    * launch: what happens to the profile between launches is exactly what
    * someone reading the log after a failed install needs to see.
    */
+  /**
+   * Start this launch's clock before any pre-flight work runs. Profile
+   * maintenance — migration recovery, the pnpm store, generation projection,
+   * LaunchAgent audit — happens before `start()`, so a clock that began at
+   * `starting` hid all of it and made the launch look faster than it felt.
+   */
+  beginLaunch(reason: string): void {
+    this.launchClock = Date.now()
+    this.note(`\n[desktop] launch requested (${reason})`)
+  }
+
   note(line: string): void {
     if (!this.logStream) {
       try {
