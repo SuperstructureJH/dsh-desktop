@@ -3593,6 +3593,7 @@ const name = "dsh-ppt";
 /** Required host services. */
 const inject = [
 	"connection",
+	"webServer",
 	"tools",
 	"systemPrompt",
 	"skills"
@@ -3615,9 +3616,11 @@ async function apply(ctx, config) {
 		maxDecksPerSession: config.maxDecksPerSession ?? 50,
 		maxActivities: config.maxActivities ?? 200
 	}), { maxSlides: config.maxSlides ?? 40 });
-	ctx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
-	// Older loaded clients can finish their in-flight requests after upgrade.
-	ctx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
+	ctx.inject(["webServer"], (webCtx) => {
+		webCtx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
+		// Older loaded clients can finish their in-flight requests after upgrade.
+		webCtx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
+	});
 	registerPptTools(ctx, service);
 }
 //#endregion

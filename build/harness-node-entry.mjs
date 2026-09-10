@@ -59,8 +59,16 @@ if (!dshEntryPath) {
   process.stdout.write(`[harness-node] loading=${dshEntryPath}\n`)
   process.argv = [process.execPath, dshEntryPath, ...dshArguments]
   try {
-    await import(pathToFileURL(dshEntryPath).href)
+    const loaded = await import(pathToFileURL(dshEntryPath).href)
     process.stdout.write('[harness-node] DSH entry loaded\n')
+    // 0.1.5 gates the CLI on `import.meta.main`. A dynamic import is never
+    // main, so the exported runner has to be invoked from this wrapper.
+    if (typeof loaded.runCli === 'function') {
+      await loaded.runCli()
+    } else {
+      report('startup error', 'DSH entry did not export runCli')
+      process.exitCode = 1
+    }
   } catch (error) {
     report('DSH entry failed', error?.stack ?? error)
     process.exitCode = 1

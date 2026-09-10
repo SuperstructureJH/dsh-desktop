@@ -38,11 +38,20 @@ async function fixture({ broken = true, malformed = false } = {}) {
   if (malformed) await writeFile(path.join(project, files[0]), 'elements: [\n')
   const tools = new Map()
   let rpc
-  await apply({
-    inject() {}, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
+  const connection = { rpc: { handle: (_route, handler) => { rpc = handler } } }
+  const host = {
+    skills: { registerProvider() {} },
+    systemPrompt: { section() {} },
+    on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
-    connection: { rpc: { handle: (_route, handler) => { rpc = handler } } }
-  }, { root: path.join(root, 'storage') })
+    connection,
+    webServer: { register() { return () => {} } },
+    effect(register) { return register() },
+    inject(names, callback) {
+      if (Array.isArray(names) && names.includes('webServer')) return callback(host)
+    }
+  }
+  await apply(host, { root: path.join(root, 'storage') })
   const exec = { agent: { id: randomUUID(), session: { header: { cwd: workspace } } }, signal: new AbortController().signal }
   async function run(name, args) {
     const tool = tools.get(name)

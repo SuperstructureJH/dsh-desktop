@@ -34,15 +34,22 @@ async function fixture(existingRoot) {
   const plugin = ctx.plugin({
     inject: ['systemPrompt', 'skills'],
     async apply(pluginCtx) {
-      await apply({
-        inject: pluginCtx.inject.bind(pluginCtx),
+      const connection = { rpc: { handle: (_route, handler) => { rpc = handler } } }
+      const host = {
         systemPrompt: pluginCtx.systemPrompt,
         skills: pluginCtx.skills,
         on: pluginCtx.on.bind(pluginCtx),
         get: pluginCtx.get.bind(pluginCtx),
         tools: { register: (tool) => tools.push(tool) },
-        connection: { rpc: { handle: (_route, handler) => { rpc = handler } } }
-      }, { root })
+        connection,
+        webServer: { register() { return () => {} } },
+        effect(register) { return register() },
+        inject(names, callback) {
+          if (Array.isArray(names) && names.includes('webServer')) return callback(host)
+          return pluginCtx.inject.call(pluginCtx, names, callback)
+        }
+      }
+      await apply(host, { root })
     }
   })
   await plugin
