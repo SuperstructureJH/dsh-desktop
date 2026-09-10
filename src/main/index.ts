@@ -16,7 +16,7 @@ import {
   type IpcMainInvokeEvent,
   type MessageBoxOptions
 } from 'electron'
-import { extractFailureCause, HarnessRuntime } from './runtime/harness-runtime'
+import { extractFailureCause, HarnessRuntime, prewarmShellEnvironment } from './runtime/harness-runtime'
 import { launchDisclaimedUtilityProcess } from './runtime/disclaimed-utility-process'
 import {
   installProfileDependenciesWithDsh,
@@ -2854,6 +2854,10 @@ if (isDaemonLaunch(process.env, process.platform)) {
   if (!singleInstance) {
     app.quit()
   } else {
+    // Start the login-shell capture now so it overlaps Electron's own startup
+    // and the splash instead of blocking the main process right before the
+    // Harness spawn. Only the instance that will actually launch pays for it.
+    void prewarmShellEnvironment()
     app.on('second-instance', (_event, argv) => {
       if (!isUserInitiatedInstance(argv)) return
       if (shouldStartInSafeMode(argv)) {
