@@ -63,10 +63,10 @@ export async function apply(ctx) {
   // failed save cannot pair an old key with a newly persisted endpoint.
   ctx.settings.register('image-generation', Config, { applies: 'live' })
   const settings = createSettings(ctx)
-  for (const [suffix, method] of [['settings', 'GET'], ['save', 'POST']]) {
+  for (const [suffix, method] of [['settings', 'GET'], ['save', 'POST'], ['models', 'POST']]) {
     ctx.connection.fetch.register({ path: `/api/image-generation.${suffix}`, methods: [method], async fetch(request) {
       try {
-        const value = method === 'GET' ? await settings.describe() : await settings.save(
+        const value = method === 'GET' ? await settings.describe() : await settings[suffix](
           JSON.parse((await readBounded(request, 16_384, request.signal)).toString('utf8')), request.signal,
         )
         return Response.json(value, { headers: { 'Cache-Control': 'no-store' } })

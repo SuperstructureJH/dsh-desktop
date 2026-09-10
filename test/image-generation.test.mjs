@@ -19,6 +19,7 @@ import { createSettings } from '../packages/dsh-image-generation/lib/settings.js
 import { DEFAULTS, generate, generationBody, ImageError, profile, readBounded, validateConnection } from '../packages/dsh-image-generation/lib/provider.js'
 import { normalizeImage } from '../packages/dsh-image-generation/lib/assets.js'
 import { materialize } from '../packages/dsh-image-generation/lib/storage.js'
+import { writerEnvironment } from '../packages/dsh-image-generation/lib/commit.js'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); vi.restoreAllMocks() })
@@ -36,7 +37,7 @@ async function server() {
     res.writeHead(probe ? 400 : status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(probe ? { error: { code: 'MissingParameter', message: 'The request is missing a required parameter: prompt.' } } : status !== 200 ? { error: { message: 'secret-echo-key' } } : malformed ? {} : req.url.endsWith('/images/generations')
       ? { data: [{ b64_json: png.toString('base64') }] }
-      : req.url.endsWith('/models') ? { data: [{ id: DEFAULTS.bytedance.model }] } : { id: DEFAULTS.openai.model }))
+      : req.url.endsWith('/models') ? { data: [{ id: 'gpt-image-2.5-flare' }, { id: DEFAULTS.openai.model }, { id: 'gpt-image-2.5-flare' }, { id: 'gpt-5' }, { id: 'dall-e-3' }, { id: 'gpt-image-1', shutdown_date: '2020-01-01' }] } : { id: DEFAULTS.openai.model }))
   })
   await new Promise((resolve, reject) => { http.once('error', reject); http.listen(0, '127.0.0.1', resolve) })
   cleanups.push(() => { http.closeAllConnections(); return new Promise(resolve => http.close(resolve)) })
@@ -126,8 +127,30 @@ describe('image settings save and provider requests', () => {
     await expect(pending).rejects.toMatchObject({ code: 'CANCELLED' })
     expect((await f.settings.describe()).revision).toBe(0)
   })
-  it.each(['https://user:key@example.com/v1', 'http://example.com/v1', 'https://example.com/v1?key=x', 'https://example.com/v1/images/generations'])('rejects unsafe or mistaken endpoint %s', baseUrl => {
+  it.each(['https://user:key@example.com/v1', 'http://example.com/v1', 'https://example.com/v1?key=x'])('rejects unsafe endpoint %s', baseUrl => {
     expect(() => profile('openai', { baseUrl })).toThrow(ImageError)
+  })
+  it('accepts the console REST endpoint and requests generation with exactly one path suffix', async () => {
+    const s = await server()
+    const spec = profile('bytedance', { baseUrl: `${s.baseUrl}/images/generations/`, model: 'doubao-seedream-5-0-pro-260628' })
+    expect(spec.baseUrl).toBe(s.baseUrl)
+    await generate('bytedance', spec, 'test-image-key', { prompt: 'A flower' })
+    expect(s.calls[0].url).toBe('/v1/images/generations')
+  })
+  it('fetches only supported visible image models with one request and keeps stored configuration unchanged', async () => {
+    const f = await fixture(); const s = await server()
+    const before = await f.settings.describe()
+    const result = await f.settings.models(saveInput('openai', s.baseUrl))
+    expect(result).toEqual({ source: 'provider', canFetch: true, models: ['gpt-image-2.5-flare', DEFAULTS.openai.model] })
+    expect(s.calls).toHaveLength(1); expect(s.calls[0]).toMatchObject({ method: 'GET', url: '/v1/models' })
+    expect(await f.settings.describe()).toEqual(before)
+    expect(JSON.stringify(result)).not.toContain('test-image-key')
+    await f.settings.save(saveInput('openai', s.baseUrl))
+    await f.settings.models({ ...saveInput('openai', s.baseUrl, 1), apiKey: '' })
+    expect(s.calls.at(-1).auth).toBe('Bearer test-image-key')
+    await expect(f.settings.models({ ...saveInput('openai', 'https://other.example/v1', 1), apiKey: '' })).rejects.toMatchObject({ code: 'KEY_REQUIRED' })
+    await expect(f.settings.models(saveInput('bytedance', s.baseUrl, 1))).rejects.toMatchObject({ code: 'MODEL_DISCOVERY' })
+    expect(s.calls).toHaveLength(3)
   })
   it('maps provider canvas parameters independently and bounds streamed responses', async () => {
     const args = { prompt: 'A mountain', aspect_ratio: '16:9' }
@@ -140,6 +163,13 @@ describe('image settings save and provider requests', () => {
 })
 
 describe('image tool and durable Office assets', () => {
+  it('starts an Electron Host child in Node mode while keeping credentials and Node options outside the writer', () => {
+    const env = { ELECTRON_RUN_AS_NODE: '0', NODE_OPTIONS: '--require secret.js', API_KEY: 'private-key', PATH: '/host/bin' }
+    expect(writerEnvironment({ env, platform: 'darwin', versions: { electron: '43.4.0' } })).toEqual({
+      ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: undefined, API_KEY: undefined, PATH: undefined,
+    })
+    expect(writerEnvironment({ env, platform: 'darwin', versions: { node: '24.9.0' } }).ELECTRON_RUN_AS_NODE).toBeUndefined()
+  })
   it.each(['openai', 'bytedance'])('executes %s through ToolRuntime and writes a verifiable PNG', async provider => {
     const f = await fixture(); const s = await server()
     await f.settings.save(saveInput(provider, s.baseUrl))
@@ -182,7 +212,7 @@ describe('image tool and durable Office assets', () => {
     }) })
     await plugin; cleanups.push(() => plugin.dispose())
     expect(f.ctx.settings.describe().map(entry => entry.ns)).toContain('image-generation')
-    expect(routes.map(route => route.path)).toEqual(['/api/image-generation.settings', '/api/image-generation.save'])
+    expect(routes.map(route => route.path)).toEqual(['/api/image-generation.settings', '/api/image-generation.save', '/api/image-generation.models'])
     const response = await routes[0].fetch(new Request('http://localhost/api/image-generation.settings'))
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect((await response.json()).profiles.openai.configured).toBe(false)

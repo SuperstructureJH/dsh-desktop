@@ -3,6 +3,13 @@ export const DEFAULTS = Object.freeze({
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-image-1.5' },
 })
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
+// Models documented by Images API; text, legacy DALL-E and unknown adapters
+// remain outside this tool's parameter contract.
+const OPENAI_IMAGES = new Set(['gpt-image-2.5-sunburst', 'gpt-image-2.5-sunburst-2026-09-08', 'gpt-image-2.5-flare', 'gpt-image-2.5-flare-2026-09-08', 'gpt-image-2', 'gpt-image-2-2026-04-21', 'gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini'])
+export const MODEL_CATALOG = Object.freeze({
+  openai: { source: 'builtin', canFetch: true, models: [...OPENAI_IMAGES] },
+  bytedance: { source: 'builtin', canFetch: false, models: ['doubao-seedream-5-0-pro-260628', DEFAULTS.bytedance.model] },
+})
 
 export class ImageError extends Error {
   constructor(code, message, status = 400) { super(message); this.code = code; this.status = status }
@@ -23,7 +30,9 @@ export function profile(provider, input = {}) {
   if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) || url.username || url.password || url.search || url.hash) {
     throw new ImageError('ENDPOINT', 'Use an HTTPS API base URL without credentials, query parameters or fragments.')
   }
-  if (/\/images\/generations\/?$/.test(url.pathname)) throw new ImageError('ENDPOINT', 'Enter the API base URL ending in /v1 or /api/v3.')
+  // Provider consoles present the full REST endpoint; store one canonical base
+  // for validation, model discovery and generation so the suffix appears once.
+  url.pathname = url.pathname.replace(/\/images\/generations\/?$/, '')
   return { baseUrl: url.href.replace(/\/+$/, ''), model }
 }
 
@@ -81,6 +90,16 @@ async function request(url, key, { signal, body, maxBytes = 2 * 1024 * 1024, fet
     const data = await readBounded(response, maxBytes, signal)
     try { return JSON.parse(data.toString('utf8')) } catch { throw new ImageError('RESPONSE', 'The provider returned invalid JSON.', 502) }
   } catch (error) { throw safeError(error) }
+}
+
+/** Read the account's visible models without submitting image generation. */
+export async function listModels(provider, spec, key, options = {}) {
+  if (provider !== 'openai') throw new ImageError('MODEL_DISCOVERY', 'This provider requires separate management credentials for account model discovery. Choose a built-in model or enter your endpoint ID.')
+  const signal = AbortSignal.any([AbortSignal.timeout(15_000), ...(options.signal ? [options.signal] : [])])
+  const result = await request(`${spec.baseUrl}/models`, key, { ...options, signal })
+  if (!Array.isArray(result.data)) throw new ImageError('RESPONSE', 'The provider returned an invalid model list.', 502)
+  const ids = new Set(result.data.filter(model => model && typeof model.id === 'string' && (!model.shutdown_date || model.shutdown_date > new Date().toISOString().slice(0, 10))).map(model => model.id))
+  return { source: 'provider', canFetch: true, models: [...OPENAI_IMAGES].filter(id => ids.has(id)) }
 }
 
 /** One non-generating request: OpenAI model metadata or Ark required-prompt validation. */

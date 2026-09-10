@@ -6,6 +6,10 @@ DSH/Cordis 公共生图插件，提供 `image_generate` 工具、`generate-image
 
 DSH Desktop 默认装载本插件。在生图工具卡片选择字节或 OpenAI，填写该平台的 API Key 并保存。模型和地址已有默认值，可在高级设置中修改。
 
+生图模型使用下拉选择。OpenAI 的「获取模型」用当前填写或已保存的 Key 发起一次 `GET /models`，筛选 Images API 支持的 GPT Image 模型；获取过程只更新候选列表，配置在点击保存时生效。列表区分「内置模型」与「此 Key 可见模型」，空列表和查询错误明确显示。字节的管理接口使用独立签名凭据，因此 API Key 模式提供 Seedream 5.0 Pro、4.5 的内置选项和自定义模型/接入点 ID。
+
+API 地址同时接受基础地址和控制台提供的完整 `/images/generations` 地址。保存时统一为基础地址，实际请求只添加一次接口路径。
+
 | 服务商 | 默认模型 | 默认 API 地址 |
 | --- | --- | --- |
 | 字节 / 火山方舟 | `doubao-seedream-4-5-251128` | `https://ark.cn-beijing.volces.com/api/v3` |
@@ -42,15 +46,18 @@ npm pack ./packages/dsh-image-generation --pack-destination /absolute/output/dir
 
 生图通过标准工具执行和审计流程，并默认要求 Host 审批。请求前及落盘前读取当前会话的 sandboxPolicy，要求工作区写权限；输出目录和目标文件拒绝符号链接。实际写入由 `ctx.sandbox` 包装的 `ctx.subprocess` 子进程执行，使用工作区写权限；仅通过 stdin 接收图片字节，清除继承环境，Key 留在 Host。PNG 使用临时文件、原子创建和内容哈希校验，避免并发生图产生半个文件。HTTP 禁止重定向，只接受 HTTPS 地址（本机回环开发服务允许 HTTP），约束超时、响应大小和解码像素；不下载厂商返回的任意远程 URL。系统沙箱的跨平台执行能力以部署环境为准，本期本地验收环境为 macOS arm64。
 
+macOS Desktop 的 Host 运行在 Electron utility process 中；写图子进程显式设置 `ELECTRON_RUN_AS_NODE=1`，使同一可执行文件执行 Node 脚本。该启动常量与 Windows 的 SystemRoot 按需保留，凭据和 NODE_OPTIONS 继续清除。回归同时覆盖普通 Node 和真实 Electron utility process。
+
 ## 验证
 
 ```sh
 npx vitest run test/image-generation.test.mjs test/desktop-plugin-closure.test.ts
 node scripts/verify-image-generation.mjs
+node scripts/verify-image-electron.mjs
 npm run typecheck
 npm test
 ```
 
 测试使用本机模拟服务和真实 Harness 凭据存储、工具执行管线，覆盖两个厂商、单请求保存、成功/失败、修订冲突、凭据隔离、PNG 落盘、取消、体积限制和目录越界。Host smoke 启动隔离实例，验证默认装载、Client 入口、鉴权、Origin 及保存结果。真实付费模型与 Office 文档视觉验收在 `docs/STATUS.md` 单独记录。
 
-接口参考：[OpenAI Images API](https://developers.openai.com/api/reference/resources/images/methods/generate)、[OpenAI Models API](https://developers.openai.com/api/reference/resources/models/methods/retrieve)、[火山方舟生图 API](https://www.volcengine.com/docs/82379/1541523)、[火山方舟官方 Python SDK](https://github.com/volcengine/volcengine-python-sdk/tree/master/volcenginesdkarkruntime/resources/images)。
+接口参考：[OpenAI Images API](https://developers.openai.com/api/reference/resources/images/methods/generate)、[OpenAI 模型列表](https://developers.openai.com/api/reference/resources/models/methods/list)、[火山方舟生图 API](https://www.volcengine.com/docs/82379/1541523)、[火山方舟官方运行时 SDK](https://github.com/volcengine/volcengine-python-sdk/tree/master/volcenginesdkarkruntime/resources/images)、[火山管理接口及签名鉴权](https://github.com/volcengine/volcengine-python-sdk/blob/master/volcenginesdkark/api/ark_api.py)。
