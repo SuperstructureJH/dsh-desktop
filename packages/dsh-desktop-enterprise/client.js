@@ -153,7 +153,7 @@ window.__ModuleLoader__.load({
             h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => { setState(await api('/api/enterprise.logout', {})); setBase('') }) }, copy.logout)))
         : h(React.Fragment, null,
           h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, copy.platform,
-            h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'https://bisheng.example.com', value: base, onChange: (event) => setBase(event.target.value) }),
+            h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'http://bisheng.example.com', value: base, onChange: (event) => setBase(event.target.value) }),
             h('span', { className: 'dshEnterpriseHint' }, copy.platformHint)),
           state?.secureStorageAvailable === false
             ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)

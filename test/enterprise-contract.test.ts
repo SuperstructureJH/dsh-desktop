@@ -71,12 +71,12 @@ async function issueSession(origin: string) {
   }
 }
 
-describe('BiSheng client API 0.1.0 mock', () => {
+describe('BiSheng client API 0.4.0 mock', () => {
   it('runs config, PKCE login, models, usage, model streaming, refresh, and logout', async () => {
     service = createMockEnterpriseServer({ port: 0 })
     const origin = await service.listen()
     const config = parseConfig(await (await fetch(`${origin}${API_PATHS.config}`)).json())
-    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.1.0' })
+    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.4.0' })
 
     const issued = await issueSession(origin)
     const session = parseToken(issued.raw, origin, 0)
@@ -98,6 +98,8 @@ describe('BiSheng client API 0.1.0 mock', () => {
     expect(models.map((model) => model.id)).toEqual(['bisheng:42'])
     const usage = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}`, { headers })).json())
     expect(usage).toMatchObject({ source: 'live', quota_state: 'available', limit: 100000 })
+    const modelUsageBefore = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}?model=bisheng%3A42`, { headers })).json())
+    expect(modelUsageBefore).toMatchObject({ source: 'live', quota_state: 'available', limit: 100000 })
 
     const chat = await postJson(`${origin}${API_PATHS.chat}`, {
       model: 'bisheng:42', messages: [{ role: 'user', content: 'hello' }],
@@ -108,6 +110,11 @@ describe('BiSheng client API 0.1.0 mock', () => {
     expect(stream).toContain('Mock 联调成功')
     expect(stream).toContain('"usage"')
     expect(stream).toContain('data: [DONE]')
+    const modelUsageAfter = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}?model=bisheng%3A42`, { headers })).json())
+    if (typeof modelUsageBefore.used !== 'number' || typeof modelUsageAfter.used !== 'number') {
+      throw new Error('Mock model usage should be live numeric usage.')
+    }
+    expect(modelUsageAfter.used).toBeGreaterThan(modelUsageBefore.used)
 
     const refreshedResponse = await postJson(`${origin}${API_PATHS.token}`, {
       grant_type: 'refresh_token', refresh_token: issued.raw.refresh_token
@@ -157,5 +164,27 @@ describe('BiSheng client API 0.1.0 mock', () => {
       extra: true
     })
     expect(response.status).toBe(400)
+  })
+
+  it('accepts unavailable usage with null counters and observation time', () => {
+    expect(parseUsage({
+      month: '2026-09',
+      billing_timezone: 'Asia/Shanghai',
+      period_start: '2026-08-31T16:00:00Z',
+      reset_at: '2026-09-30T16:00:00Z',
+      used: null,
+      limit: 1000,
+      remaining: null,
+      source: 'unavailable',
+      as_of: null,
+      quota_state: 'unavailable'
+    })).toMatchObject({
+      used: null,
+      limit: 1000,
+      remaining: null,
+      source: 'unavailable',
+      as_of: null,
+      quota_state: 'unavailable'
+    })
   })
 })

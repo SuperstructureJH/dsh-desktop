@@ -57,6 +57,48 @@ describe('BiSheng OpenAI adapter', () => {
     expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
   })
 
+  it('finishes normally when a successful SSE response has no authoritative usage block', async () => {
+    const stream = [
+      'data: {"choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+      'data: [DONE]\n\n'
+    ].join('')
+    const adapter = new EnterpriseLlmAdapter({
+      providerName: () => 'BiSheng',
+      models: () => [model],
+      request: async () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    })
+    const chunks = []
+    for await (const chunk of adapter.stream({
+      provider: 'bisheng-enterprise', model: model.id,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]
+    })) chunks.push(chunk)
+    expect(chunks).not.toContainEqual(expect.objectContaining({ type: 'usage' }))
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
+  it('treats null usage fields as unavailable usage, not as a stream failure', async () => {
+    const stream = [
+      'data: {"choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":null,"completion_tokens":null,"total_tokens":null}}\n\n',
+      'data: [DONE]\n\n'
+    ].join('')
+    const adapter = new EnterpriseLlmAdapter({
+      providerName: () => 'BiSheng',
+      models: () => [model],
+      request: async () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    })
+    const chunks = []
+    for await (const chunk of adapter.stream({
+      provider: 'bisheng-enterprise', model: model.id,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]
+    })) chunks.push(chunk)
+    expect(chunks).not.toContainEqual(expect.objectContaining({ type: 'usage' }))
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
+
   it('keeps partial text and terminates on an SSE error without retrying', async () => {
     let requests = 0
     const stream = [

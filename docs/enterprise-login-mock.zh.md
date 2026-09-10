@@ -1,6 +1,6 @@
 # DSH Desktop × BiSheng 本地联调
 
-本地 Mock 实现 `client-api.md` 的 0.1.0 客户端合同，用于验证 DSH 侧的 PKCE 登录、双 Token 轮换、模型列表、SSE 调用、用量与退出。它不代表 BiSheng/Gateway 后端已经部署，也不计入真实联调验收。
+本地 Mock 实现 `client-api.md` 的 0.4.0 客户端合同，用于验证 DSH 侧的 PKCE 登录、双 Token 轮换、模型列表、SSE 调用、逐模型用量与退出。它不代表 BiSheng/Gateway 后端已经部署，也不计入真实联调验收。
 
 ## 启动
 
