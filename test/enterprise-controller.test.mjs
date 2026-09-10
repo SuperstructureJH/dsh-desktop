@@ -108,8 +108,13 @@ describe('enterprise controller', () => {
       user: { id: 'user-alice' },
       tenant: { id: 'tenant-demo' },
       modelsAvailable: true,
-      models: [{ id: 'bisheng:42' }],
-      usage: { source: 'live', quota_state: 'available', used: 128 },
+      models: [
+        { id: 'bisheng:42' },
+        { id: 'openai:gpt-4.1' },
+        { id: 'anthropic:claude-sonnet-4-5' },
+        { id: 'moonshot:kimi-k2' }
+      ],
+      usage: { source: 'live', quota_state: 'available', used: 15248 },
       modelUsage: { 'bisheng:42': { source: 'live', quota_state: 'available', used: 128 } }
     })
     expect(registered).toBe(true)
@@ -128,7 +133,7 @@ describe('enterprise controller', () => {
     }))
     expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
     await expect.poll(() => controller.state().modelUsage['bisheng:42']?.used).toBeGreaterThan(128)
-    expect(controller.state().usage.used).toBe(128)
+    expect(controller.state().usage.used).toBe(15248)
 
     const loggedOut = await controller.logout()
     expect(loggedOut).toMatchObject({ connected: false, revokeConfirmed: true })
