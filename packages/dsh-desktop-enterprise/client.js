@@ -14,8 +14,7 @@ window.__ModuleLoader__.load({
       login: '在浏览器中登录', loggingIn: '等待浏览器授权…',
       refresh: '刷新', logout: '退出登录', models: '可用模型', noModels: '当前账号没有可用模型。',
       modelsUnavailable: '模型权限读取失败，企业模型已暂停。', usageUnavailable: '用量暂不可用',
-      manualTitle: '粘贴一次性授权码', manualHint: '仅用于当前浏览器登录未能回传的情况。',
-      ticket: '一次性授权码', submitTicket: '完成登录', secureUnavailable: '系统安全存储不可用，企业登录已停用。',
+      secureUnavailable: '系统安全存储不可用，企业登录已停用。',
       confirmTitle: '确认毕昇平台', confirmLead: '确认后会停用当前企业模型连接，并在该平台新建一次 PKCE 登录。',
       confirm: '确认并登录', cancel: '取消', requestId: '请求 ID'
     } : {
@@ -23,8 +22,7 @@ window.__ModuleLoader__.load({
       login: 'Sign in in browser', loggingIn: 'Waiting for browser authorization…',
       refresh: 'Refresh', logout: 'Sign out', models: 'Available models', noModels: 'No models are assigned to this account.',
       modelsUnavailable: 'Model access could not be verified. Enterprise models are paused.', usageUnavailable: 'Usage unavailable',
-      manualTitle: 'Paste one-time ticket', manualHint: 'Use only when the active browser login could not return to Desktop.',
-      ticket: 'One-time ticket', submitTicket: 'Complete sign-in', secureUnavailable: 'Operating-system secure storage is unavailable. Enterprise sign-in is disabled.',
+      secureUnavailable: 'Operating-system secure storage is unavailable. Enterprise sign-in is disabled.',
       confirmTitle: 'Confirm BiSheng platform', confirmLead: 'Continuing pauses the current enterprise connection and starts a new PKCE login at this platform.',
       confirm: 'Confirm and sign in', cancel: 'Cancel', requestId: 'Request ID'
     }
@@ -37,15 +35,13 @@ window.__ModuleLoader__.load({
         .dshEnterprise{max-width:780px;color:var(--ds-text-primary,#202124)}
         .dshEnterprise h2{margin:0 0 8px;font-size:22px}.dshEnterprise h3{margin:0 0 8px;font-size:15px}
         .dshEnterpriseHint{color:var(--ds-text-secondary,#6d7178);line-height:1.55}
-        .dshEnterpriseCard{margin-top:18px;padding:18px;border:1px solid var(--ds-border,#dfe1e5);border-radius:14px;background:var(--ds-bg-elevated,#fff)}
-        .dshEnterpriseStack{display:grid;gap:10px}
         .dshEnterpriseLabel{display:grid;gap:7px;font-size:13px;font-weight:650}.dshEnterpriseInput{box-sizing:border-box;width:100%;height:38px;padding:0 11px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:transparent;font:inherit}
-        .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled,.dshEnterpriseIconButton:disabled{opacity:.5;cursor:default}
+        .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.login{border-color:var(--ds-border,#ccd0d5);color:var(--ds-text-primary,#202124);background:transparent}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled,.dshEnterpriseIconButton:disabled{opacity:.5;cursor:default}
         .dshEnterpriseIdentity{display:flex;align-items:center;gap:8px;min-height:22px;font-size:13px;font-weight:650}.dshEnterpriseDot{width:8px;height:8px;border-radius:50%;background:#17a673;box-shadow:0 0 0 0 #17a67355;animation:dshEnterprisePulse 2.4s ease-in-out infinite}@keyframes dshEnterprisePulse{0%,100%{box-shadow:0 0 0 0 #17a67355}50%{box-shadow:0 0 0 5px #17a67300}}
         .dshEnterpriseSectionHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}.dshEnterpriseSectionHeader h3{margin:0}.dshEnterpriseIconButton{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;padding:0;border:1px solid var(--ds-border,#ccd0d5);border-radius:8px;color:var(--ds-text-secondary,#6d7178);background:transparent;cursor:pointer;font:18px/1 system-ui}.dshEnterpriseIconButton:hover{color:inherit;background:var(--ds-bg-secondary,#f0f2f5)}
         .dshEnterpriseModels{display:grid;gap:7px;margin:8px 0 0;padding:0;list-style:none}.dshEnterpriseModels li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-radius:9px;background:var(--ds-bg-secondary,#f0f2f5);font-size:12px}.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178);white-space:nowrap}.dshEnterpriseModelUsagePercent{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsageValue{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsagePercent{display:inline}.dshEnterpriseModels.paused{opacity:.5}
         .dshEnterpriseError{margin-top:12px;padding:10px 12px;border-radius:9px;color:#b42318;background:#fef3f2;font-size:13px;line-height:1.45}.dshEnterpriseConfirm{margin-top:18px;padding:18px;border:1px solid #8fb2ff;border-radius:14px;background:#edf4ff}.dshEnterpriseConfirm strong{display:block;margin:12px 0 4px;overflow-wrap:anywhere}
-        @media(prefers-reduced-motion:reduce){.dshEnterpriseDot{animation:none}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseCard{background:#25262a;border-color:#45474f}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseIconButton{border-color:#50535c;color:#c7c9ce}body[data-ds-dark-theme] .dshEnterpriseIconButton:hover,body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
+        @media(prefers-reduced-motion:reduce){.dshEnterpriseDot{animation:none}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseIconButton{border-color:#50535c;color:#c7c9ce}body[data-ds-dark-theme] .dshEnterpriseIconButton:hover,body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
       document.head.appendChild(style)
     }
 
@@ -93,7 +89,6 @@ window.__ModuleLoader__.load({
     function EnterpriseSection() {
       const [state, setState] = useState(null)
       const [base, setBase] = useState(readLastBase)
-      const [ticket, setTicket] = useState('')
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
       const [confirmation, setConfirmation] = useState(null)
@@ -152,7 +147,6 @@ window.__ModuleLoader__.load({
 
       const connected = state?.connected === true
       const models = Array.isArray(state?.models) ? state.models : []
-      const canPaste = state?.phase === 'authorizing' && state?.loginExpiresAt
 
       const status = connected ? h('div', { className: 'dshEnterpriseIdentity' },
         h('span', { className: 'dshEnterpriseDot', 'aria-hidden': 'true' }),
@@ -191,22 +185,12 @@ window.__ModuleLoader__.load({
           state?.secureStorageAvailable === false
             ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)
             : h('div', { className: 'dshEnterpriseActions' },
-              h('button', { className: 'dshEnterpriseButton', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
+              h('button', { className: 'dshEnterpriseButton login', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
 
       const failure = error || state?.error
       const errorPanel = failure
         ? h('p', { className: 'dshEnterpriseError', role: 'alert' }, failure,
           state?.requestId ? h('span', null, ` · ${copy.requestId}: ${state.requestId}`) : null)
-        : null
-
-      const manualPanel = canPaste
-        ? h('div', { className: 'dshEnterpriseCard' },
-          h('h3', null, copy.manualTitle),
-          h('p', { className: 'dshEnterpriseHint' }, copy.manualHint),
-          h('label', { className: 'dshEnterpriseLabel' }, copy.ticket,
-            h('input', { className: 'dshEnterpriseInput', type: 'text', autoComplete: 'one-time-code', value: ticket, onChange: (event) => setTicket(event.target.value) })),
-          h('div', { className: 'dshEnterpriseActions' },
-            h('button', { className: 'dshEnterpriseButton', disabled: busy || !ticket.trim(), onClick: () => run(async () => { setState(await api('/api/enterprise.login.manual', { identityTicket: ticket.trim() })); setTicket('') }) }, copy.submitTicket)))
         : null
 
       const confirmationPanel = confirmation
@@ -224,7 +208,6 @@ window.__ModuleLoader__.load({
         status,
         accountContent,
         errorPanel,
-        manualPanel,
         confirmationPanel)
     }
 
