@@ -1,5 +1,12 @@
 # Implementation and verification status
 
+## Expanded Seedream presets — 2026-09-10
+
+- **Implemented:** the built-in catalog includes `doubao-seedream-5-0-pro-260628`, `doubao-seedream-5-0-260128`, `doubao-seedream-5-0-lite-260128`, `doubao-seedream-4-5-251128` and `doubao-seedream-4-0-250828`, with custom model/endpoint entry retained. The existing saved model and default remain in place.
+- **Source verified:** the [official Ark image model list](https://docs.volcengine.com/docs/82379/1330310), updated September 9, explicitly lists both 5.0 and 5.0 Lite IDs. The [Images API](https://docs.volcengine.com/docs/82379/1541523) supports their shared single-image/Base64 contract; the existing five canvas ratios meet each documented model's pixel limits. Presets represent supported model IDs, while account access is established by the provider.
+- **PASS:** 39 image tests plus 2 dependency-closure checks, TypeScript and production build. Each preset and a custom endpoint cover all five aspect ratios against independent provider-documented canvas ranges. These checks use loopback services.
+- **PASS:** r6 macOS arm64 development DMG/ZIP, strict deep signature, packaged Host configuration/model/history-preview smoke, and source/tarball/app/ZIP parity (14 source/tarball files; 13 Desktop files). The actual packaged Harness client displays all five presets plus custom entry, preserves the original selection, saves each newly added ID and retains the selection after reopening. Artifacts and source evidence: `outputs/image-generation-plugin-20260910-r6`. Real-provider requests were not run in this revision.
+
 ## Shared image-setting dropdowns — 2026-09-10
 
 - **Implemented:** provider and image-model fields use the Harness `Menu` component, with theme-aware surfaces, selected checks, viewport placement and scrolling. The controls retain their existing dimensions and support arrow keys, Home/End, Enter and Escape with focus restoration. Save and model discovery use the existing configuration contract.

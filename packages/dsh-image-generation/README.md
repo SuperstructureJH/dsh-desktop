@@ -4,9 +4,21 @@ DSH/Cordis 公共生图插件，提供 `image_generate` 工具、`generate-image
 
 ## 使用
 
-DSH Desktop 默认装载本插件。在生图工具卡片选择字节或 OpenAI，填写该平台的 API Key 并保存。模型和地址已有默认值，可在高级设置中修改。
+DSH Desktop 默认装载本插件。在生图工具卡片选择 Seedream 或 OpenAI，填写该平台的 API Key 并保存。生图模型支持预设选择或自定义输入，API 地址可在高级设置中修改。
 
-生图模型使用下拉选择。OpenAI 的「获取模型」用当前填写或已保存的 Key 发起一次 `GET /models`，筛选 Images API 支持的 GPT Image 模型；获取过程只更新候选列表，配置在点击保存时生效。查询来源保留在接口中，界面显示候选模型、空列表和查询错误。字节的管理接口使用独立签名凭据，因此 API Key 模式提供 Seedream 5.0 Pro、4.5 的内置选项和自定义模型/接入点 ID。
+生图模型使用下拉选择。OpenAI 的「获取模型」用当前填写或已保存的 Key 发起一次 `GET /models`，筛选 Images API 支持的 GPT Image 模型；获取过程只更新候选列表，配置在点击保存时生效。查询来源保留在接口中，界面显示候选模型、空列表和查询错误。字节的管理接口使用独立签名凭据，因此 API Key 模式提供内置选项和自定义模型/接入点 ID。
+
+Seedream 预设按 [火山方舟模型列表](https://docs.volcengine.com/docs/82379/1330310) 的图片生成能力核对（2026-09-10）：
+
+| 模型 | 模型 ID |
+| --- | --- |
+| Seedream 5.0 Pro | `doubao-seedream-5-0-pro-260628` |
+| Seedream 5.0 | `doubao-seedream-5-0-260128` |
+| Seedream 5.0 Lite | `doubao-seedream-5-0-lite-260128` |
+| Seedream 4.5 | `doubao-seedream-4-5-251128` |
+| Seedream 4.0 | `doubao-seedream-4-0-250828` |
+
+官方目录明确同时支持 5.0 和 5.0 Lite 两个 ID。预设表示插件支持的型号，实际可用性取决于账户开通情况；自定义入口用于填写其他模型或接入点 ID。
 
 API 地址同时接受基础地址和控制台提供的完整 `/images/generations` 地址。保存时统一为基础地址，实际请求只添加一次接口路径。
 
