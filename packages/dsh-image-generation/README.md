@@ -26,6 +26,10 @@ API 地址同时接受基础地址和控制台提供的完整 `/images/generatio
 
 本期支持文生图，每次生成一张图片。OpenAI 的 16:9 / 4:3 请求使用 1536×1024 画布，竖图使用 1024×1536；文档按实际返回尺寸等比放置或裁剪。字节按目标比例选择支持的画布。编辑图、参考图、批量生图和本地模型留待后续版本。
 
+字节请求采用 Seedream 4.5 / 5.0 Pro 共用的单图字段，由服务端默认单图模式执行。自定义接入点 ID 也使用这一契约。组图控制属于独立能力，5.0 Pro 的单图请求省略 `sequential_image_generation` 及其 options。模型能力和画布范围参考 [BytePlus 官方 Seedream 能力表](https://docs.byteplus.com/api/docs/ModelArk/1824121)。
+
+生图失败时，工具和 Host 日志保留 HTTP 状态、服务商错误码、参数名及请求编号。错误响应最多读取 64 KB，仅提取受限格式的诊断字段；服务商原始错误文本可能回显 Key 或提示词，因此留在 Host 处理。模型根据具体原因反馈，参数错误交由插件修正。
+
 ## 独立分发
 
 该目录是可公开分发的 MIT npm 包，包含 Host、Client、Skill 和 `dsh.bundle.patch`。本 PR 提供源码与 tarball；npm registry 发布为单独操作。

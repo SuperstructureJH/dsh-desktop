@@ -1,5 +1,15 @@
 # Implementation and verification status
 
+## Seedream 5.0 Pro request compatibility — 2026-09-10
+
+- **Observed:** the user's running r2 application matches commit `a325b41`; its selected provider is ByteDance, model `doubao-seedream-5-0-pro-260628`, with the canonical Ark base URL. The screenshot reports a provider rejection. The previous error handler discarded the provider response, so the exact live rejection details are unavailable.
+- **Corrected:** single-image requests use the shared Seedream fields and default single-image mode. The prior unconditional `sequential_image_generation: disabled` group parameter is removed, including for opaque endpoint IDs. Model capability reference: [official Seedream table](https://docs.byteplus.com/api/docs/ModelArk/1824121).
+- **Corrected:** bounded provider error parsing retains HTTP status, error code, recognized parameter and request ID in tool errors and Host logs. Free-form upstream text and credential echoes remain private. Skill guidance uses these diagnostics to distinguish adapter, input and account failures.
+- **PASS:** regression against the former code reproduces 3 contract failures and 8 diagnostic failures. Corrected focused suite passes 32 image tests plus 2 closure tests. Cases cover 5 canvas ratios across 5.0 Pro, 4.5 and an opaque endpoint, ToolRuntime error delivery, credential/prompt echo exclusion, HTTP classification and malformed/oversized errors. These are loopback contract simulations.
+- **PASS:** 90 files / 782 tests, TypeScript and production build. The r2 packaged plugin reproduces the same generic provider rejection inside a real Electron utility Host when the loopback provider applies the 5.0 Pro contract.
+- **PASS:** r3 macOS arm64 DMG/ZIP build using local Electron 43.4.0, strict deep signature, final packaged Host authentication/save/model-query smoke and final packaged plugin in an actual Electron utility Host. Both OpenAI and the 5.0 Pro single-image contract complete governed PNG writes against loopback services. Artifacts and provenance: `outputs/image-generation-plugin-20260910-r3`.
+- **Pending:** real-provider acceptance. Automatic approval review blocked a live image request using the saved Key because that request may incur provider charges; it was not executed. The exact production rejection and successful real generation remain unverified.
+
 ## Image generation acceptance corrections — 2026-09-10
 
 - **Fixed and reproduced:** the original package throws `The image writer returned an invalid result` under its actual Electron Helper. Clearing the environment removed Node launch mode, so the child exited successfully without running the writer. The writer now declares `ELECTRON_RUN_AS_NODE=1` for Electron Hosts while continuing to clear credentials and NODE_OPTIONS. The old package reproduces the exact error; corrected source passes with the same Helper and in a real Electron 43.4.0 utility process, for both simulated providers.
