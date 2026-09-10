@@ -40,11 +40,12 @@ window.__ModuleLoader__.load({
         .dshEnterpriseCard{margin-top:18px;padding:18px;border:1px solid var(--ds-border,#dfe1e5);border-radius:14px;background:var(--ds-bg-elevated,#fff)}
         .dshEnterpriseStack{display:grid;gap:10px}
         .dshEnterpriseLabel{display:grid;gap:7px;font-size:13px;font-weight:650}.dshEnterpriseInput{box-sizing:border-box;width:100%;height:38px;padding:0 11px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:transparent;font:inherit}
-        .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled{opacity:.5;cursor:default}
+        .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled,.dshEnterpriseIconButton:disabled{opacity:.5;cursor:default}
         .dshEnterpriseIdentity{display:flex;align-items:center;gap:8px;min-height:22px;font-size:13px;font-weight:650}.dshEnterpriseDot{width:8px;height:8px;border-radius:50%;background:#17a673;box-shadow:0 0 0 0 #17a67355;animation:dshEnterprisePulse 2.4s ease-in-out infinite}@keyframes dshEnterprisePulse{0%,100%{box-shadow:0 0 0 0 #17a67355}50%{box-shadow:0 0 0 5px #17a67300}}
-        .dshEnterpriseModels{display:grid;gap:7px;margin:10px 0 0;padding:0;list-style:none}.dshEnterpriseModels li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-radius:9px;background:var(--ds-bg-secondary,#f0f2f5);font-size:12px}.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178);white-space:nowrap}.dshEnterpriseModels.paused{opacity:.5}
+        .dshEnterpriseSectionHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}.dshEnterpriseSectionHeader h3{margin:0}.dshEnterpriseIconButton{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;padding:0;border:1px solid var(--ds-border,#ccd0d5);border-radius:8px;color:var(--ds-text-secondary,#6d7178);background:transparent;cursor:pointer;font:18px/1 system-ui}.dshEnterpriseIconButton:hover{color:inherit;background:var(--ds-bg-secondary,#f0f2f5)}
+        .dshEnterpriseModels{display:grid;gap:7px;margin:8px 0 0;padding:0;list-style:none}.dshEnterpriseModels li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-radius:9px;background:var(--ds-bg-secondary,#f0f2f5);font-size:12px}.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178);white-space:nowrap}.dshEnterpriseModelUsagePercent{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsageValue{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsagePercent{display:inline}.dshEnterpriseModels.paused{opacity:.5}
         .dshEnterpriseError{margin-top:12px;padding:10px 12px;border-radius:9px;color:#b42318;background:#fef3f2;font-size:13px;line-height:1.45}.dshEnterpriseConfirm{margin-top:18px;padding:18px;border:1px solid #8fb2ff;border-radius:14px;background:#edf4ff}.dshEnterpriseConfirm strong{display:block;margin:12px 0 4px;overflow-wrap:anywhere}
-        @media(prefers-reduced-motion:reduce){.dshEnterpriseDot{animation:none}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseCard{background:#25262a;border-color:#45474f}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
+        @media(prefers-reduced-motion:reduce){.dshEnterpriseDot{animation:none}}body[data-ds-dark-theme] .dshEnterprise{color:#f2f3f5}body[data-ds-dark-theme] .dshEnterpriseCard{background:#25262a;border-color:#45474f}body[data-ds-dark-theme] .dshEnterpriseInput,body[data-ds-dark-theme] .dshEnterpriseButton{color:#f2f3f5;background:#1f2024;border-color:#50535c}body[data-ds-dark-theme] .dshEnterpriseIconButton{border-color:#50535c;color:#c7c9ce}body[data-ds-dark-theme] .dshEnterpriseIconButton:hover,body[data-ds-dark-theme] .dshEnterpriseModels li{background:#35373d}body[data-ds-dark-theme] .dshEnterpriseError{color:#ffb4ab;background:#421b1b}body[data-ds-dark-theme] .dshEnterpriseConfirm{background:#17294a;border-color:#4779d8}`
       document.head.appendChild(style)
     }
 
@@ -82,12 +83,11 @@ window.__ModuleLoader__.load({
       } catch {}
     }
 
-    function modelUsageText(usage) {
-      const value = usageText(usage)
-      if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) return value
+    function modelUsagePercentage(usage) {
+      if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) return usageText(usage)
       const percentage = Math.max(0, usage.used / usage.limit * 100)
       const formatted = new Intl.NumberFormat(zh ? 'zh-CN' : 'en-US', { maximumFractionDigits: 1 }).format(percentage)
-      return `${value} · ${formatted}%`
+      return `${formatted}%`
     }
 
     function EnterpriseSection() {
@@ -160,19 +160,34 @@ window.__ModuleLoader__.load({
 
       const accountContent = connected
         ? h(React.Fragment, null,
-          h('h3', { style: { marginTop: 18 } }, copy.models),
+          h('div', { className: 'dshEnterpriseSectionHeader' },
+            h('h3', null, copy.models),
+            h('button', {
+              className: 'dshEnterpriseIconButton',
+              type: 'button',
+              title: copy.refresh,
+              'aria-label': copy.refresh,
+              disabled: busy,
+              onClick: () => run(async () => setState(await api('/api/enterprise.refresh', {})))
+            }, h('span', { 'aria-hidden': 'true' }, '↻'))),
           models.length
             ? h('ul', { className: `dshEnterpriseModels${state.modelsAvailable ? '' : ' paused'}` },
-              ...models.map((model) => h('li', { key: model.id },
-                h('span', null, model.display_name),
-                h('span', { className: 'dshEnterpriseModelUsage' }, modelUsageText(state.modelUsage?.[model.id])))))
+              ...models.map((model) => {
+                const usage = state.modelUsage?.[model.id]
+                const value = usageText(usage)
+                const percentage = modelUsagePercentage(usage)
+                return h('li', { key: model.id, title: `${value} · ${percentage}` },
+                  h('span', null, model.display_name),
+                  h('span', { className: 'dshEnterpriseModelUsage' },
+                    h('span', { className: 'dshEnterpriseModelUsageValue' }, value),
+                    h('span', { className: 'dshEnterpriseModelUsagePercent', 'aria-hidden': 'true' }, percentage)))
+              }))
             : h('p', { className: 'dshEnterpriseHint' }, copy.noModels),
           h('div', { className: 'dshEnterpriseActions' },
-            h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.refresh', {}))) }, copy.refresh),
             h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.logout', {}))) }, copy.logout)))
-          : h(React.Fragment, null,
-            h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, copy.platform,
-              h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'https://bisheng.example.com', value: base, onChange: (event) => { setBase(event.target.value); rememberBase(event.target.value) } })),
+        : h(React.Fragment, null,
+          h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, copy.platform,
+            h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'https://bisheng.example.com', value: base, onChange: (event) => { setBase(event.target.value); rememberBase(event.target.value) } })),
           state?.secureStorageAvailable === false
             ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)
             : h('div', { className: 'dshEnterpriseActions' },
