@@ -7,9 +7,10 @@ import { createSettings } from './lib/settings.js'
 import { generate, readBounded, safeError } from './lib/provider.js'
 import { assetDirectory, normalizeImage, workspaceFor } from './lib/assets.js'
 import { commitImage, writerPlan } from './lib/commit.js'
+import { previewImage } from './lib/preview.js'
 
 export const name = 'dsh-image-generation'
-export const inject = ['settings', 'credentials', 'connection', 'tools', 'skills', 'systemPrompt', 'sandboxPolicy', 'sandbox', 'subprocess']
+export const inject = ['settings', 'credentials', 'connection', 'tools', 'skills', 'systemPrompt', 'sandboxPolicy', 'sandbox', 'subprocess', 'sessionController']
 export const Config = z.object({})
 
 export function imageTool(ctx, settings) {
@@ -77,9 +78,7 @@ export async function apply(ctx) {
     } })
   }
   ctx.tools.register(imageTool(ctx, settings))
-  ctx.on('tools/pre-execute', (exec, next) => exec.name === 'image_generate'
-    ? Promise.resolve({ kind: 'ask', reason: 'Generate an image with the configured provider and save it in this workspace. Provider usage may be billed.' })
-    : next())
+  ctx.connection.fetch.register({ path: '/api/image-generation.preview', methods: ['GET'], fetch: request => previewImage(ctx, request) })
   const locator = new URL('./skills/generate-image/SKILL.md', import.meta.url)
   const candidate = {
     name: 'generate-image', description: 'Create reusable photos, illustrations and backgrounds for presentations, documents and other image requests with the configured image_generate tool.',

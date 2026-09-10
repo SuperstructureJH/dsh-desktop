@@ -9,10 +9,12 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { imagePreviewFixture } from './image-preview-fixture.mjs'
 import { DEFAULTS } from '../packages/dsh-image-generation/lib/provider.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const home = await mkdtemp(path.join(tmpdir(), 'dsh-image-host-'))
+const preview = await imagePreviewFixture(home)
 const calls = []
 const mock = createServer(async (request, response) => {
   let body = ''; for await (const chunk of request) body += chunk
@@ -63,6 +65,11 @@ try {
     method: body ? 'POST' : 'GET', headers: { Cookie: cookie, ...(body ? { 'Content-Type': 'application/json' } : {}), ...extra },
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
+  const previewPath = `preview?session=${preview.sessionId}&asset=${preview.image.sha256}`
+  assert.equal((await fetch(`${base}/api/image-generation.${previewPath}`)).status, 401)
+  const imageResponse = await api(previewPath)
+  assert.equal(imageResponse.status, 200)
+  assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()), preview.png)
   const initialResponse = await api('settings')
   assert.equal(initialResponse.status, 200)
   assert.equal(initialResponse.headers.get('cache-control'), 'no-store')
@@ -91,10 +98,10 @@ try {
   const page = await (await fetch(base, { headers: { Cookie: cookie } })).text()
   assert.ok(page.includes('dsh-image-generation'), 'Image client entry must be present in the composed page')
   assert.ok(!/image-generation.*(?:failed|Error)/i.test(output), 'Image plugin must load successfully')
-  console.log('PASS: Host composition, authentication, origin checks, redacted settings, save success/failure, single-request validation and read-only model discovery.')
+  console.log('PASS: Host composition, authentication, origin checks, redacted settings, save success/failure, single-request validation read-only model discovery and authenticated historical PNG preview.')
   if (process.argv.includes('--keep')) {
     await writeFile(path.join(home, 'browser-url.txt'), url, { mode: 0o600 })
-    await writeFile(path.join(home, 'smoke-context.json'), JSON.stringify({ base, mockBase }), { mode: 0o600 })
+    await writeFile(path.join(home, 'smoke-context.json'), JSON.stringify({ base, mockBase, sessionId: preview.sessionId }), { mode: 0o600 })
     console.log(`Browser fixture ready: ${home}`)
     await new Promise(() => {})
   }

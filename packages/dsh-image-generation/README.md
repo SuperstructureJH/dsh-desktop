@@ -6,7 +6,7 @@ DSH/Cordis 公共生图插件，提供 `image_generate` 工具、`generate-image
 
 DSH Desktop 默认装载本插件。在生图工具卡片选择字节或 OpenAI，填写该平台的 API Key 并保存。模型和地址已有默认值，可在高级设置中修改。
 
-生图模型使用下拉选择。OpenAI 的「获取模型」用当前填写或已保存的 Key 发起一次 `GET /models`，筛选 Images API 支持的 GPT Image 模型；获取过程只更新候选列表，配置在点击保存时生效。列表区分「内置模型」与「此 Key 可见模型」，空列表和查询错误明确显示。字节的管理接口使用独立签名凭据，因此 API Key 模式提供 Seedream 5.0 Pro、4.5 的内置选项和自定义模型/接入点 ID。
+生图模型使用下拉选择。OpenAI 的「获取模型」用当前填写或已保存的 Key 发起一次 `GET /models`，筛选 Images API 支持的 GPT Image 模型；获取过程只更新候选列表，配置在点击保存时生效。查询来源保留在接口中，界面显示候选模型、空列表和查询错误。字节的管理接口使用独立签名凭据，因此 API Key 模式提供 Seedream 5.0 Pro、4.5 的内置选项和自定义模型/接入点 ID。
 
 API 地址同时接受基础地址和控制台提供的完整 `/images/generations` 地址。保存时统一为基础地址，实际请求只添加一次接口路径。
 
@@ -22,13 +22,15 @@ API 地址同时接受基础地址和控制台提供的完整 `/images/generatio
 
 校验结果与实际生图成功分别记录。生图权限、余额、内容审核和输出效果在真正调用时确认。本插件没有生成测试图按钮。
 
-提示词示例：「为这份 PPT 生成一张留出左侧标题空间的科技插画，风格沿用当前模板。」Agent 加载 Skill 后调用 `image_generate`，经过当前 Host 审批流程，将图片保存到工作区 `.workbuddy/generated-images/<sha256>.png`。工具返回路径、尺寸、字节数、哈希、服务商和模型。图片可保留透明通道，标题、表格和简单图表继续使用 Office 原生对象。
+提示词示例：「为这份 PPT 生成一张留出左侧标题空间的科技插画，风格沿用当前模板。」Agent 加载 Skill 后调用 `image_generate`，按当前 Host 权限策略直接执行，将图片保存到工作区 `.workbuddy/generated-images/<sha256>.png`。工具返回路径、尺寸、字节数、哈希、服务商和模型。图片可保留透明通道，标题、表格和简单图表继续使用 Office 原生对象。
 
 本期支持文生图，每次生成一张图片。OpenAI 的 16:9 / 4:3 请求使用 1536×1024 画布，竖图使用 1024×1536；文档按实际返回尺寸等比放置或裁剪。字节按目标比例选择支持的画布。编辑图、参考图、批量生图和本地模型留待后续版本。
 
 字节请求采用 Seedream 4.5 / 5.0 Pro 共用的单图字段，由服务端默认单图模式执行。自定义接入点 ID 也使用这一契约。组图控制属于独立能力，5.0 Pro 的单图请求省略 `sequential_image_generation` 及其 options。模型能力和画布范围参考 [BytePlus 官方 Seedream 能力表](https://docs.byteplus.com/api/docs/ModelArk/1824121)。
 
 生图失败时，工具和 Host 日志保留 HTTP 状态、服务商错误码、参数名及请求编号。错误响应最多读取 64 KB，仅提取受限格式的诊断字段；服务商原始错误文本可能回显 Key 或提示词，因此留在 Host 处理。模型根据具体原因反馈，参数错误交由插件修正。
+
+对话直接展示生成图片，点击缩略图可放大，Esc 或点击背景关闭。已有成功生图记录也能预览。预览接口通过 Host 鉴权，按会话中成功的工具结果授权读取对应 PNG，并校验目录、文件类型、体积和 SHA-256；访问留有审计日志。图片以文本资产信息返回给聊天模型，界面预览与模型视觉能力分别处理。
 
 ## 独立分发
 
@@ -40,7 +42,7 @@ API 地址同时接受基础地址和控制台提供的完整 `/images/generatio
 npm pack ./packages/dsh-image-generation --pack-destination /absolute/output/directory
 ```
 
-在具有匹配 Harness 服务的独立 DSH 安装中，可通过 `dsh plugin --profile web add /absolute/path/dsh-image-generation-0.1.0.tgz` 安装。要求 Harness `0.1.2-rc.1` 对应的 settings、credentials、connection、tools、skills、systemPrompt、sandboxPolicy、sandbox 和 subprocess 服务。Desktop 已默认装载时直接配置即可。
+在具有匹配 Harness 服务的独立 DSH 安装中，可通过 `dsh plugin --profile web add /absolute/path/dsh-image-generation-0.1.0.tgz` 安装。要求 Harness `0.1.2-rc.1` 对应的 settings、credentials、connection、tools、skills、systemPrompt、sandboxPolicy、sandbox、subprocess 和 sessionController 服务。Desktop 已默认装载时直接配置即可。
 
 ## 凭据与执行边界
 
@@ -48,7 +50,7 @@ npm pack ./packages/dsh-image-generation --pack-destination /absolute/output/dir
 
 服务商、模型、地址和 Key 在 `ctx.credentials` 的 `dsh-image-generation/configuration` 私有记录中一次提交。凭据服务的跨进程锁和修订检查防止并发保存覆盖；失败保存保持整个旧记录。使用同一记录使一次工具调用读到一致的配置。通用 settings 仅注册卡片命名空间。Agent 参数、图片、日志和工作区均不携带 Key。
 
-生图通过标准工具执行和审计流程，并默认要求 Host 审批。请求前及落盘前读取当前会话的 sandboxPolicy，要求工作区写权限；输出目录和目标文件拒绝符号链接。实际写入由 `ctx.sandbox` 包装的 `ctx.subprocess` 子进程执行，使用工作区写权限；仅通过 stdin 接收图片字节，清除继承环境，Key 留在 Host。PNG 使用临时文件、原子创建和内容哈希校验，避免并发生图产生半个文件。HTTP 禁止重定向，只接受 HTTPS 地址（本机回环开发服务允许 HTTP），约束超时、响应大小和解码像素；不下载厂商返回的任意远程 URL。系统沙箱的跨平台执行能力以部署环境为准，本期本地验收环境为 macOS arm64。
+生图通过标准工具执行和审计流程，使用已保存配置直接调用；部署级工具策略继续生效。请求前及落盘前读取当前会话的 sandboxPolicy，要求工作区写权限；输出目录和目标文件拒绝符号链接。实际写入由 `ctx.sandbox` 包装的 `ctx.subprocess` 子进程执行，使用工作区写权限；仅通过 stdin 接收图片字节，清除继承环境，Key 留在 Host。PNG 使用临时文件、原子创建和内容哈希校验，避免并发生图产生半个文件。HTTP 禁止重定向，只接受 HTTPS 地址（本机回环开发服务允许 HTTP），约束超时、响应大小和解码像素；不下载厂商返回的任意远程 URL。系统沙箱的跨平台执行能力以部署环境为准，本期本地验收环境为 macOS arm64。
 
 macOS Desktop 的 Host 运行在 Electron utility process 中；写图子进程显式设置 `ELECTRON_RUN_AS_NODE=1`，使同一可执行文件执行 Node 脚本。该启动常量与 Windows 的 SystemRoot 按需保留，凭据和 NODE_OPTIONS 继续清除。回归同时覆盖普通 Node 和真实 Electron utility process。
 

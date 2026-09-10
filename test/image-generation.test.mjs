@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, realpath, rm, symlink, readdir, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, symlink, readdir, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { randomUUID, createHash } from 'node:crypto'
@@ -19,6 +19,7 @@ import { createSettings } from '../packages/dsh-image-generation/lib/settings.js
 import { DEFAULTS, generate, generationBody, ImageError, profile, readBounded, validateConnection } from '../packages/dsh-image-generation/lib/provider.js'
 import { normalizeImage } from '../packages/dsh-image-generation/lib/assets.js'
 import { materialize } from '../packages/dsh-image-generation/lib/storage.js'
+import { previewImage, imageResult } from '../packages/dsh-image-generation/lib/preview.js'
 import { writerEnvironment } from '../packages/dsh-image-generation/lib/commit.js'
 
 const cleanups = []
@@ -259,7 +260,7 @@ describe('image tool and durable Office assets', () => {
     await expect(materialize(workspace, image.data)).rejects.toThrow()
     await expect(normalizeImage(Buffer.from('not a PNG'))).rejects.toMatchObject({ code: 'IMAGE' })
   })
-  it('registers standard authenticated API routes, the shared Skill and default approval', async () => {
+  it('registers standard routes and executes with saved configuration while honoring deployment guards', async () => {
     const f = await fixture(); const routes = []
     const plugin = f.ctx.plugin({ inject: ['settings', 'skills', 'systemPrompt', 'tools'], apply: ctx => apply({
       ...f.services, settings: ctx.settings, skills: ctx.skills, systemPrompt: ctx.systemPrompt, tools: ctx.tools,
@@ -267,13 +268,82 @@ describe('image tool and durable Office assets', () => {
     }) })
     await plugin; cleanups.push(() => plugin.dispose())
     expect(f.ctx.settings.describe().map(entry => entry.ns)).toContain('image-generation')
-    expect(routes.map(route => route.path)).toEqual(['/api/image-generation.settings', '/api/image-generation.save', '/api/image-generation.models'])
+    expect(routes.map(route => route.path)).toEqual(['/api/image-generation.settings', '/api/image-generation.save', '/api/image-generation.models', '/api/image-generation.preview'])
     const response = await routes[0].fetch(new Request('http://localhost/api/image-generation.settings'))
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect((await response.json()).profiles.openai.configured).toBe(false)
-    const result = await f.ctx.tools.execute({ callId: 'ask', name: 'image_generate', arguments: { prompt: 'Forest' }, agent: f.agent, signal: new AbortController().signal })
-    expect(result.isError).toBe(true)
-    expect(JSON.stringify(result)).toContain('Provider usage may be billed')
-    expect(await readdir(f.workspace)).toEqual([])
+    const provider = await server()
+    await f.settings.save(saveInput('bytedance', provider.baseUrl))
+    const result = await f.ctx.tools.execute({ callId: 'direct', name: 'image_generate', arguments: { prompt: 'Forest' }, agent: f.agent, signal: new AbortController().signal })
+    expect(result.isError, JSON.stringify(result)).toBeFalsy()
+    expect(provider.calls).toHaveLength(2)
+    const dispose = f.ctx.tools.guard(exec => exec.name === 'image_generate' ? 'Deployment blocks image generation' : undefined)
+    const denied = await f.ctx.tools.execute({ callId: 'denied', name: 'image_generate', arguments: { prompt: 'Forest' }, agent: f.agent, signal: new AbortController().signal })
+    dispose()
+    expect(denied.isError).toBe(true)
+    expect(JSON.stringify(denied)).toContain('Deployment blocks image generation')
+    expect(provider.calls).toHaveLength(2)
+  })
+})
+
+
+describe('session-authorized generated image previews', () => {
+  async function previewFixture() {
+    const workspace = await temp()
+    const png = await sharp({ create: { width: 16, height: 9, channels: 4, background: '#112233' } }).png().toBuffer()
+    const asset = await materialize(workspace, png)
+    const image = { ...asset, asset_id: `sha256:${asset.sha256}`, media_type: 'image/png', width: 16, height: 9, bytes: png.length, provider: 'bytedance', model: DEFAULTS.bytedance.model }
+    const id = randomUUID()
+    const content = [{ type: 'text', text: JSON.stringify(image) }]
+    const events = [{ type: 'tool/call', data: { callId: 'image-call', name: 'image_generate' } },
+      { type: 'tool/result', surfaceOp: 'append', data: { message: { source: { callId: 'image-call' }, content: [{ type: 'tool-result', content }] } } }]
+    const log = vi.fn()
+    const ctx = { sessionController: { inspect: vi.fn(async session => ({ meta: { cwd: workspace }, events: session === id ? events : [] })) }, logger: { info: log } }
+    const request = (session = id, sha = image.sha256) => new Request(`http://localhost/api/image-generation.preview?session=${session}&asset=${sha}`)
+    return { workspace, png, image, id, content, events, ctx, request, target: path.join(workspace, image.workspace_path) }
+  }
+  it('serves historical successful PNGs with integrity, cache, content-type and audit checks', async () => {
+    const f = await previewFixture()
+    const result = await previewImage(f.ctx, f.request())
+    expect(result.status).toBe(200)
+    expect(Buffer.from(await result.arrayBuffer())).toEqual(f.png)
+    expect(result.headers.get('content-type')).toBe('image/png')
+    expect(result.headers.get('cache-control')).toBe('no-store')
+    expect(result.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(f.ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('preview allowed'), f.id, f.image.sha256)
+  })
+  it('requires a successful image tool result in the requested session', async () => {
+    const f = await previewFixture()
+    expect((await previewImage(f.ctx, f.request(randomUUID()))).status).toBe(404)
+    expect((await previewImage(f.ctx, f.request(f.id, 'a'.repeat(64)))).status).toBe(404)
+    f.events[0].data.name = 'other_tool'
+    expect((await previewImage(f.ctx, f.request())).status).toBe(404)
+    f.events[0].data.name = 'image_generate'
+    f.events[1].data.message.content[0].isError = true
+    expect((await previewImage(f.ctx, f.request())).status).toBe(404)
+    f.events.splice(0, 2, { type: 'tool/code-dispatch', data: { name: 'image_generate', subCallId: 'ptc', content: f.content } })
+    expect((await previewImage(f.ctx, f.request())).status).toBe(200)
+  })
+  it('rejects path traversal and invalid asset contracts before reading a session', async () => {
+    const f = await previewFixture()
+    expect((await previewImage(f.ctx, f.request('../outside'))).status).toBe(400)
+    expect((await previewImage(f.ctx, f.request(f.id, '../secret'))).status).toBe(400)
+    expect(f.ctx.sessionController.inspect).not.toHaveBeenCalled()
+    expect(imageResult([null, { type: 'text', text: 'broken' }])).toBeUndefined()
+    for (const change of [{ bytes: -1 }, { bytes: 1000000000 }, { workspace_path: '/etc/passwd' }, { media_type: 'text/html' }, { asset_id: 'wrong' }]) {
+      expect(imageResult([{ type: 'text', text: JSON.stringify({ ...f.image, ...change }) }])).toBeUndefined()
+    }
+  })
+  it('refuses changed files, target symlinks and linked parent directories', async () => {
+    const f = await previewFixture()
+    await writeFile(f.target, Buffer.alloc(f.png.length))
+    expect((await previewImage(f.ctx, f.request())).status).toBe(404)
+    await rm(f.target)
+    const outside = path.join(await temp(), 'image.png'); await writeFile(outside, f.png)
+    await symlink(outside, f.target)
+    expect((await previewImage(f.ctx, f.request())).status).toBe(404)
+    await rm(path.dirname(f.target), { recursive: true })
+    await symlink(path.dirname(outside), path.dirname(f.target))
+    expect((await previewImage(f.ctx, f.request())).status).toBe(404)
   })
 })
