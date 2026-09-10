@@ -78,15 +78,16 @@ function brokerClient(environment = process.env) {
       available: false,
       read: async () => { throw new Error('DSH Desktop secure credential broker is unavailable.') },
       replace: async () => { throw new Error('DSH Desktop secure credential broker is unavailable.') },
-      clear: async () => { throw new Error('DSH Desktop secure credential broker is unavailable.') }
+      clear: async () => { throw new Error('DSH Desktop secure credential broker is unavailable.') },
+      activateDesktop: async () => { throw new Error('DSH Desktop secure credential broker is unavailable.') }
     }
   }
   const origin = new URL(rawUrl)
   if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1' || origin.pathname !== '/') {
     throw new Error('DSH Desktop secure credential broker address is invalid.')
   }
-  const call = async (method, body) => {
-    const response = await fetch(new URL('/v1/session', origin), {
+  const call = async (path, method, body) => {
+    const response = await fetch(new URL(path, origin), {
       method,
       headers: {
         authorization: `Bearer ${token}`,
@@ -110,12 +111,13 @@ function brokerClient(environment = process.env) {
   }
   return {
     available: true,
-    read: () => call('GET'),
-    replace: (expectedGeneration, session) => call('PUT', {
+    read: () => call('/v1/session', 'GET'),
+    replace: (expectedGeneration, session) => call('/v1/session', 'PUT', {
       expected_generation: expectedGeneration,
       session
     }),
-    clear: () => call('DELETE')
+    clear: () => call('/v1/session', 'DELETE'),
+    activateDesktop: () => call('/v1/activate', 'POST')
   }
 }
 
@@ -171,6 +173,7 @@ export function createEnterpriseController(ctx, options = {}) {
   let models = []
   let modelsAvailable = false
   let usage = null
+  let modelUsage = {}
   let phase = 'idle'
   let lastError
   let lastRequestId
@@ -195,20 +198,25 @@ export function createEnterpriseController(ctx, options = {}) {
 
   const normalizeBase = (value) => normalizeEnterpriseServerUrl(value, { allowInsecureLoopback })
 
-  const unregisterProvider = () => {
-    providerRegistration?.()
-    providerRegistration = undefined
+  const pauseProvider = () => {
+    providerRegistration?.replace([])
     modelsAvailable = false
   }
 
   const publishModels = (next) => {
-    models = next
-    modelsAvailable = true
     if (!providerRegistration) {
       providerRegistration = ctx.llm.registerAdapter([BISHENG_PROVIDER_ROUTE], adapter)
     } else {
       providerRegistration.replace([BISHENG_PROVIDER_ROUTE])
     }
+    models = next
+    modelsAvailable = true
+  }
+
+  const disposeProvider = () => {
+    providerRegistration?.()
+    providerRegistration = undefined
+    modelsAvailable = false
   }
 
   const stopRequests = (reason) => {
@@ -218,11 +226,12 @@ export function createEnterpriseController(ctx, options = {}) {
 
   const clearLocal = async () => {
     epoch += 1
-    unregisterProvider()
+    pauseProvider()
     stopRequests('Enterprise session ended.')
     session = null
     models = []
     usage = null
+    modelUsage = {}
     const snapshot = await vault.clear()
     generation = snapshot.generation
   }
@@ -314,7 +323,7 @@ export function createEnterpriseController(ctx, options = {}) {
       publishModels(next)
       return next
     } catch (error) {
-      unregisterProvider()
+      pauseProvider()
       throw error
     }
   }
@@ -325,25 +334,40 @@ export function createEnterpriseController(ctx, options = {}) {
     return `${API_PATHS.usage}?${params.toString()}`
   }
 
+  const unavailableUsage = () => ({
+    source: 'unavailable',
+    quota_state: 'unavailable',
+    used: null,
+    limit: null,
+    remaining: null
+  })
+
   const refreshUsage = async (model, signal) => {
     try {
-      usage = await authorizedJson(usagePath(model), parseUsage, signal)
-      return usage
+      const next = await authorizedJson(usagePath(model), parseUsage, signal)
+      if (typeof model === 'string' && model.length > 0) {
+        modelUsage = { ...modelUsage, [model]: next }
+      } else {
+        usage = next
+      }
+      return next
     } catch (error) {
-      usage = {
-        source: 'unavailable',
-        quota_state: 'unavailable',
-        used: null,
-        limit: null,
-        remaining: null
+      if (typeof model === 'string' && model.length > 0) {
+        modelUsage = { ...modelUsage, [model]: unavailableUsage() }
+      } else {
+        usage = unavailableUsage()
       }
       throw error
     }
   }
 
   const syncAccount = async (signal) => {
-    await refreshModels(signal)
-    await refreshUsage(undefined, signal).catch(() => undefined)
+    const nextModels = await refreshModels(signal)
+    modelUsage = {}
+    await Promise.all([
+      refreshUsage(undefined, signal).catch(() => undefined),
+      ...nextModels.map((model) => refreshUsage(model.id, signal).catch(() => undefined))
+    ])
     phase = 'connected'
     lastError = undefined
   }
@@ -384,7 +408,7 @@ export function createEnterpriseController(ctx, options = {}) {
       })
       lastRequestId = requestId
       const next = parseToken(body, flow.base)
-      unregisterProvider()
+      pauseProvider()
       stopRequests('Enterprise account changed.')
       const snapshot = await vault.read()
       if (epoch !== startedEpoch) throw new Error('Enterprise session changed during login.')
@@ -405,6 +429,7 @@ export function createEnterpriseController(ctx, options = {}) {
     response.setHeader('content-type', 'text/html; charset=utf-8')
     response.setHeader('cache-control', 'no-store')
     response.setHeader('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'")
+    response.setHeader('referrer-policy', 'no-referrer')
     if (request.method !== 'GET' || url.pathname !== CALLBACK_PATH || loginFlow !== expectedFlow) {
       response.writeHead(404).end(callbackPage(false, '回调地址无效，请回到 DSH Desktop 重新登录。'))
       return
@@ -443,7 +468,10 @@ export function createEnterpriseController(ctx, options = {}) {
     }
     try {
       await exchangeTicket(url.searchParams.get('identity_ticket'))
-      response.writeHead(200).end(callbackPage(true, 'DSH Desktop 已连接企业账号，可以关闭此页面。'))
+      response.writeHead(200).end(callbackPage(true, '正在返回 DSH Desktop；若未自动切换，可以关闭此页面。'))
+      await vault.activateDesktop?.().catch((error) => {
+        ctx.logger?.warn?.(`dsh-desktop-enterprise: could not activate Desktop after login: ${errorMessage(error)}`)
+      })
     } catch (error) {
       response.writeHead(400).end(callbackPage(false, errorMessage(error)))
     }
@@ -455,7 +483,7 @@ export function createEnterpriseController(ctx, options = {}) {
     const { base, config } = await inspectBase(baseValue, signal)
     if (!config.enabled) throw new Error('BiSheng has not enabled DSH Desktop access.')
     epoch += 1
-    unregisterProvider()
+    pauseProvider()
     stopRequests('Enterprise login restarted.')
     await closeLoginFlow()
     const pkce = createPkceTransaction()
@@ -583,6 +611,7 @@ export function createEnterpriseController(ctx, options = {}) {
     models,
     modelsAvailable,
     usage,
+    modelUsage,
     ...(loginFlow ? { loginExpiresAt: new Date(loginFlow.expiresAt).toISOString() } : {}),
     ...(lastError ? { error: lastError } : {}),
     ...(lastRequestId ? { requestId: lastRequestId } : {})
@@ -619,7 +648,7 @@ export function createEnterpriseController(ctx, options = {}) {
     async logout(signal) {
       const active = session
       epoch += 1
-      unregisterProvider()
+      pauseProvider()
       stopRequests('Enterprise logout.')
       await closeLoginFlow()
       let revokeConfirmed = false
@@ -673,7 +702,7 @@ export function createEnterpriseController(ctx, options = {}) {
         }
         const { config } = await inspectBase(session.base)
         if (!config.enabled) {
-          unregisterProvider()
+          pauseProvider()
           phase = 'disabled'
           return state()
         }
@@ -685,7 +714,7 @@ export function createEnterpriseController(ctx, options = {}) {
       return state()
     },
     dispose: async () => {
-      unregisterProvider()
+      disposeProvider()
       stopRequests('Enterprise integration stopped.')
       await closeLoginFlow()
     }

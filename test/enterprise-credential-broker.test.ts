@@ -1,7 +1,7 @@
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EnterpriseCredentialBroker } from '../src/main/enterprise/credential-broker'
 import {
   SecureEnterpriseCredentialVault,
@@ -37,7 +37,8 @@ describe('enterprise secure credential broker', () => {
     directories.push(directory)
     const filename = join(directory, 'credentials.v1')
     const vault = new SecureEnterpriseCredentialVault(filename, safeStorage)
-    const broker = new EnterpriseCredentialBroker(vault)
+    const activateDesktop = vi.fn()
+    const broker = new EnterpriseCredentialBroker(vault, { activateDesktop })
     const environment = await broker.start()
     const endpoint = `${environment.DSH_DESKTOP_ENTERPRISE_BROKER_URL}/v1/session`
     const headers = {
@@ -56,6 +57,11 @@ describe('enterprise secure credential broker', () => {
 
       const read = await fetch(endpoint, { headers })
       expect(await read.json()).toMatchObject({ generation: 1, session: { refresh_token: 'secret-refresh-token' } })
+      const activationEndpoint = `${environment.DSH_DESKTOP_ENTERPRISE_BROKER_URL}/v1/activate`
+      expect((await fetch(activationEndpoint, { method: 'POST' })).status).toBe(401)
+      expect((await fetch(activationEndpoint, { headers })).status).toBe(405)
+      expect(await (await fetch(activationEndpoint, { method: 'POST', headers })).json()).toEqual({ ok: true })
+      expect(activateDesktop).toHaveBeenCalledTimes(1)
       expect((await fetch(endpoint, {
         method: 'PUT', headers,
         body: JSON.stringify({ expected_generation: 0, session })

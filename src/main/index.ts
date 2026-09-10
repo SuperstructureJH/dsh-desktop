@@ -159,6 +159,7 @@ import {
 } from 'dsh-desktop-enterprise/deep-link'
 import { EnterpriseCredentialBroker } from './enterprise/credential-broker'
 import { SecureEnterpriseCredentialVault } from './enterprise/secure-credential-vault'
+import { migrateLegacyEnterpriseSettings } from './enterprise/legacy-settings-migration'
 
 type PluginRecoveryAction = `upgrade:${string}` | `uninstall:${string}` | 'uninstall' | 'upgrade' | 'show-log' | 'quit' | 'restart' | 'refresh' | 'safe-mode' | 'auto-process' | 'check-updates'
 type SafeModeAction =
@@ -1312,6 +1313,18 @@ function launchHarness(): Promise<void> {
     maintenanceAllowedRestoreId = undefined
     runtime.note('[desktop] profile maintenance done')
     await refreshMigrationRecoveryLock(dshHome)
+    try {
+      const migration = await migrateLegacyEnterpriseSettings(dshHome)
+      if (migration.changed) {
+        runtime.note(`[enterprise] retired legacy settings: ${migration.removed.join(', ')}`)
+      }
+    } catch (error) {
+      runtime.note(
+        `[enterprise] legacy settings migration failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
     await auditInstalledLaunchAgents(dshHome)
     runtime.note('[desktop] LaunchAgent audit done')
     desktopStorageManager?.switchProfile(join(dshHome, 'profiles', 'web'))
@@ -2738,7 +2751,14 @@ async function bootstrap(): Promise<void> {
     join(app.getPath('userData'), 'enterprise-credentials.v1'),
     safeStorage
   )
-  enterpriseCredentialBroker = new EnterpriseCredentialBroker(enterpriseVault)
+  enterpriseCredentialBroker = new EnterpriseCredentialBroker(enterpriseVault, {
+    activateDesktop: async () => {
+      const snapshot = runtime?.snapshot()
+      if (snapshot?.phase === 'ready' && snapshot.url) {
+        await openHarness(snapshot.url, 'user')
+      }
+    }
+  })
   const enterpriseEnvironment = await enterpriseCredentialBroker.start()
   desktopStorageManager = new DesktopStorageManager(join(dshHome, 'profiles', 'web'), {
     onError: (error, context) => {

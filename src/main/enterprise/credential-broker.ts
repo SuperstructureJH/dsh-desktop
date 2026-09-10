@@ -47,12 +47,19 @@ export interface EnterpriseCredentialBrokerEnvironment extends NodeJS.ProcessEnv
   DSH_DESKTOP_ENTERPRISE_BROKER_TOKEN: string
 }
 
+export interface EnterpriseCredentialBrokerOptions {
+  activateDesktop?: () => Promise<void> | void
+}
+
 export class EnterpriseCredentialBroker {
   private server?: Server
   private token = ''
   private origin = ''
 
-  constructor(private readonly vault: SecureEnterpriseCredentialVault) {}
+  constructor(
+    private readonly vault: SecureEnterpriseCredentialVault,
+    private readonly options: EnterpriseCredentialBrokerOptions = {}
+  ) {}
 
   async start(): Promise<EnterpriseCredentialBrokerEnvironment> {
     if (this.server) return this.environment()
@@ -98,7 +105,21 @@ export class EnterpriseCredentialBroker {
         return
       }
       const url = new URL(request.url ?? '/', this.origin)
-      if (url.pathname !== '/v1/session' || url.search !== '') {
+      if (url.search !== '') {
+        sendJson(response, 404, { error: 'not_found' })
+        return
+      }
+      if (url.pathname === '/v1/activate') {
+        if (request.method !== 'POST') {
+          response.setHeader('allow', 'POST')
+          sendJson(response, 405, { error: 'method_not_allowed' })
+          return
+        }
+        await this.options.activateDesktop?.()
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (url.pathname !== '/v1/session') {
         sendJson(response, 404, { error: 'not_found' })
         return
       }

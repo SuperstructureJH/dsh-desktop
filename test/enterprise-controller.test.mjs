@@ -60,13 +60,16 @@ describe('enterprise controller', () => {
     service = createMockEnterpriseServer({ port: 0 })
     const origin = await service.listen()
     let registered = false
+    let registrationCount = 0
+    let activationCount = 0
     let enterpriseAdapter
     const registration = () => { registered = false }
-    registration.replace = () => { registered = true }
+    registration.replace = (routes) => { registered = routes.length > 0 }
     const ctx = {
       llm: {
         registerAdapter(routes, adapter) {
           expect(routes).toEqual(['bisheng-enterprise'])
+          registrationCount += 1
           registered = true
           enterpriseAdapter = adapter
           return registration
@@ -74,7 +77,7 @@ describe('enterprise controller', () => {
       }
     }
     controller = createEnterpriseController(ctx, {
-      vault: memoryVault(),
+      vault: { ...memoryVault(), activateDesktop: async () => { activationCount += 1 } },
       allowInsecureLoopback: true
     })
     const login = await controller.startLogin({ base: origin })
@@ -93,7 +96,10 @@ describe('enterprise controller', () => {
     })
     const callback = callbackFrom(await page.text())
     expect(callback).toContain('/dsh/callback?')
-    expect((await fetch(callback)).status).toBe(200)
+    const callbackResponse = await fetch(callback)
+    expect(callbackResponse.status).toBe(200)
+    expect(callbackResponse.headers.get('referrer-policy')).toBe('no-referrer')
+    expect(await callbackResponse.text()).toContain('正在返回 DSH Desktop')
 
     expect(controller.state()).toMatchObject({
       connected: true,
@@ -103,9 +109,12 @@ describe('enterprise controller', () => {
       tenant: { id: 'tenant-demo' },
       modelsAvailable: true,
       models: [{ id: 'bisheng:42' }],
-      usage: { source: 'live', quota_state: 'available' }
+      usage: { source: 'live', quota_state: 'available', used: 128 },
+      modelUsage: { 'bisheng:42': { source: 'live', quota_state: 'available', used: 128 } }
     })
     expect(registered).toBe(true)
+    expect(registrationCount).toBe(1)
+    expect(activationCount).toBe(1)
 
     const chunks = []
     for await (const chunk of enterpriseAdapter.stream({
@@ -118,9 +127,29 @@ describe('enterprise controller', () => {
       text: expect.stringContaining('Mock 联调成功')
     }))
     expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+    await expect.poll(() => controller.state().modelUsage['bisheng:42']?.used).toBeGreaterThan(128)
+    expect(controller.state().usage.used).toBe(128)
 
     const loggedOut = await controller.logout()
     expect(loggedOut).toMatchObject({ connected: false, revokeConfirmed: true })
     expect(registered).toBe(false)
+
+    const secondLogin = await controller.startLogin({ base: origin })
+    const secondAuthorization = new URL(secondLogin.authorizationUrl)
+    const secondPage = await fetch(`${origin}/__mock/authorize`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        auth_id: secondAuthorization.searchParams.get('auth_id'),
+        email: 'alice@demo.bisheng.local',
+        password: 'WorkBuddy123!',
+        decision: 'allow'
+      })
+    })
+    const secondCallback = callbackFrom(await secondPage.text())
+    expect((await fetch(secondCallback)).status).toBe(200)
+    expect(controller.state()).toMatchObject({ connected: true, modelsAvailable: true })
+    expect(registrationCount).toBe(1)
+    expect(activationCount).toBe(2)
   })
 })
