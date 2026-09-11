@@ -71,7 +71,30 @@ async function issueSession(origin: string) {
   }
 }
 
-describe('BiSheng client API 0.5.0 mock', () => {
+describe('BiSheng compatible client API mock', () => {
+  it('accepts supported config versions while preserving the server version', () => {
+    expect(parseConfig({
+      enabled: true,
+      client_id: 'dsh-desktop',
+      contract_version: '0.4.0'
+    })).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.4.0' })
+    expect(parseConfig({
+      enabled: true,
+      client_id: 'dsh-desktop',
+      contract_version: '0.5.0'
+    })).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.5.0' })
+    expect(() => parseConfig({
+      enabled: true,
+      client_id: 'dsh-desktop',
+      contract_version: '0.3.0'
+    })).toThrow('contract version is incompatible')
+    expect(() => parseConfig({
+      enabled: true,
+      client_id: 'other-client',
+      contract_version: '0.5.0'
+    })).toThrow('contract version is incompatible')
+  })
+
   it('runs config, PKCE login, models, usage, model streaming, refresh, and logout', async () => {
     service = createMockEnterpriseServer({ port: 0 })
     const origin = await service.listen()
@@ -141,6 +164,29 @@ describe('BiSheng client API 0.5.0 mock', () => {
     expect((await fetch(`${origin}${API_PATHS.models}`, {
       headers: { authorization: `Bearer ${refreshed.access_token}` }
     })).status).toBe(401)
+  })
+
+  it('runs login and model streaming against a 0.4.0 server without cache token details', async () => {
+    const legacyServer = { port: 0, contractVersion: '0.4.0' as const }
+    service = createMockEnterpriseServer(legacyServer)
+    const origin = await service.listen()
+    const config = parseConfig(await (await fetch(`${origin}${API_PATHS.config}`)).json())
+    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.4.0' })
+
+    const issued = await issueSession(origin)
+    const session = parseToken(issued.raw, origin, 0)
+    const headers = { authorization: `Bearer ${session.access_token}` }
+    const chat = await postJson(`${origin}${API_PATHS.chat}`, {
+      model: 'bisheng:42', messages: [{ role: 'user', content: 'hello' }],
+      stream: true, stream_options: { include_usage: true }, n: 1
+    }, headers)
+    expect(chat.status).toBe(200)
+    const stream = await chat.text()
+    expect(stream).toContain('"usage"')
+    expect(stream).toContain('"prompt_tokens"')
+    expect(stream).not.toContain('"prompt_tokens_details"')
+    expect(stream).not.toContain('"cached_tokens"')
+    expect(stream).not.toContain('"cache_creation_tokens"')
   })
 
   it('detects refresh-token replay and revokes the session family', async () => {
