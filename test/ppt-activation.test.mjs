@@ -41,11 +41,12 @@ async function fixture(existingRoot) {
         // host — with the two members they touch — and delegate the rest.
         effect: (run) => { run?.(); return () => {} },
         webServer: { register: () => () => {} },
-        inject: (services, callback) =>
-          services?.includes?.('webServer')
-            ? callback?.(host)
-            : pluginCtx.inject(services, callback),
-        systemPrompt: pluginCtx.systemPrompt,
+	        inject: (services, callback) =>
+	          services?.includes?.('webServer')
+	            ? callback?.(host)
+	            : pluginCtx.inject(services, callback),
+	        provide: pluginCtx.provide.bind(pluginCtx),
+	        systemPrompt: pluginCtx.systemPrompt,
         skills: pluginCtx.skills,
         on: pluginCtx.on.bind(pluginCtx),
         get: pluginCtx.get.bind(pluginCtx),

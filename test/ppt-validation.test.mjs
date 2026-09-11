@@ -44,10 +44,11 @@ async function fixture({ broken = true, malformed = false } = {}) {
     // the two members those callbacks touch so they run inertly.
     effect: (run) => { run?.(); return () => {} },
     webServer: { register: () => () => {} },
-    inject: (services, callback) => {
-      if (services?.includes?.('webServer')) callback?.(host)
-    },
-    skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
+	    inject: (services, callback) => {
+	      if (services?.includes?.('webServer')) callback?.(host)
+	    },
+	    provide() {},
+	    skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
     connection: { rpc: { handle: (_route, handler) => { rpc = handler } } }
   }
