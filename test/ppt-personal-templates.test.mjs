@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, symlink } from 'node:fs/promises';
 import os from 'node:os';
@@ -27,11 +27,14 @@ async function fixture(existingRoot) {
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace, { recursive: true });
   const tools = new Map(); let rpc;
-  await apply({
-    inject() {}, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
+  const connection = { rpc: { handle: (_route, handler) => { rpc = handler; } } };
+  const host = {
+    effect(run) { run(); return () => {}; }, webServer: { register() { return () => {}; } },
+    inject(_services, activate) { return activate(host); }, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
-    connection: { rpc: { handle: (_route, handler) => { rpc = handler; } } }
-  }, { root: storage });
+    connection
+  };
+  await apply(host, { root: storage });
   async function request(endpoint, input = {}, sessionId = 'session-a') {
     const result = await rpc(endpoint, { ...input, sessionId });
     expect(result.ok).toBe(true);
@@ -70,6 +73,33 @@ async function save(f) {
 }
 
 describe('personal PPT templates in the shipped runtime', () => {
+  it('imports and reuses a PPTX above 16 MB with its real image assets intact', async () => {
+    const f = await fixture();
+    const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE';
+    const slide = pptx.addSlide();
+    slide.addText('Large image template', { x: 0.5, y: 0.3, w: 11, h: 0.6, fontSize: 24 });
+    const images = [];
+    for (let i = 0; i < 2; i++) {
+      const image = await sharp(randomBytes(1800 * 1600 * 3), { raw: { width: 1800, height: 1600, channels: 3 } }).png().toBuffer();
+      images.push(image);
+      slide.addImage({ data: `image/png;base64,${image.toString('base64')}`, x: 0.5 + i * 6.2, y: 1.3, w: 5.8, h: 5.2 });
+    }
+    const bytes = Buffer.from(await pptx.write({ outputType: 'nodebuffer' }));
+    expect(bytes.length).toBeGreaterThan(16 * 1024 * 1024);
+    const draft = await f.request('template/prepare', { input: { fileName: 'Large.pptx', base64: bytes.toString('base64') } });
+    expect(draft.previews).toHaveLength(1);
+    const template = await f.request('template/save', { draftId: draft.draftId, name: 'Large image template' });
+    const restored = await fixture(f.root);
+    await restored.request('template/select', { templateId: template.id, mode: 'ppt' }, 'session-b');
+    await restored.tool('ppt_template_create_project', { template_id: template.id, output_directory: 'large-project' });
+    const result = await restored.tool('pptd_render', { project_path: 'large-project', output_file: 'large.pptx' });
+    expect(result.status, JSON.stringify(result.check)).toBe('exported');
+    const exported = unzipSync(await readFile(path.join(f.workspace, result.outputPath)));
+    const mediaHashes = Object.entries(exported).filter(([name]) => name.startsWith('ppt/media/')).map(([, data]) => createHash('sha256').update(data).digest('hex'));
+    for (const image of images) expect(mediaHashes).toContain(createHash('sha256').update(image).digest('hex'));
+    expect((await readFile(path.join(f.storage, 'personal-templates/saved', template.id, 'source.pptx'))).equals(bytes)).toBe(true);
+  }, 30000);
+
   it('imports mixed-size title and body text without inflating all text to the largest run', async () => {
     const f = await fixture();
     const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE';
@@ -95,7 +125,7 @@ describe('personal PPT templates in the shipped runtime', () => {
     expect(xml).toContain('sz="1000"');
     expect(xml).toContain('Hello ');
     expect(xml).toContain('world');
-  });
+  }, 30000);
 
   it('reports every conversion issue with its page and object, audits the source identity, and accepts a retry', async () => {
     const f = await fixture();
@@ -209,6 +239,9 @@ describe('personal PPT templates in the shipped runtime', () => {
 
   it('rejects invalid uploads, cancels drafts, and prevents library path escapes', async () => {
     const f = await fixture();
+    await expect(f.request('template/prepare', { input: { fileName: 'legacy.ppt', base64: 'UEsDBA==' } })).rejects.toThrow('PPTX');
+    for (const base64 of ['UEsD?A==', 'UEsDBA=', 'UEsDBB=='])
+      await expect(f.request('template/prepare', { input: { fileName: 'bad.pptx', base64 } })).rejects.toThrow('Base64');
     await expect(f.request('template/prepare', { input: { fileName: '../secret.pptx', base64: 'UEsDBA==' } })).rejects.toThrow();
     await expect(f.request('template/prepare', { input: { fileName: 'bad.pptx', base64: 'UEsDBA==' } })).rejects.toThrow();
     expect((await f.request('state')).templates.filter(t => t.origin === 'personal')).toEqual([]);

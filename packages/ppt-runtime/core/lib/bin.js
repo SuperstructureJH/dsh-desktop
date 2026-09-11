@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { preparePreviewProject } from "./raster-preview-assets.js";
 import { resolveFontFace, resolveRunFonts } from "./font-family.js";
 import { wrapTextLines } from "./text-wrap.js";
 import { layoutRichText, scaleTextRuns } from "./rich-text-layout.js";
@@ -433,7 +434,7 @@ function renderPptdPageSvg(project, pageIndex) {
 /** Render one PPTD page to PNG bytes through the bundled local SVG rasterizer. */
 async function renderPptdPagePng(project, pageIndex, scale = 2) {
 	if (!Number.isFinite(scale) || scale <= 0 || scale > 8) throw new Error("screenshot scale must be greater than 0 and at most 8");
-	const svg = renderPptdPageSvg(project, pageIndex);
+	const svg = renderPptdPageSvg(await preparePreviewProject(project, pageIndex, scale), pageIndex);
 	// Rasterize vectors at the requested density before the final pixel-size rounding.
 	const bytes = await sharp(Buffer.from(svg), { density: Math.max(1, Math.round(72 * scale)) }).resize({ width: Math.round(project.width * scale) }).png().toBuffer();
 	return new Uint8Array(bytes);
