@@ -172,7 +172,27 @@ function validUsage(value) {
     !Number.isSafeInteger(total) || total < 0 ||
     total !== prompt + completion
   ) return undefined
-  return { inputTokens: prompt, outputTokens: completion, totalTokens: total }
+  const details = value.prompt_tokens_details
+  const read = details && typeof details === 'object' && !Array.isArray(details)
+    ? optionalTokenCount(details.cached_tokens)
+    : undefined
+  const write = details && typeof details === 'object' && !Array.isArray(details)
+    ? optionalTokenCount(details.cache_creation_tokens)
+    : undefined
+  const cached = (read ?? 0) + (write ?? 0)
+  const safeCache = cached <= prompt
+  return {
+    inputTokens: safeCache ? prompt - cached : prompt,
+    outputTokens: completion,
+    totalTokens: total,
+    ...(safeCache && read !== undefined ? { cacheReadTokens: read } : {}),
+    ...(safeCache && write !== undefined ? { cacheWriteTokens: write } : {})
+  }
+}
+
+function optionalTokenCount(value) {
+  if (value === null || value === undefined) return undefined
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined
 }
 
 function finishReason(value) {

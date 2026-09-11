@@ -7,6 +7,26 @@ const model = {
   capabilities: { streaming: true, tools: true, reasoning_content: false }
 }
 
+async function usageFrom(payload) {
+  const stream = [
+    'data: {"choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+    `data: ${JSON.stringify({ choices: [], usage: payload })}\n\n`,
+    'data: [DONE]\n\n'
+  ].join('')
+  const adapter = new EnterpriseLlmAdapter({
+    providerName: () => 'BiSheng',
+    models: () => [model],
+    request: async () => new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+  })
+  const chunks = []
+  for await (const chunk of adapter.stream({
+    provider: 'bisheng-enterprise', model: model.id,
+    messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }]
+  })) chunks.push(chunk)
+  return chunks.find((chunk) => chunk.type === 'usage')?.usage
+}
+
 describe('BiSheng OpenAI adapter', () => {
   it('serializes tool history without putting provider credentials in the request body', () => {
     const request = serializeEnterpriseRequest({
@@ -98,6 +118,56 @@ describe('BiSheng OpenAI adapter', () => {
     expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
   })
 
+  it('maps prompt cache details to DSH cache token usage fields', async () => {
+    await expect(usageFrom({
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+      prompt_tokens_details: {
+        cached_tokens: 80,
+        cache_creation_tokens: null
+      }
+    })).resolves.toEqual({
+      inputTokens: 20,
+      outputTokens: 20,
+      totalTokens: 120,
+      cacheReadTokens: 80
+    })
+  })
+
+  it('preserves explicit zero cache counts and omits unknown null counts', async () => {
+    await expect(usageFrom({
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+      prompt_tokens_details: {
+        cached_tokens: 0,
+        cache_creation_tokens: 10
+      }
+    })).resolves.toEqual({
+      inputTokens: 90,
+      outputTokens: 20,
+      totalTokens: 120,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 10
+    })
+  })
+
+  it('ignores invalid cache details without dropping reliable total usage', async () => {
+    await expect(usageFrom({
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+      prompt_tokens_details: {
+        cached_tokens: 80,
+        cache_creation_tokens: 30
+      }
+    })).resolves.toEqual({
+      inputTokens: 100,
+      outputTokens: 20,
+      totalTokens: 120
+    })
+  })
 
   it('keeps partial text and terminates on an SSE error without retrying', async () => {
     let requests = 0

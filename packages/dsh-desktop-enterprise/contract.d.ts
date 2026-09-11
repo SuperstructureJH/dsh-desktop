@@ -1,4 +1,4 @@
-export declare const CONTRACT_VERSION = "0.4.0"
+export declare const CONTRACT_VERSION = "0.5.0"
 export declare const CLIENT_ID = "dsh-desktop"
 export declare const CALLBACK_PATH = "/dsh/callback"
 export declare const ACCESS_REFRESH_SKEW_MS = 60000
@@ -30,7 +30,7 @@ export declare function pkceChallenge(codeVerifier: string): string
 export declare function parseConfig(value: unknown): { enabled: false } | {
   enabled: true
   client_id: 'dsh-desktop'
-  contract_version: '0.4.0'
+  contract_version: '0.5.0'
 }
 export declare function parseAuthorization(value: unknown, base: string): {
   auth_id: string

@@ -71,12 +71,12 @@ async function issueSession(origin: string) {
   }
 }
 
-describe('BiSheng client API 0.4.0 mock', () => {
+describe('BiSheng client API 0.5.0 mock', () => {
   it('runs config, PKCE login, models, usage, model streaming, refresh, and logout', async () => {
     service = createMockEnterpriseServer({ port: 0 })
     const origin = await service.listen()
     const config = parseConfig(await (await fetch(`${origin}${API_PATHS.config}`)).json())
-    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.4.0' })
+    expect(config).toEqual({ enabled: true, client_id: 'dsh-desktop', contract_version: '0.5.0' })
 
     const issued = await issueSession(origin)
     const session = parseToken(issued.raw, origin, 0)
@@ -116,6 +116,9 @@ describe('BiSheng client API 0.4.0 mock', () => {
     const stream = await chat.text()
     expect(stream).toContain('Mock 联调成功')
     expect(stream).toContain('"usage"')
+    expect(stream).toContain('"prompt_tokens_details"')
+    expect(stream).toContain('"cached_tokens"')
+    expect(stream).toContain('"cache_creation_tokens"')
     expect(stream).toContain('data: [DONE]')
     const modelUsageAfter = parseUsage(await (await fetch(`${origin}${API_PATHS.usage}?model=bisheng%3A42`, { headers })).json())
     if (typeof modelUsageBefore.used !== 'number' || typeof modelUsageAfter.used !== 'number') {

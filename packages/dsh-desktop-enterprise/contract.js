@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { normalizeEnterpriseServerUrl } from './deep-link.js'
 
-export const CONTRACT_VERSION = '0.4.0'
+export const CONTRACT_VERSION = '0.5.0'
 export const CLIENT_ID = 'dsh-desktop'
 export const CALLBACK_PATH = '/dsh/callback'
 export const ACCESS_REFRESH_SKEW_MS = 60_000

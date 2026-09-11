@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 const HOST = '127.0.0.1'
 const DEFAULT_PORT = 17860
 const CLIENT_ID = 'dsh-desktop'
-const CONTRACT_VERSION = '0.4.0'
+const CONTRACT_VERSION = '0.5.0'
 const AUTH_TTL_MS = 5 * 60 * 1000
 const TICKET_TTL_MS = 60 * 1000
 const ACCESS_TTL_SECONDS = 300
@@ -342,6 +342,7 @@ export function createMockEnterpriseServer(options = {}) {
         const prompt = JSON.stringify(body.messages ?? []).length % 40 + 12
         const completion = 24
         const currentUsage = state.usage.get(session.id) ?? { total: 0, models: new Map() }
+        const cached = Math.min(8, Math.max(0, prompt - 1))
         const tokens = prompt + completion
         currentUsage.total += tokens
         currentUsage.models.set(body.model, (currentUsage.models.get(body.model) ?? 0) + tokens)
@@ -352,7 +353,7 @@ export function createMockEnterpriseServer(options = {}) {
         if (selectedModel.capabilities.reasoning_content) response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '先验证登录、模型权限与用量。' }, finish_reason: null }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: `Mock 联调成功：当前请求已通过 DSH access token 调用 ${selectedModel.display_name}。` }, finish_reason: null }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`)
-        response.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion } })}\n\n`)
+        response.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion, prompt_tokens_details: { cached_tokens: cached, cache_creation_tokens: null } } })}\n\n`)
         response.end('data: [DONE]\n\n')
         return
       }
