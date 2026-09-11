@@ -5,6 +5,7 @@ export const CONTRACT_VERSION = '0.5.0'
 export const CLIENT_ID = 'dsh-desktop'
 export const CALLBACK_PATH = '/dsh/callback'
 export const ACCESS_REFRESH_SKEW_MS = 60_000
+export const COMPATIBLE_CONTRACT_VERSIONS = Object.freeze(['0.4.0', CONTRACT_VERSION])
 export const API_PATHS = Object.freeze({
   config: '/api/v1/dsh/config',
   authorizations: '/api/dsh/authorizations',
@@ -91,10 +92,11 @@ export function parseConfig(value) {
     throw new Error('BiSheng config response is invalid.')
   }
   if (!value.enabled) return { enabled: false }
-  if (value.client_id !== CLIENT_ID || value.contract_version !== CONTRACT_VERSION) {
+  const contractVersion = requiredString(value.contract_version, 'contract version', 64)
+  if (value.client_id !== CLIENT_ID || !COMPATIBLE_CONTRACT_VERSIONS.includes(contractVersion)) {
     throw new Error('BiSheng DSH contract version is incompatible with this Desktop build.')
   }
-  return { enabled: true, client_id: CLIENT_ID, contract_version: CONTRACT_VERSION }
+  return { enabled: true, client_id: CLIENT_ID, contract_version: contractVersion }
 }
 
 export function parseAuthorization(value, base) {

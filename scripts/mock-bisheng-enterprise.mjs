@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 const HOST = '127.0.0.1'
 const DEFAULT_PORT = 17860
 const CLIENT_ID = 'dsh-desktop'
-const CONTRACT_VERSION = '0.5.0'
+const DEFAULT_CONTRACT_VERSION = '0.5.0'
 const AUTH_TTL_MS = 5 * 60 * 1000
 const TICKET_TTL_MS = 60 * 1000
 const ACCESS_TTL_SECONDS = 300
@@ -215,9 +215,13 @@ function sessionFromAccess(state, request) {
   return session
 }
 
+/**
+ * @param {{ host?: string, port?: number, contractVersion?: '0.4.0' | '0.5.0' }} [options]
+ */
 export function createMockEnterpriseServer(options = {}) {
   const host = options.host ?? HOST
   if (host !== HOST) throw new Error('The BiSheng mock must bind to 127.0.0.1.')
+  const contractVersion = options.contractVersion ?? DEFAULT_CONTRACT_VERSION
   const state = {
     origin: '', authorizations: new Map(), tickets: new Map(), sessions: new Map(),
     access: new Map(), refresh: new Map(), users: new Map(USERS.map((user) => [user.id, user])), usage: new Map()
@@ -228,8 +232,8 @@ export function createMockEnterpriseServer(options = {}) {
     try {
       const url = new URL(request.url ?? '/', state.origin)
       if (request.method === 'GET' && url.pathname === '/healthz') return sendJson(response, 200, { ok: true, origin: state.origin }, id)
-      if (request.method === 'GET' && url.pathname === '/') return sendHtml(response, 200, layout('BiSheng DSH Mock', `<span class="tag">READY</span><h1>DSH 登录与模型 Mock</h1><div class="facts"><div><span>BASE</span><strong>${escapeHtml(state.origin)}</strong></div><div><span>合同版本</span><strong>${CONTRACT_VERSION}</strong></div></div><p>在 DSH Desktop Dev 的「设置 → 账号与企业」中填写此 BASE。</p>`))
-      if (request.method === 'GET' && url.pathname === '/api/v1/dsh/config') return sendJson(response, 200, { enabled: true, client_id: CLIENT_ID, contract_version: CONTRACT_VERSION }, id)
+      if (request.method === 'GET' && url.pathname === '/') return sendHtml(response, 200, layout('BiSheng DSH Mock', `<span class="tag">READY</span><h1>DSH 登录与模型 Mock</h1><div class="facts"><div><span>BASE</span><strong>${escapeHtml(state.origin)}</strong></div><div><span>合同版本</span><strong>${contractVersion}</strong></div></div><p>在 DSH Desktop Dev 的「设置 → 账号与企业」中填写此 BASE。</p>`))
+      if (request.method === 'GET' && url.pathname === '/api/v1/dsh/config') return sendJson(response, 200, { enabled: true, client_id: CLIENT_ID, contract_version: contractVersion }, id)
 
       if (request.method === 'POST' && url.pathname === '/api/dsh/authorizations') {
         const body = await readJson(request)
@@ -353,7 +357,9 @@ export function createMockEnterpriseServer(options = {}) {
         if (selectedModel.capabilities.reasoning_content) response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '先验证登录、模型权限与用量。' }, finish_reason: null }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: `Mock 联调成功：当前请求已通过 DSH access token 调用 ${selectedModel.display_name}。` }, finish_reason: null }] })}\n\n`)
         response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`)
-        response.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion, prompt_tokens_details: { cached_tokens: cached, cache_creation_tokens: null } } })}\n\n`)
+        const usage = { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion }
+        if (contractVersion !== '0.4.0') usage.prompt_tokens_details = { cached_tokens: cached, cache_creation_tokens: null }
+        response.write(`data: ${JSON.stringify({ choices: [], usage })}\n\n`)
         response.end('data: [DONE]\n\n')
         return
       }

@@ -135,6 +135,45 @@ describe('BiSheng OpenAI adapter', () => {
     })
   })
 
+  it('treats missing or null cache details as unavailable cache data', async () => {
+    for (const payload of [
+      { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+      { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120, prompt_tokens_details: null },
+      { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120, prompt_tokens_details: {} },
+      {
+        prompt_tokens: 100,
+        completion_tokens: 20,
+        total_tokens: 120,
+        prompt_tokens_details: {
+          cached_tokens: null,
+          cache_creation_tokens: null
+        }
+      }
+    ]) {
+      await expect(usageFrom(payload)).resolves.toEqual({
+        inputTokens: 100,
+        outputTokens: 20,
+        totalTokens: 120
+      })
+    }
+  })
+
+  it('does not synthesize a zero for a missing cache detail field', async () => {
+    await expect(usageFrom({
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+      prompt_tokens_details: {
+        cached_tokens: 25
+      }
+    })).resolves.toEqual({
+      inputTokens: 75,
+      outputTokens: 20,
+      totalTokens: 120,
+      cacheReadTokens: 25
+    })
+  })
+
   it('preserves explicit zero cache counts and omits unknown null counts', async () => {
     await expect(usageFrom({
       prompt_tokens: 100,
