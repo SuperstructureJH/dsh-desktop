@@ -27,11 +27,16 @@ async function fixture(existingRoot) {
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace, { recursive: true });
   const tools = new Map(); let rpc;
-  await apply({
-    inject() {}, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
+  const host = {
+    provide() {},
+    effect: (run) => { run?.(); return () => {}; },
+    webServer: { register: () => () => {} },
+    inject: (services, callback) => { if (services.includes('webServer')) callback(host); },
+    skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
     connection: { rpc: { handle: (_route, handler) => { rpc = handler; } } }
-  }, { root: storage });
+  };
+  await apply(host, { root: storage });
   async function request(endpoint, input = {}, sessionId = 'session-a') {
     const result = await rpc(endpoint, { ...input, sessionId });
     expect(result.ok).toBe(true);
