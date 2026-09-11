@@ -39,7 +39,7 @@ async function fixture({ broken = true, malformed = false } = {}) {
   const tools = new Map()
   let rpc
   await apply({
-    inject() {}, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
+    inject() {}, provide() {}, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
     connection: { rpc: { handle: (_route, handler) => { rpc = handler } } }
   }, { root: path.join(root, 'storage') })

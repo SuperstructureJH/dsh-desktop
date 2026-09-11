@@ -36,6 +36,7 @@ async function fixture(existingRoot) {
     async apply(pluginCtx) {
       await apply({
         inject: pluginCtx.inject.bind(pluginCtx),
+        provide: pluginCtx.provide.bind(pluginCtx),
         systemPrompt: pluginCtx.systemPrompt,
         skills: pluginCtx.skills,
         on: pluginCtx.on.bind(pluginCtx),
