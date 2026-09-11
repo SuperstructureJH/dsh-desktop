@@ -12,7 +12,7 @@ import { SystemPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { SkillRegistry } from '@deepseek-ai/dsh-skill'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
 import { LocalSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-local'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import sharp from 'sharp'
 import { apply, imageTool } from '../packages/dsh-image-generation/index.js'
 import { createSettings } from '../packages/dsh-image-generation/lib/settings.js'
@@ -76,7 +76,7 @@ async function fixture() {
   const services = { credentials: ctx.credentials, sandbox: ctx.sandbox, subprocess: ctx.subprocess, logger: { info: log }, sandboxPolicy: { resolve: () => ({ mode, workspaceRoot: workspace }) } }
   const settings = createSettings(services)
   const id = SessionId(randomUUID())
-  const agent = { session: Session.create(id, undefined, { version: 0, id, createdAt: Date.now(), isSeeded: false, cwd: workspace }) }
+  const agent = { session: Session.create(id, undefined, { version: SESSION_FORMAT_VERSION, id, createdAt: Date.now(), isSeeded: false, cwd: workspace }) }
   return { ctx, home, workspace, services, settings, log, agent, setMode: value => { mode = value } }
 }
 const saveInput = (provider, baseUrl, revision = 0) => ({ provider, baseUrl, model: DEFAULTS[provider].model, apiKey: 'test-image-key', revision })

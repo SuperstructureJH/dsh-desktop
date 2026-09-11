@@ -65,7 +65,7 @@ export async function apply(ctx) {
   ctx.settings.register('image-generation', Config, { applies: 'live' })
   const settings = createSettings(ctx)
   for (const [suffix, method] of [['settings', 'GET'], ['save', 'POST'], ['models', 'POST']]) {
-    ctx.connection.fetch.register({ path: `/api/image-generation.${suffix}`, methods: [method], async fetch(request) {
+    ctx.connection.fetch.register({ path: `/api/image-generation.${suffix}`, methods: [method], requestBody: 'buffered', async fetch(request) {
       try {
         const value = method === 'GET' ? await settings.describe() : await settings[suffix](
           JSON.parse((await readBounded(request, 16_384, request.signal)).toString('utf8')), request.signal,
@@ -78,7 +78,7 @@ export async function apply(ctx) {
     } })
   }
   ctx.tools.register(imageTool(ctx, settings))
-  ctx.connection.fetch.register({ path: '/api/image-generation.preview', methods: ['GET'], fetch: request => previewImage(ctx, request) })
+  ctx.connection.fetch.register({ path: '/api/image-generation.preview', methods: ['GET'], requestBody: 'buffered', fetch: request => previewImage(ctx, request) })
   const locator = new URL('./skills/generate-image/SKILL.md', import.meta.url)
   const candidate = {
     name: 'generate-image', description: 'Create reusable photos, illustrations and backgrounds for presentations, documents and other image requests with the configured image_generate tool.',
