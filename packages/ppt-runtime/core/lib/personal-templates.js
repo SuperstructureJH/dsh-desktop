@@ -5,7 +5,6 @@ import sharp from 'sharp';
 import { loadPptdProject, checkPptdProject, parsePptdProject } from './pptd.js';
 import { runCli } from './bin.js';
 
-export const PERSONAL_TEMPLATE_MAX_BYTES = 16 * 1024 * 1024;
 const MAX_TEMPLATES = 100;
 const PREVIEW_LONG_EDGE = 1920;
 const THUMBNAIL_LONG_EDGE = 720;
@@ -128,12 +127,12 @@ export class PersonalTemplateLibrary {
       if (typeof fileName !== 'string' || fileName.length > 240 || !/\.pptx$/i.test(fileName) || /[\\/\u0000]/u.test(fileName))
         throw new Error('请选择 PPTX 文件');
       const encoded = input?.base64;
-      if (typeof encoded !== 'string' || encoded.length > Math.ceil(PERSONAL_TEMPLATE_MAX_BYTES / 3) * 4 || encoded.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(encoded))
-        throw new Error('PPTX 文件应小于 16 MB，上传数据应为有效 Base64');
+      if (typeof encoded !== 'string' || encoded.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(encoded))
+        throw new Error('上传数据应为有效 Base64');
       const bytes = Buffer.from(encoded, 'base64');
       if (bytes.toString('base64') !== encoded) throw new Error('上传数据应为有效 Base64');
-      if (bytes.length < 4 || bytes.length > PERSONAL_TEMPLATE_MAX_BYTES || !bytes.subarray(0, 4).equals(Buffer.from([80, 75, 3, 4])))
-        throw new Error('请选择有效的 PPTX 文件，最大 16 MB');
+      if (bytes.length < 4 || !bytes.subarray(0, 4).equals(Buffer.from([80, 75, 3, 4])))
+        throw new Error('请选择有效的 PPTX 文件');
       const id = `personal-${hash(bytes)}`;
       const saved = (await this.list()).find(item => item.id === id);
       if (saved) return { duplicate: true, template: saved };

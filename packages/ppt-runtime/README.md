@@ -34,7 +34,7 @@ PPT remains preinstalled. Its automatic instructions are scoped to sessions wher
 
 ### Personal PPT templates
 
-The chooser's **My templates** tab accepts PPTX files up to 16 MB and the configured slide limit (40 by default). Uploads produce page previews and conversion diagnostics. **Save template** registers the reviewed file in the current Desktop profile; new sessions and restarts read the same library. Identical source bytes resolve to the saved template. Users can rename or remove entries; generated task projects stay available.
+The chooser's **My templates** tab accepts PPTX files with the configured slide limit (40 by default). Uploads use the Host's shared transport and archive resource limits. They produce page previews and conversion diagnostics. **Save template** registers the reviewed file in the current Desktop profile; new sessions and restarts read the same library. Identical source bytes resolve to the saved template. Users can rename or remove entries; generated task projects stay available.
 
 The host stores source PPTX, editable PPTD pages, assets, previews and conversion records under `personal-templates/` inside the configured PPT data root. Drafts belong to their initiating session. Registered templates belong to this local Desktop profile, including remote connections to that profile. Account-based sharing and cross-device synchronization require a separate identity integration.
 

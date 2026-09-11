@@ -81,7 +81,7 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t }) 
     const current = generation.current;
     setImporting(true);
     await act(async () => {
-      if (!/\.pptx$/i.test(file.name) || file.size > 16 * 1024 * 1024) throw new Error(t('personal.fileLimit'));
+      if (!/\.pptx$/i.test(file.name)) throw new Error(t('personal.fileType'));
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result).split(',')[1]);
