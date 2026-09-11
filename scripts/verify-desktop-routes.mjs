@@ -13,7 +13,7 @@ await new Promise(resolve => portServer.listen(0, '127.0.0.1', resolve))
 const port = portServer.address().port
 await new Promise(resolve => portServer.close(resolve))
 const base = `http://127.0.0.1:${port}`
-const child = spawn(path.join(root, 'node_modules/node/bin/node'), [path.join(root, 'build/harness-node-entry.mjs'),
+const child = spawn(path.join(root, 'node_modules/node/bin', process.platform === 'win32' ? 'node.exe' : 'node'), [path.join(root, 'build/harness-node-entry.mjs'),
   path.join(root, 'node_modules/@deepseek-ai/dsh/lib/bin.js'), 'web', '--patch', path.join(root, 'build/dsh-desktop.patch.yml'), '--no-open', '--host', '127.0.0.1', '--port', String(port)],
   { cwd: root, env: { ...process.env, DSH_HOME: home, NO_COLOR: '1', DSH_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
 let output = ''
