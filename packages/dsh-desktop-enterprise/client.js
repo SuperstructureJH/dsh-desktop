@@ -8,6 +8,8 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { createElement: h, useCallback, useEffect, useState } = React
     const LAST_BASE_KEY = 'dshDesktopEnterprise.lastBase'
+    const ENTERPRISE_SECTION_ID = 'enterprise-account'
+    const OPEN_SETTINGS_SECTION_EVENT = 'dsh-desktop:open-settings-section'
     const zh = navigator.language.toLowerCase().startsWith('zh')
     const copy = zh ? {
       nav: '账号与企业', title: '企业账号', platform: '毕昇平台地址',
@@ -79,6 +81,15 @@ window.__ModuleLoader__.load({
       } catch {}
     }
 
+    function openEnterpriseSettingsSection() {
+      if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return
+      const dispatch = () => window.dispatchEvent(
+        new CustomEvent(OPEN_SETTINGS_SECTION_EVENT, { detail: { id: ENTERPRISE_SECTION_ID } })
+      )
+      dispatch()
+      window.setTimeout(dispatch, 0)
+    }
+
     function modelUsagePercentage(usage) {
       if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) return usageText(usage)
       const percentage = Math.max(0, usage.used / usage.limit * 100)
@@ -114,7 +125,7 @@ window.__ModuleLoader__.load({
         refreshState().catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
         const bridge = window.dshDesktopEnterprise
         if (!bridge?.onLoginLink) return undefined
-        return bridge.onLoginLink((url) => { bridge.consumeLoginLink?.(); void inspectDeepLink(url) })
+        return bridge.onLoginLink((url) => { openEnterpriseSettingsSection(); bridge.consumeLoginLink?.(); void inspectDeepLink(url) })
       }, [inspectDeepLink, refreshState])
 
       useEffect(() => {
@@ -147,10 +158,11 @@ window.__ModuleLoader__.load({
 
       const connected = state?.connected === true
       const models = Array.isArray(state?.models) ? state.models : []
+      const userLabel = state?.user?.display_name || state?.user?.username || state?.user?.id || '—'
 
       const status = connected ? h('div', { className: 'dshEnterpriseIdentity' },
         h('span', { className: 'dshEnterpriseDot', 'aria-hidden': 'true' }),
-        h('span', null, state.user?.id || '—')) : null
+        h('span', null, userLabel)) : null
 
       const accountContent = connected
         ? h(React.Fragment, null,
@@ -214,8 +226,13 @@ window.__ModuleLoader__.load({
     const inject = ['slots']
     function apply(ctx) {
       installStyles()
+      ctx.effect(() => {
+        const bridge = window.dshDesktopEnterprise
+        if (!bridge?.onLoginLink) return undefined
+        return bridge.onLoginLink(() => openEnterpriseSettingsSection())
+      }, 'dsh-desktop-enterprise: open settings on login link')
       ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section', id: 'enterprise-account', order: 15, label: () => copy.nav
+        name: 'settings.section', id: ENTERPRISE_SECTION_ID, order: 15, label: () => copy.nav
       }, EnterpriseSection))
     }
     exports.apply = apply

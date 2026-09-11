@@ -45,6 +45,21 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain("setBase('')")
   })
 
+  it('opens the enterprise settings section when an enterprise login link arrives', async () => {
+    const client = await readFile(
+      path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
+      'utf8'
+    )
+
+    expect(client).toContain("const ENTERPRISE_SECTION_ID = 'enterprise-account'")
+    expect(client).toContain("const OPEN_SETTINGS_SECTION_EVENT = 'dsh-desktop:open-settings-section'")
+    expect(client).toContain('function openEnterpriseSettingsSection()')
+    expect(client).toContain('new CustomEvent(OPEN_SETTINGS_SECTION_EVENT, { detail: { id: ENTERPRISE_SECTION_ID } })')
+    expect(client).toContain('return bridge.onLoginLink(() => openEnterpriseSettingsSection())')
+    expect(client).toContain('bridge.consumeLoginLink?.(); void inspectDeepLink(url)')
+    expect(client).toContain('id: ENTERPRISE_SECTION_ID')
+  })
+
   it('keeps sign-in focused and shows model usage with hover percentages', async () => {
     const client = await readFile(
       path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'client.js'),
@@ -61,10 +76,9 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).not.toContain("h('dt', null, copy.platform)")
     expect(client).not.toContain('copy.connected')
     expect(client).not.toContain('state.tenant?.name')
-    expect(client).not.toContain('state.user?.display_name')
+    expect(client).toContain("const userLabel = state?.user?.display_name || state?.user?.username || state?.user?.id || '—'")
     expect(client).not.toContain('state.usage)')
     expect(client).not.toContain("h('div', { className: 'dshEnterpriseCard' }, status, accountContent, errorPanel)")
-    expect(client).toContain("state.user?.id || '—'")
     expect(client).toContain('@keyframes dshEnterprisePulse')
     expect(client).toContain("state.modelUsage?.[model.id]")
     expect(client).toContain('.dshEnterpriseModels li:hover .dshEnterpriseModelUsageValue{display:none}')
