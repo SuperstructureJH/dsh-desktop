@@ -19,6 +19,7 @@ async function fixture(existingRoot) {
   const root = existingRoot ?? await mkdtemp(path.join(os.tmpdir(), 'office-modes-'))
   if (!existingRoot) cleanup.push(() => rm(root, { recursive: true, force: true }))
   const ctx = new Context(), routes = new Map(), registered = new Set()
+  ctx.provide('webServer', { register: () => () => {} })
   ctx.provide('connection', { rpc: { handle(route, handler, options) {
     expect(options.authority).toBe('trusted-host'); routes.set(route, handler)
   } } })

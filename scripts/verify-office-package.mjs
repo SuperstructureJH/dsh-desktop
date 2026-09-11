@@ -34,9 +34,15 @@ if (!values.worker) {
   const services = {}, routes = new Map()
   const connection = { rpc: { handle: (route, handler) => routes.set(route, handler) } }
   const ppt = await import(pathToFileURL(path.join(resources, 'app/node_modules/dsh-ppt/lib/index.js')).href)
-  await ppt.apply({ provide: (name, value) => { services[name] = value }, inject() {}, get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection }, { root: path.join(values.output, 'composer-state') })
-  apply({ tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
-    connection, officeModes: services.officeModes, on() {},
+  const host = {
+    provide: (name, value) => { services[name] = value },
+    inject: (names, callback) => { if (names.includes('webServer')) callback(host) },
+    effect: run => run(), webServer: { register: () => () => {} },
+    get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
+  }
+  await ppt.apply(host, { root: path.join(values.output, 'composer-state') })
+  apply({ ...host, tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
+    officeModes: services.officeModes,
     get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: values.output }) }) }, config)
   const sessionId = 'packaged-office-test'
   for (const mode of ['word', 'excel', null]) {

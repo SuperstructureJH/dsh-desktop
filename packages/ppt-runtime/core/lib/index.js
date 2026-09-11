@@ -3201,7 +3201,7 @@ function clearAutomaticPptContext(agent, staleOnly = false) {
 			content: [{ type: "text", text: "[Retired automatic PPT instructions cleared.]" }],
 			source: { kind: "plugin", plugin: "dsh-ppt-context-cleared" }
 		}), {
-			surfaceOp: { op: "replace", start: seq, end: seq },
+			surfaceOp: { op: "replace", startSeq: seq, endSeq: seq },
 			sourceEventSeqs: [seq]
 		});
 	}
@@ -3628,9 +3628,16 @@ async function apply(ctx, config) {
 		state: (sessionId) => service.state(sessionId),
 		select: (sessionId, mode) => service.selectDocumentMode(sessionId, mode, { kind: "user" })
 	});
-	ctx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
-	// Older loaded clients can finish their in-flight requests after upgrade.
-	ctx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
+	// Harness 0.1.5 registers an RPC channel as a webServer route owned by the
+	// Context that read `connection`, and that Context must itself declare
+	// `webServer`. Registering from a scoped inject Context is upstream's own
+	// pattern; reading `ctx.connection` directly throws
+	// `cannot get property "webServer" without inject` and fails the whole tree.
+	ctx.inject(["webServer"], (webCtx) => {
+		webCtx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
+		// Older loaded clients can finish their in-flight requests after upgrade.
+		webCtx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
+	});
 	registerPptTools(ctx, service);
 }
 //#endregion

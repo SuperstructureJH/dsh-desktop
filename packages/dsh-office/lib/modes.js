@@ -16,29 +16,31 @@ function clearPreviousContext(agent, names, sections) {
     if (event?.type !== 'user/message' || source?.kind !== 'plugin' || !CONTEXT_SOURCES.has(source.plugin) || source.form !== 'snapshot') continue
     if (source.plugin === PLUGIN && matches(source, names) && (!sections || source.sections.every((section, i) => section.text === sections[i].text))) continue
     session.append('user/message', createUserMessage({ content: [{ type: 'text', text: '输出格式已按当前会话选择更新。' }],
-      source: { kind: 'plugin', plugin: 'dsh-office-context-updated' } }), { surfaceOp: { op: 'replace', start: seq, end: seq }, sourceEventSeqs: [seq] })
+      source: { kind: 'plugin', plugin: 'dsh-office-context-updated' } }), { surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq }, sourceEventSeqs: [seq] })
   }
 }
 
 export function registerOfficeModes(ctx) {
   const modes = ctx.officeModes
-  ctx.connection.rpc.handle('/dsh-office', async (endpoint, payload) => {
-    try {
-      const sessionId = payload?.sessionId
-      if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512) throw new Error('Choose an active session')
-      if (endpoint === 'mode') {
-        if (![null, 'word', 'excel'].includes(payload.mode)) throw new Error('Choose Word, Excel or ordinary conversation')
-        await modes.select(sessionId, payload.mode)
-      } else if (endpoint === 'template/preview') {
-        return { ok: true, value: { status: 'ok', data: await officeTemplatePreview(payload.templateId, payload.page) } }
-      } else if (endpoint !== 'state') throw new Error('Unknown Office mode operation')
-      const state = await modes.state(sessionId)
-      const templates = await listOfficeTemplates()
-      return { ok: true, value: { status: 'ok', data: { sessionId, mode: selectedMode(state), templates } } }
-    } catch (error) {
-      return { ok: true, value: { status: 'error', error: { code: 'invalid-request', message: error.message } } }
-    }
-  }, { authority: 'trusted-host' })
+  ctx.inject(['webServer'], (webCtx) => {
+    webCtx.connection.rpc.handle('/dsh-office', async (endpoint, payload) => {
+      try {
+        const sessionId = payload?.sessionId
+        if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512) throw new Error('Choose an active session')
+        if (endpoint === 'mode') {
+          if (![null, 'word', 'excel'].includes(payload.mode)) throw new Error('Choose Word, Excel or ordinary conversation')
+          await modes.select(sessionId, payload.mode)
+        } else if (endpoint === 'template/preview') {
+          return { ok: true, value: { status: 'ok', data: await officeTemplatePreview(payload.templateId, payload.page) } }
+        } else if (endpoint !== 'state') throw new Error('Unknown Office mode operation')
+        const state = await modes.state(sessionId)
+        const templates = await listOfficeTemplates()
+        return { ok: true, value: { status: 'ok', data: { sessionId, mode: selectedMode(state), templates } } }
+      } catch (error) {
+        return { ok: true, value: { status: 'error', error: { code: 'invalid-request', message: error.message } } }
+      }
+    }, { authority: 'trusted-host' })
+  })
   ctx.on('agent/pre-step', async ({ agent, step, signal }, next) => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision

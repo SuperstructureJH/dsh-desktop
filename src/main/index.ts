@@ -16,7 +16,7 @@ import {
   type IpcMainInvokeEvent,
   type MessageBoxOptions
 } from 'electron'
-import { extractFailureCause, HarnessRuntime } from './runtime/harness-runtime'
+import { extractFailureCause, HarnessRuntime, prewarmShellEnvironment } from './runtime/harness-runtime'
 import { launchDisclaimedUtilityProcess } from './runtime/disclaimed-utility-process'
 import {
   installProfileDependenciesWithDsh,
@@ -66,7 +66,6 @@ import {
 } from './state/plugin-recovery'
 import { ensureSafeModeProfile, SAFE_MODE_PROFILE } from './state/safe-mode-profile'
 import {
-  isProjectedGenerationPlugin,
   prepareGenerationsForLaunch,
   uninstallGenerationPlugin
 } from './state/generation-launch'
@@ -1178,12 +1177,15 @@ function launchHarness(): Promise<void> {
 
   harnessLaunchOperation = (async () => {
     safeModeVisible = false
+    runtime.beginLaunch('web profile')
     const dshHome = join(app.getPath('userData'), 'harness')
     await showSplash()
+    runtime.note('[desktop] splash shown')
     // Migration and generation projection only hold on a stopped Harness, and
     // a restart still has the previous one running: start() stops it, but that
     // is after maintenance. Stopping here owns that mutation window.
     await runtime.stop()
+    runtime.note('[desktop] previous Harness stopped; starting profile maintenance')
     const maintenance = await runProfileStartupMaintenance({
       note: (line) => runtime.note(line),
       recoverInterruptedMigration: () =>
@@ -1237,8 +1239,10 @@ function launchHarness(): Promise<void> {
     }
     maintenanceRecoveryLocked = false
     maintenanceAllowedRestoreId = undefined
+    runtime.note('[desktop] profile maintenance done')
     await refreshMigrationRecoveryLock(dshHome)
     await auditInstalledLaunchAgents(dshHome)
+    runtime.note('[desktop] LaunchAgent audit done')
     desktopStorageManager?.switchProfile(join(dshHome, 'profiles', 'web'))
     await runtime.start(launchDirectory)
 
@@ -1276,6 +1280,7 @@ function launchSafeHarness(): Promise<void> {
 
   harnessLaunchOperation = (async () => {
     safeModeVisible = true
+    runtime.beginLaunch('safe mode')
     const dshHome = join(app.getPath('userData'), 'harness')
     await refreshMigrationRecoveryLock(dshHome)
     await showSplash()
@@ -1302,56 +1307,21 @@ function restartHarness(): Promise<void> {
   return launchHarness()
 }
 
-/** Drop the market's generation pointer, in the shape the caller reports on. */
-async function disableMarketGeneration(
-  dshHome: string
-): Promise<{ ok: boolean; detail?: string }> {
-  if (await uninstallGenerationPlugin(dshHome, 'dshmarket', (line) => runtime.note(line))) {
-    return { ok: true }
-  }
-  return {
-    ok: false,
-    detail: 'The plugin market generation could not be disabled; it is still enabled for the next launch.'
-  }
-}
-
-/**
- * Remove the plugin market, in whichever form this profile installed it.
- *
- * A generation install is projected from `desired`, NOT owned by the profile
- * manifest, so `dsh plugin remove` is the wrong tool for it: it edits
- * `dependencies` and `node_modules`, the pnpm runner restores the projection
- * fields it suspended, and prepareGenerationsForLaunch() rebuilds the market
- * from `desired` during the restart below. The uninstall then looked like it
- * had done nothing at all (#330 by @Lililizi0307).
- *
- * The generation branch cannot go through removeProfilePluginCompletely():
- * dshmarket is a CORE_BUNDLES name, so beginRemoval() refuses it by design —
- * that guard is what stops recovery and Safe Mode from tearing out a core
- * bundle, and this deliberate, user-initiated uninstall is not a reason to
- * weaken it.
- */
 async function uninstallMarketAndRestart(): Promise<{ ok: boolean }> {
   const dshHome = join(app.getPath('userData'), 'harness')
   await showSplash()
   await runtime.stop()
-  // Ask BEFORE removing: once the pointer is gone the question cannot be
-  // answered any more, and a generation whose disable failed must not be
-  // reported as an uninstall that worked.
-  const projected = await isProjectedGenerationPlugin(dshHome, 'dshmarket')
-  const result = projected
-    ? await disableMarketGeneration(dshHome)
-    : await removeProfilePluginWithDsh(
-      {
-        dshHome,
-        dshEntryPath: dshEntryPath(),
-        nodeExecutablePath: bundledNodePath(),
-        pnpmEntryPath: bundledPnpmEntryPath(),
-        pnpmRunnerPath: bundledPnpmRunnerPath()
-      },
-      'dshmarket',
-      true
-    )
+  const result = await removeProfilePluginWithDsh(
+    {
+      dshHome,
+      dshEntryPath: dshEntryPath(),
+      nodeExecutablePath: bundledNodePath(),
+      pnpmEntryPath: bundledPnpmEntryPath(),
+      pnpmRunnerPath: bundledPnpmRunnerPath()
+    },
+    'dshmarket',
+    true
+  )
   await launchHarness()
   if (!result.ok) {
     throw new Error(result.detail ?? 'Plugin market removal failed.')
@@ -2385,7 +2355,7 @@ async function showSafeModeManager(initial?: {
       const issueById = new Map(compatibility.issues.map((issue) => [issue.id, issue]))
       const selectedIssues = [...new Set(action.issues)]
         .map((id) => issueById.get(id))
-        .filter((issue): issue is ProfileCompatibilityIssue => issue !== undefined && issue.resolution !== 'inspect-only')
+        .filter((issue): issue is ProfileCompatibilityIssue => issue !== undefined)
       const installedSet = new Set(installed)
       const selectedPlugins = [...new Set(action.plugins)].filter((plugin) => installedSet.has(plugin))
       if (selectedIssues.length === 0 && selectedPlugins.length === 0) {
@@ -2884,6 +2854,10 @@ if (isDaemonLaunch(process.env, process.platform)) {
   if (!singleInstance) {
     app.quit()
   } else {
+    // Start the login-shell capture now so it overlaps Electron's own startup
+    // and the splash instead of blocking the main process right before the
+    // Harness spawn. Only the instance that will actually launch pays for it.
+    void prewarmShellEnvironment()
     app.on('second-instance', (_event, argv) => {
       if (!isUserInitiatedInstance(argv)) return
       if (shouldStartInSafeMode(argv)) {

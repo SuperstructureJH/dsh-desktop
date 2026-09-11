@@ -8,7 +8,7 @@ import { SkillRegistry } from '@deepseek-ai/dsh-skill'
 import { SystemPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { ToolRuntime } from '@deepseek-ai/dsh-tools'
 import * as skillTool from '@deepseek-ai/dsh-tool-skill'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import { businessSkills, createBusinessSkillLibrary, stripFrontmatter } from '../packages/dsh-office/lib/business-skills.js'
@@ -56,7 +56,7 @@ it('publishes real session catalogue summaries and loads a selected business Ski
   apply(ctx, { root: path.join(root, 'audit') })
   skillTool.apply(ctx)
   const agent = { id: 'business-catalogue', session: Session.create(SessionId('business-catalogue'), undefined,
-    { version: 0, id: 'business-catalogue', createdAt: Date.now(), isSeeded: false, cwd: root }) }
+    { version: SESSION_FORMAT_VERSION, id: 'business-catalogue', createdAt: Date.now(), isSeeded: false, cwd: root }) }
   const scope = createScope(ctx, agent); agent.ctx = scope.ctx; cleanup.push(() => scope.dispose())
   const decision = await agentEvents(ctx, agent).waterfall('agent/pre-step', { turn: 1, step: 1, messages: [], signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [] }))
   const catalogue = decision.messages.find(m => m.source.kind === 'skill-catalog')
