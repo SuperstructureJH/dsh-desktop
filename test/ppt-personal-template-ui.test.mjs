@@ -131,13 +131,27 @@ it('keeps multiline conversion details visible and allows the upload to be retri
 it('rejects unsupported files and cancels a prepared preview without registering it', async () => {
   const f = await fixture();
   await f.upload(new File(['wrong'], 'Company.ppt'));
-  expect(container.querySelector('[role=alert]').textContent).toBe('personal.fileLimit');
+  expect(container.querySelector('[role=alert]').textContent).toBe('personal.fileType');
   expect(f.calls.some(call => call.endpoint === 'template/prepare')).toBe(false);
   await f.upload(new File(['source'], 'Company.pptx'));
   await f.click('personal.cancel');
   expect(f.calls.some(call => call.endpoint === 'template/cancel')).toBe(true);
   expect(f.calls.some(call => call.endpoint === 'template/save')).toBe(false);
   expect(container.querySelector('section')).toBeNull();
+});
+
+it('reads a file above 16 MB and sends its full payload to the Host', async () => {
+  const f = await fixture();
+  const size = 17 * 1024 * 1024;
+  await f.upload(new File([new Uint8Array(size)], 'Large.pptx'));
+  await act(async () => {
+    await vi.waitFor(() => expect(f.calls.some(call => call.endpoint === 'template/prepare')).toBe(true));
+  });
+  const sent = f.calls.find(call => call.endpoint === 'template/prepare').payload.input;
+  expect(sent.fileName).toBe('Large.pptx');
+  expect(Buffer.from(sent.base64, 'base64')).toHaveLength(size);
+  expect(container.querySelector('dialog[open] img')).not.toBeNull();
+  expect(container.querySelector('[role=alert]')).toBeNull();
 });
 
 it('cancels an upload completed after switching sessions and keeps the new session ready', async () => {
