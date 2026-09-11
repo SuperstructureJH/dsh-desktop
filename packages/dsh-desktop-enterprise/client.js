@@ -10,12 +10,14 @@ window.__ModuleLoader__.load({
     const LAST_BASE_KEY = 'dshDesktopEnterprise.lastBase'
     const ENTERPRISE_SECTION_ID = 'enterprise-account'
     const OPEN_SETTINGS_SECTION_EVENT = 'dsh-desktop:open-settings-section'
+    const MANUAL_FALLBACK_DELAY_MS = 8_000
     const zh = navigator.language.toLowerCase().startsWith('zh')
     const copy = zh ? {
       nav: '账号与企业', title: '企业账号', platform: '毕昇平台地址',
       login: '在浏览器中登录', loggingIn: '等待浏览器授权…',
       refresh: '刷新', logout: '退出登录', models: '可用模型', noModels: '当前账号没有可用模型。',
       modelsUnavailable: '模型权限读取失败，企业模型已暂停。', usageUnavailable: '用量暂不可用',
+      ticket: '一次性登录码', submitTicket: '完成登录',
       secureUnavailable: '系统安全存储不可用，企业登录已停用。',
       confirmTitle: '确认毕昇平台', confirmLead: '确认后会停用当前企业模型连接，并在该平台新建一次 PKCE 登录。',
       confirm: '确认并登录', cancel: '取消', requestId: '请求 ID'
@@ -24,6 +26,7 @@ window.__ModuleLoader__.load({
       login: 'Sign in in browser', loggingIn: 'Waiting for browser authorization…',
       refresh: 'Refresh', logout: 'Sign out', models: 'Available models', noModels: 'No models are assigned to this account.',
       modelsUnavailable: 'Model access could not be verified. Enterprise models are paused.', usageUnavailable: 'Usage unavailable',
+      ticket: 'One-time code', submitTicket: 'Complete sign-in',
       secureUnavailable: 'Operating-system secure storage is unavailable. Enterprise sign-in is disabled.',
       confirmTitle: 'Confirm BiSheng platform', confirmLead: 'Continuing pauses the current enterprise connection and starts a new PKCE login at this platform.',
       confirm: 'Confirm and sign in', cancel: 'Cancel', requestId: 'Request ID'
@@ -39,6 +42,7 @@ window.__ModuleLoader__.load({
         .dshEnterpriseHint{color:var(--ds-text-secondary,#6d7178);line-height:1.55}
         .dshEnterpriseLabel{display:grid;gap:7px;font-size:13px;font-weight:650}.dshEnterpriseInput{box-sizing:border-box;width:100%;height:38px;padding:0 11px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:transparent;font:inherit}
         .dshEnterpriseActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.dshEnterpriseButton{min-height:36px;padding:7px 13px;border:1px solid var(--ds-border,#ccd0d5);border-radius:9px;color:inherit;background:var(--ds-bg-primary,#fff);cursor:pointer;font:inherit;font-weight:650}.dshEnterpriseButton.login{border-color:var(--ds-border,#ccd0d5);color:var(--ds-text-primary,#202124);background:transparent}.dshEnterpriseButton.primary{border-color:#2468f2;color:#fff;background:#2468f2}.dshEnterpriseButton.danger{color:#b42318}.dshEnterpriseButton:disabled,.dshEnterpriseIconButton:disabled{opacity:.5;cursor:default}
+        .dshEnterpriseManual{display:grid;gap:10px;margin-top:14px}.dshEnterpriseManual .dshEnterpriseActions{margin-top:0}
         .dshEnterpriseIdentity{display:flex;align-items:center;gap:8px;min-height:22px;font-size:13px;font-weight:650}.dshEnterpriseDot{width:8px;height:8px;border-radius:50%;background:#17a673;box-shadow:0 0 0 0 #17a67355;animation:dshEnterprisePulse 2.4s ease-in-out infinite}@keyframes dshEnterprisePulse{0%,100%{box-shadow:0 0 0 0 #17a67355}50%{box-shadow:0 0 0 5px #17a67300}}
         .dshEnterpriseSectionHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}.dshEnterpriseSectionHeader h3{margin:0}.dshEnterpriseIconButton{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;padding:0;border:1px solid var(--ds-border,#ccd0d5);border-radius:8px;color:var(--ds-text-secondary,#6d7178);background:transparent;cursor:pointer;font:18px/1 system-ui}.dshEnterpriseIconButton:hover{color:inherit;background:var(--ds-bg-secondary,#f0f2f5)}
         .dshEnterpriseModels{display:grid;gap:7px;margin:8px 0 0;padding:0;list-style:none}.dshEnterpriseModels li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-radius:9px;background:var(--ds-bg-secondary,#f0f2f5);font-size:12px}.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178);white-space:nowrap}.dshEnterpriseModelUsagePercent{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsageValue{display:none}.dshEnterpriseModels li:hover .dshEnterpriseModelUsagePercent{display:inline}.dshEnterpriseModels.paused{opacity:.5}
@@ -100,6 +104,8 @@ window.__ModuleLoader__.load({
     function EnterpriseSection() {
       const [state, setState] = useState(null)
       const [base, setBase] = useState(readLastBase)
+      const [ticket, setTicket] = useState('')
+      const [manualFallbackReady, setManualFallbackReady] = useState(false)
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
       const [confirmation, setConfirmation] = useState(null)
@@ -133,6 +139,14 @@ window.__ModuleLoader__.load({
         const timer = window.setInterval(() => { refreshState().catch(() => {}) }, 1200)
         return () => window.clearInterval(timer)
       }, [state?.phase, refreshState])
+
+      useEffect(() => {
+        setManualFallbackReady(false)
+        setTicket('')
+        if (state?.phase !== 'authorizing' || !state?.loginExpiresAt) return undefined
+        const timer = window.setTimeout(() => setManualFallbackReady(true), MANUAL_FALLBACK_DELAY_MS)
+        return () => window.clearTimeout(timer)
+      }, [state?.phase, state?.loginExpiresAt])
 
       useEffect(() => {
         if (!state?.connected) return undefined
@@ -199,6 +213,14 @@ window.__ModuleLoader__.load({
             : h('div', { className: 'dshEnterpriseActions' },
               h('button', { className: 'dshEnterpriseButton login', disabled: busy || !base.trim(), onClick: () => run(async () => { rememberBase(base); const result = await api('/api/enterprise.login.start', { base }); openAuthorization(result); await refreshState() }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
 
+      const manualFallback = !connected && manualFallbackReady
+        ? h('div', { className: 'dshEnterpriseManual' },
+          h('label', { className: 'dshEnterpriseLabel' }, copy.ticket,
+            h('input', { className: 'dshEnterpriseInput', type: 'text', autoComplete: 'one-time-code', value: ticket, onChange: (event) => setTicket(event.target.value) })),
+          h('div', { className: 'dshEnterpriseActions' },
+            h('button', { className: 'dshEnterpriseButton', type: 'button', disabled: busy || !ticket.trim(), onClick: () => run(async () => { setState(await api('/api/enterprise.login.manual', { identityTicket: ticket.trim() })); setTicket('') }) }, copy.submitTicket)))
+        : null
+
       const failure = error || state?.error
       const errorPanel = failure
         ? h('p', { className: 'dshEnterpriseError', role: 'alert' }, failure,
@@ -219,6 +241,7 @@ window.__ModuleLoader__.load({
         h('h2', null, copy.title),
         status,
         accountContent,
+        manualFallback,
         errorPanel,
         confirmationPanel)
     }
