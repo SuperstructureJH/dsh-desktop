@@ -7,6 +7,20 @@
 本次同时执行了 [harness-0.1.5-patch-refactor.md](./harness-0.1.5-patch-refactor.md)
 里的第 1、2 步。
 
+> **后续：已跟进到 `0.1.5-rc.2`**（2026-09-10 发布，npm `next`；`latest` 仍为 rc.1）。
+> 上游 4 个提交，只改了反馈弹窗、交付文件卡片排版与对话间距。
+>
+> - 217 个 dsh 依赖改为 `0.1.5-rc.2`，19 个补丁文件改名；cordis 系版本未变。
+> - 移除 `@deepseek-ai/dsh-typert-generator`：它是 TypeScript 分析 / 代码生成工具，
+>   不在任何运行时依赖链上（lockfile 里只有根项目依赖它），上游 rc.2 也未发布该包。
+> - 被打补丁的 19 个包里只有 `chat`、`deliverables`、`sidebar` 在 rc.2 有改动，
+>   其余与 rc.1 逐字节相同；这三个包里补丁触及的函数与锚点逐一比对均未变化，
+>   sidebar 的 CSS hash 也未变。20 个补丁全部干净套用，无需重做。
+> - `packages/*` 的 dsh peer 区间 `^0.1.5-rc.1` 已覆盖 rc.2，未改动（PPT tarball 因此无需重打）。
+> - 验证：vitest 754/754、tsc、build、`verify-harness-auth.mjs` 通过；web profile（含 PPT）
+>   在自带 Node 与 Electron utility process 下均正常引导（token 1.6–2.4s），inject / entry
+>   失败 0；真实 Chromium 加载首屏 console.error 0 条。
+
 ## 一、依赖方式：vendored tarball → npm registry
 
 `0.1.2-rc.1` 升级文档里写的「上游尚未发布 npm registry 包」已经不成立。实测 226 个
