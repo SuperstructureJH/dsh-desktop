@@ -737,6 +737,7 @@ function registerJsonRoute(connection, path, methods, handler) {
   connection.fetch.register({
     path,
     methods,
+    requestBody: 'buffered',
     fetch: async (request) => {
       try {
         return Response.json(await handler(request), { headers: { 'cache-control': 'no-store' } })
