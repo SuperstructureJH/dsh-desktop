@@ -22,6 +22,7 @@ export interface HarnessRuntimeOptions {
     args: string[],
     options: SpawnOptionsWithoutStdio
   ): HarnessChildProcess
+  extraEnvironment?: NodeJS.ProcessEnv
   preferredPort?: number
   startupTimeoutMs?: number
   onChanged(snapshot: RuntimeSnapshot): void
@@ -284,7 +285,8 @@ export function buildHarnessSpawnOptions(
   launchDirectory: string,
   dshHome: string,
   platform: NodeJS.Platform = process.platform,
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  extraEnvironment: NodeJS.ProcessEnv = {}
 ): SpawnOptionsWithoutStdio {
   const { ELECTRON_RUN_AS_NODE: _runAsNode, ...parentEnvironment } = environment
   const pathKey = platform === 'win32' ? 'Path' : 'PATH'
@@ -305,6 +307,7 @@ export function buildHarnessSpawnOptions(
     cwd: launchDirectory,
     env: {
       ...parentEnvironment,
+      ...extraEnvironment,
       DSH_HOME: dshHome,
       NO_COLOR: '1',
       // package-import-method/child-concurrency are left at pnpm's defaults
@@ -481,7 +484,8 @@ export class HarnessRuntime {
           launchDirectory,
           this.options.dshHome,
           process.platform,
-          shellEnvironment
+          shellEnvironment,
+          this.options.extraEnvironment
         )
       )
     } catch (error) {
