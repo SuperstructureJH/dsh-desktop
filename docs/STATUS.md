@@ -12,6 +12,7 @@
 - macOS arm64 开发包可显式装入 Python/openpyxl 与 LibreOffice；提供运行时装配和完整包验证脚本。
 - electron-builder 默认排除的 Skill `.gitignore` 资源通过受限额外资源规则原路径装包，业务目录登记的 678 个文件均可在 App 内按哈希读取。
 - Office 案例和业务 Skill 资源在 Git 中按原始字节检出，Windows 不再将换行转换为 CRLF，目录版本在各平台保持一致。
+- Office RPC 与当前 Harness 一致，从 `webServer` 注入作用域注册；打包后的 Windows Host 可加载完整插件树。
 
 ## 验证证据
 

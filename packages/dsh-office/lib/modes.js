@@ -51,7 +51,7 @@ function clearPreviousContext(agent, names, sections) {
 
 export function registerOfficeModes(ctx) {
   const modes = ctx.officeModes
-  ctx.connection.rpc.handle('/dsh-office', async (endpoint, payload) => {
+  const handle = async (endpoint, payload) => {
     try {
       const sessionId = payload?.sessionId
       if (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512) throw new Error('Choose an active session')
@@ -77,7 +77,10 @@ export function registerOfficeModes(ctx) {
     } catch (error) {
       return { ok: true, value: { status: 'error', error: { code: 'invalid-request', message: error.message } } }
     }
-  }, { authority: 'trusted-host' })
+  }
+  ctx.inject(['webServer'], webCtx => {
+    webCtx.connection.rpc.handle('/dsh-office', handle, { authority: 'trusted-host' })
+  })
   ctx.on('agent/pre-step', async ({ agent, step, signal }, next) => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision

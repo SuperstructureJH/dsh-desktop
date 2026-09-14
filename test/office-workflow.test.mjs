@@ -214,7 +214,10 @@ describe('Office governed workspace workflow', () => {
   })
   it('registers discoverable Word and Excel skills with the executable format reference', async () => {
     let provider
-    apply({ tools: { register() {} }, skills: { registerProvider(factory) { provider = factory() } }, connection: { rpc: { handle() {} } }, on() {} }, { root: '/tmp/office-test' })
+    const host = { tools: { register() {} }, skills: { registerProvider(factory) { provider = factory() } }, connection: { rpc: { handle() {} } },
+      webServer: { register() { return () => {} } }, effect(run) { run(); return () => {} },
+      inject(names, activate) { if (names.includes('webServer')) return activate(host) }, on() {} }
+    apply(host, { root: '/tmp/office-test' })
     const skills = await provider.list()
     expect(skills).toHaveLength(188)
     expect(skills.slice(0, 2).map((s) => s.name)).toEqual(['dsh-word', 'dsh-excel'])

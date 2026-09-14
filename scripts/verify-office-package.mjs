@@ -42,9 +42,11 @@ if (!values.worker) {
     get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
   }
   await ppt.apply(pptHost, { root: path.join(values.output, 'composer-state') })
-  apply({ tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
-    connection, officeModes: services.officeModes, on() {},
-    get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: values.output }) }) }, config)
+  const officeHost = { tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
+    connection, officeModes: services.officeModes, on() {}, effect(run) { run(); return () => {} }, webServer: { register() { return () => {} } },
+    inject(names, activate) { if (names.includes('webServer')) return activate(officeHost) },
+    get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: values.output }) }) }
+  apply(officeHost, config)
   const sessionId = 'packaged-office-test'
   for (const mode of ['word', 'excel', null]) {
     const response = await routes.get('/dsh-office')('mode', { sessionId, mode })
