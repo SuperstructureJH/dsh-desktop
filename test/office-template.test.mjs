@@ -33,6 +33,8 @@ it('stages exact native samples and complete, revision-bound authoring inputs wi
     if (id === 'government-notice') {
       expect(bytes.length).toBe(18457553)
       expect(result.sha256).toBe('c763f627f09e543505b4cfaea34487a0b8cd724b549e4762633153da61ddf961')
+      expect(result.businessSkill).toBe('gov-doc-writing')
+      expect(result.guide).toContain('用户提供的 WorkBuddy `gov-doc-writing` v2.0.4 Skill')
       expect([...parseZip(bytes).parts.keys()].filter(p=>p.startsWith('word/fonts/'))).toHaveLength(4)
       for (let page=1; page<=4; page++) expect((await officeTemplatePreview(id,page)).image).toMatch(/^data:image\/webp;base64,/)
       await expect(officeTemplatePreview(id,5)).rejects.toThrow('available template page')

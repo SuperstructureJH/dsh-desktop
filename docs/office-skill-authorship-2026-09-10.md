@@ -6,7 +6,7 @@
 
 ## 内置业务资源
 
-用户提供的 185 个业务 Skill 原包及单独提供的公文写作 Skill 按原文保留，共 186 个业务 Skill。资源出处、文件哈希和原始声明记录在 [业务目录](../packages/dsh-office/business-skills/catalog.json) 与 [NOTICE](../packages/dsh-office/business-skills/NOTICE.md)。业务资源适用原始条款；DSH 的运行工具映射和能力说明在独立代码中维护。
+用户提供的 185 个业务 Skill 原包及单独提供的 WorkBuddy `gov-doc-writing` v2.0.4 按原文保留，共 186 个业务 Skill。红头公文案例只绑定这一个公文写作业务 Skill；此前对比产物使用的 `chinese-official-writing` 未进入运行目录。资源出处、文件哈希和原始声明记录在 [业务目录](../packages/dsh-office/business-skills/catalog.json) 与 [NOTICE](../packages/dsh-office/business-skills/NOTICE.md)。业务资源适用原始条款；DSH 的运行工具映射和能力说明在独立代码中维护。
 
 用户提供的 Kimi docx.skill / xlsx.skill 用于此前效果对比；本功能的基础入口是 DSH 自有的两个 Skill。名称迁移兼容仅用于清理旧会话中的基础流程上下文。
 

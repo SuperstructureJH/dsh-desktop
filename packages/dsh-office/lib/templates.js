@@ -58,6 +58,7 @@ export function registerTemplateTools(register, modes) {
     const source = files.find(item => item.file === authoringFile)
     return { status: 'prepared', path: relative, templateId: template.id, revision: template.revision,
       sha256: template.sampleSha256, mode: template.mode ?? 'word', example: `${relative}/${template.sampleFile ?? 'example.docx'}`, guide: await officeTemplateGuide(template.id), inputs,
+      ...(template.businessSkill ? { businessSkill: template.businessSkill } : {}),
       authoring: source ? { language: authoringFile.endsWith('.py') ? 'python' : 'javascript', source: source.bytes.toString('utf8'),
         inputs: template.inputs.map(file => ({ file_path: `${relative}/${file}`, expected_revision: template.files[file] })) } : null }
   })

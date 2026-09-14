@@ -31,8 +31,9 @@ function selectedTemplateContext(template) {
     `selected_template_mode: ${mode}`,
     `selected_template_category: ${template.category}`,
     `selected_template_description: ${template.description}`,
+    ...(template.businessSkill ? [`required_business_skill: ${template.businessSkill}`, `业务方法：调用 skill(name="${template.businessSkill}") 加载当前案例指定的业务 Skill。`] : []),
     `执行要求：开始制作前先调用 office_template(template_id="${template.id}")。${route}`,
-    '案例中的公司、人物、事实、数字和观点仅用于展示。使用当前用户材料替换案例内容，保留适合本任务的视觉语言、章节或工作表结构，并执行对应检查与预览。'
+    '参考范围：仅参考案例的版式、视觉语言、章节或工作表结构。使用当前用户材料填写全部内容，并执行对应检查与预览。'
   ].join('\n')
 }
 

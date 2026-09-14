@@ -35,6 +35,11 @@ async function fixture(mode = 'workspace-write') {
 it('preserves and loads 185 original Skills plus government writing and all 678 bounded resources from the catalogue', async () => {
   expect(businessSkills.summaries).toHaveLength(186)
   expect(new Set(businessSkills.summaries.map(s => s.name)).size).toBe(186)
+  expect(businessSkills.catalog.additions).toEqual([{
+    name: 'gov-doc-writing', source: 'User-authorized local Skill package', version: '2.0.4', files: 11,
+    revision: 'd5106e88bb7d323f92a7f308489f993f13b83e03a997be68fa1edd0b41980542'
+  }])
+  expect(businessSkills.summaries.some(skill => skill.name === 'chinese-official-writing')).toBe(false)
   let resources = 0
   for (const summary of businessSkills.summaries) {
     expect(summary).not.toHaveProperty('content')
