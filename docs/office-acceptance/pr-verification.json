@@ -29,6 +29,17 @@
     ],
     "shutdownRegression": "PASS: startup-failure cleanup released the child process and log handle before temporary-directory removal"
   },
-  "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect, packaged Office authoring workflows and real packaged Host RPC mode transitions",
-  "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
+  "packageVerification": "PASS: image-only PPT-style composer reference; layout-only template context; exact WorkBuddy gov-doc-writing v2.0.4 binding; 188 Skills, 678 business resources, 17 tools, packaged Office workflows and real packaged Host RPC mode transitions",
+  "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence",
+  "codeCommit": "4488d73a0f954d593c1c21f962a44b79b438565c",
+  "latestTargetedRegression": {
+    "status": "PASS",
+    "files": 4,
+    "tests": 23,
+    "scope": "image-only composer reference, layout-only model context, exact government Skill binding and template preparation"
+  },
+  "currentHeadWindowsCI": {
+    "status": "PENDING",
+    "commit": "4488d73a0f954d593c1c21f962a44b79b438565c"
+  }
 }
