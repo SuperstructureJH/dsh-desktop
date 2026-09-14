@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "scope": "macOS arm64 development package built from PR #424 at 43d9b3c with bundled Office runtime",
+  "scope": "macOS arm64 development package built from PR #424 at b4504e3 with bundled Office runtime",
   "skillCount": 188,
   "businessSkillCount": 186,
   "toolCount": 17,
@@ -53,12 +53,12 @@
   "runtime": "bundled Python/openpyxl and LibreOffice",
   "dmg": {
     "file": "dsh-desktop-dev-mac-arm64.dmg",
-    "sha256": "01c73c75ed5fceb685376a7499686405a399bda44ef1802d410c8c7a7079b25e",
+    "sha256": "2dbf11211b73b3e15299a13444d92a66a2bbd837f72ffdbb135f4eff43210173",
     "hdiutilVerify": "PASS"
   },
   "zip": {
     "file": "dsh-desktop-dev-mac-arm64.zip",
-    "sha256": "f1c23adeef30e34f8ec4327999fe668cfe1f56d4cef4547d4e260bd75548795a",
+    "sha256": "1cd7662eae9f4c90092ee60295912d3a1ae227aee010e8c0c99afc5123ca52f5",
     "archiveTest": "PASS"
   },
   "liveModelAutonomy": "NOT_RUN",

@@ -12,6 +12,7 @@
     "skippedTests": 3,
     "nativeRuntimeEnabled": true
   },
+  "windowsCI": "PASS: full tests, typecheck, build, isolated development package and packaged Harness smoke",
   "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect and packaged Office authoring workflows",
   "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
 }
