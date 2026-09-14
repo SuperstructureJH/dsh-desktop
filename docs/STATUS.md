@@ -1,5 +1,9 @@
 # Implementation and verification status
 
+2026-09-14 migration baseline: `main@6a9c668`. The image-generation feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits. Current verification results are added after the clean dependency install.
+
+- **PASS:** the clean `main` migration passes 102 test files / 932 tests and TypeScript checking. The 42 image-generation tests use the current version-3 session header contract.
+
 ## Conversation image preview session identity — 2026-09-10
 
 - **Root cause:** Desktop creates `session-<uuid>` IDs; the preview route accepted bare UUIDs. The existing smoke fixture also used a bare UUID, so it missed the production request rejection. The screenshot's stored successful image result and its 4,635,310-byte PNG are intact.
@@ -61,4 +65,4 @@
 - **NOT_RUN:** current valid-key requests to the real OpenAI/ByteDance services, real generated-image visual review, insertion/render/edit/save/reopen in PowerPoint or Word, Windows and Intel Mac package acceptance. No paid image generation was used for configuration validation.
 - **Distribution:** source and tarball are prepared for public distribution. npm publishing and upstream PR merge remain separate actions.
 
-Validation checks connection/model metadata or required-parameter handling; actual image generation permissions, quota and visual quality are established during real generation. The Desktop package is based on upstream `main` (`c8c33c4`) and adds the shared image capability; independent Word/Excel feature branches are outside this PR.
+Validation checks connection/model metadata or required-parameter handling; actual image generation permissions, quota and visual quality are established during real generation. The clean migration is based on upstream `main` (`6a9c668`) and adds the shared image capability; independent Word/Excel work remains outside this PR.
