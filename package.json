@@ -374,6 +374,13 @@
         "to": "community-wechat-qr.png"
       },
       {
+        "from": "packages/dsh-office/business-skills/source",
+        "to": "app/node_modules/dsh-office/business-skills/source",
+        "filter": [
+          "**/.gitignore"
+        ]
+      },
+      {
         "from": "build/windows-menu.html",
         "to": "windows-menu.html"
       }

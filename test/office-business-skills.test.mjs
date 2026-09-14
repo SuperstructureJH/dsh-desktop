@@ -16,6 +16,8 @@ import { apply } from '../packages/dsh-office/index.js'
 import { registerOfficeTools } from '../packages/dsh-office/lib/tools.js'
 import { sha256 } from '../packages/dsh-office/lib/workspace.js'
 
+const packageManifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+
 const cleanup = []
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn() })
 async function temp() {
@@ -46,6 +48,15 @@ it('preserves and loads 185 original Skills plus government writing and all 678 
   }
   expect(resources).toBe(678)
   expect(await businessSkills.get('unknown-skill')).toBeUndefined()
+})
+
+it('copies catalogue resources that electron-builder excludes from its normal application file set', () => {
+  expect(packageManifest.build.extraResources).toContainEqual({
+    from: 'packages/dsh-office/business-skills/source',
+    to: 'app/node_modules/dsh-office/business-skills/source',
+    filter: ['**/.gitignore']
+  })
+  expect(businessSkills.details('humanizer-zh').files.some(file => file.file === '.gitignore')).toBe(true)
 })
 
 it('publishes real session catalogue summaries and loads a selected business Skill through the host skill tool', async () => {
