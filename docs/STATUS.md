@@ -1,8 +1,8 @@
 # Implementation and verification status
 
-2026-09-14 migration baseline: `main@6a9c668`. The image-generation feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits. Current verification results are added after the clean dependency install.
+2026-09-14 migration baseline: `main@4115a96`. The image-generation feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits. The branch includes the current Harness session-header contract and the declaration required to type-check the current rollout configuration.
 
-- **PASS:** the clean `main` migration passes 102 test files / 932 tests and TypeScript checking. The 42 image-generation tests use the current version-3 session header contract. Credential-mode assertions run on POSIX hosts; Windows relies on the credential provider's platform ACL because `stat.mode` reports the synthetic `0666` compatibility value there.
+- **PASS:** the `main@4115a96` rebase passes all 42 image-generation tests and TypeScript checking. Credential-mode assertions run on POSIX hosts; Windows relies on the credential provider's platform ACL because `stat.mode` reports the synthetic `0666` compatibility value there.
 
 ## Conversation image preview session identity — 2026-09-10
 
@@ -65,4 +65,4 @@
 - **NOT_RUN:** current valid-key requests to the real OpenAI/ByteDance services, real generated-image visual review, insertion/render/edit/save/reopen in PowerPoint or Word, Windows and Intel Mac package acceptance. No paid image generation was used for configuration validation.
 - **Distribution:** source and tarball are prepared for public distribution. npm publishing and upstream PR merge remain separate actions.
 
-Validation checks connection/model metadata or required-parameter handling; actual image generation permissions, quota and visual quality are established during real generation. The clean migration is based on upstream `main` (`6a9c668`) and adds the shared image capability; independent Word/Excel work remains outside this PR.
+Validation checks connection/model metadata or required-parameter handling; actual image generation permissions, quota and visual quality are established during real generation. The clean migration is based on upstream `main` (`4115a96`) and adds the shared image capability; independent Word/Excel work remains outside this PR.
