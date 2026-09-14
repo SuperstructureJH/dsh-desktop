@@ -1,6 +1,6 @@
 # Office 功能实施与验证状态
 
-更新日期：2026-09-14。当前开发分支基于上游 `main@6a9c668`；该提交同时是现有 `v0.10.0` 分支头。原 `v0.9.0` 迁移基线为 `032dd37`，远端已删除该版本分支。
+更新日期：2026-09-14。当前开发分支基于上游 `main@4115a96`，包含最新的初始灰度发布配置与 Harness 会话头传递。原 `v0.9.0` 迁移基线为 `032dd37`，远端已删除该版本分支。
 
 ## 已实施
 
@@ -12,23 +12,25 @@
 - macOS arm64 开发包可显式装入 Python/openpyxl 与 LibreOffice；提供运行时装配和完整包验证脚本。
 - electron-builder 默认排除的 Skill `.gitignore` 资源通过受限额外资源规则原路径装包，业务目录登记的 678 个文件均可在 App 内按哈希读取。
 - Office 案例和业务 Skill 资源在 Git 中按原始字节检出，Windows 不再将换行转换为 CRLF，目录版本在各平台保持一致。
-- Office RPC 与当前 Harness 一致，从 `webServer` 注入作用域注册；打包后的 Windows Host 可加载完整插件树。
+- Office/PPT 插件直接拥有 Host Web 路由，并复用 Connection 的 Host/Origin 限制与浏览器会话认证。打包后的 `/dsh-office`、`/dsh-ppt` 和兼容 `/kimi-ppt` 通道均从实际 Host 路由接收请求。
+- 最新 `main` 的灰度发布脚本补充公开类型声明，相关测试在严格 TypeScript 检查下通过。
 
 ## 验证证据
 
 | 检查 | 状态与范围 |
 | --- | --- |
-| 干净依赖安装 | PASS：当前锁文件 npm ci，20 个补丁全部应用 |
-| 本次功能定向回归 | PASS：6 个文件、41 项测试；覆盖预览选择、移除、持久化、案例工具绑定、Word/Excel/PPT 模式切换、资源装包规则与 PPT 回归 |
-| 自动回归 | PASS：108 个文件、959 项测试；另有 1 个文件、3 项测试按环境条件跳过 |
+| 依赖与补丁 | PASS：当前锁文件保持不变；22 个补丁全部应用，最新 `pi-ai` 会话头补丁的 7 项测试通过 |
+| 本次功能定向回归 | PASS：5 个文件、54 项测试；覆盖预览选择、移除、持久化、案例工具绑定、Word/Excel/PPT 模式切换、Host RPC、资源装包规则与 PPT 回归 |
+| 自动回归 | PASS：110 个文件、971 项测试；另有 1 个文件、3 项测试按环境条件跳过 |
 | 类型与构建 | PASS：npm run typecheck、npm run build |
-| Windows CI | PASS：完整测试、类型检查、构建、隔离开发包与打包后 Harness 冒烟均通过 |
+| Windows CI | PENDING：最新 `main` 重建后的 PR 提交等待远端工作流 |
 | 模式切换资源 | PASS：PPT 包变动限于模式状态、客户端同步与类型；192 项预览清单语义一致，其余包内资源字节一致 |
 | Office 制品完整性 | PASS：案例、设计说明、制作源码和预览均绑定目录版本；包内 678 个业务资源逐文件校验哈希 |
 | 打包工具链 | PASS：本次 macOS arm64 包加载 188 个 Skill、678 个业务资源与 17 个工具；案例选择/取消、五个可执行或可修改案例及基础读写链路通过；DMG 和 ZIP 完整性通过 |
+| 打包后 Host RPC | PASS：从应用包内启动 Harness，`/dsh-office/mode`、`/dsh-ppt/presentation/mode`、`/dsh-office/state` 均返回成功，状态按 `word → ppt` 共享切换 |
 | Desktop 原生界面 | 本次“做同款”界面为 NOT_RUN，等待新包本地验收；上一份已验收包的案例预览、切 Sheet、滚动与返回为 PASS |
 
-结构化证据与截图见 [office-acceptance](office-acceptance/)。本次 macOS arm64 开发包 SHA-256：DMG `2dbf11211b73b3e15299a13444d92a66a2bbd837f72ffdbb135f4eff43210173`；ZIP `1cd7662eae9f4c90092ee60295912d3a1ae227aee010e8c0c99afc5123ca52f5`。
+结构化证据与截图见 [office-acceptance](office-acceptance/)。本次 macOS arm64 开发包 SHA-256：DMG `f7eda4e0495e858412b648535b3e86abd1494fa1ae5716fcb4b1bf8707771e50`；ZIP `82ef527da17aac35eeccbbbe9b51d379640851bf85f56559966bcf16f43da599`。
 
 ## 独立验收边界
 

@@ -1,18 +1,18 @@
 {
   "pullRequest": 424,
-  "base": "main@6a9c668",
-  "dependencyInstall": "PASS: npm ci with current lockfile; all 20 patches applied",
+  "base": "main@4115a96",
+  "dependencyInstall": "PASS: current lockfile preserved; all 22 patches applied, including the latest pi-ai session-header patch",
   "typecheck": "PASS",
   "build": "PASS",
   "fullRegression": {
     "status": "PASS",
-    "files": 108,
-    "tests": 959,
+    "files": 110,
+    "tests": 971,
     "skippedFiles": 1,
     "skippedTests": 3,
     "nativeRuntimeEnabled": true
   },
-  "windowsCI": "PASS: full tests, typecheck, build, isolated development package and packaged Harness smoke",
-  "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect and packaged Office authoring workflows",
+  "windowsCI": "PENDING: rebased PR head has not completed the remote workflow yet",
+  "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect, packaged Office authoring workflows and real packaged Host RPC mode transitions",
   "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
 }
