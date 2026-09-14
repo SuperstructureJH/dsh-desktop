@@ -93,7 +93,7 @@ describe('image settings save and provider requests', () => {
     expect(JSON.stringify(result)).not.toContain('test-image-key')
     expect(JSON.stringify(f.log.mock.calls)).not.toContain('test-image-key')
     expect((await f.settings.active()).provider).toBe(provider)
-    expect((await stat(path.join(f.home, '.credentials.yaml'))).mode & 0o777).toBe(0o600)
+    if (process.platform !== 'win32') expect((await stat(path.join(f.home, '.credentials.yaml'))).mode & 0o777).toBe(0o600)
     expect(await readdir(f.workspace)).toEqual([])
   })
   it('preserves the whole saved profile after validation fails and keeps provider credentials separate', async () => {

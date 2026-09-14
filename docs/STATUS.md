@@ -2,7 +2,7 @@
 
 2026-09-14 migration baseline: `main@6a9c668`. The image-generation feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits. Current verification results are added after the clean dependency install.
 
-- **PASS:** the clean `main` migration passes 102 test files / 932 tests and TypeScript checking. The 42 image-generation tests use the current version-3 session header contract.
+- **PASS:** the clean `main` migration passes 102 test files / 932 tests and TypeScript checking. The 42 image-generation tests use the current version-3 session header contract. Credential-mode assertions run on POSIX hosts; Windows relies on the credential provider's platform ACL because `stat.mode` reports the synthetic `0666` compatibility value there.
 
 ## Conversation image preview session identity — 2026-09-10
 
