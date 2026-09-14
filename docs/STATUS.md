@@ -11,6 +11,7 @@
 - “做同款”选择保存在会话状态中，模型步骤会收到案例版本、设计说明和明确的 `office_template` 调用要求。带制作源码的案例复用可执行源码和固定输入结构；原生 Word/Excel 案例复用受控工作副本和设计说明，再用当前任务材料替换示例事实。
 - macOS arm64 开发包可显式装入 Python/openpyxl 与 LibreOffice；提供运行时装配和完整包验证脚本。
 - electron-builder 默认排除的 Skill `.gitignore` 资源通过受限额外资源规则原路径装包，业务目录登记的 678 个文件均可在 App 内按哈希读取。
+- Office 案例和业务 Skill 资源在 Git 中按原始字节检出，Windows 不再将换行转换为 CRLF，目录版本在各平台保持一致。
 
 ## 验证证据
 
