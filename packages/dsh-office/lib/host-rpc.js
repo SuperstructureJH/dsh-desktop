@@ -93,4 +93,3 @@ export function registerHostRpcChannel(ctx, channel, handler) {
     }
   }), `dsh rpc channel: ${channel}`)
 }
-
