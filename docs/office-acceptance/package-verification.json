@@ -1,10 +1,16 @@
 {
   "status": "PASS",
-  "scope": "PR Office/PPT modules installed into the previously validated macOS development runtime bundle",
+  "scope": "macOS arm64 development package built from PR #424 at 43d9b3c with bundled Office runtime",
   "skillCount": 188,
   "businessSkillCount": 186,
   "toolCount": 17,
   "businessResourceCount": 678,
+  "cataloguedResourcePackaging": "PASS",
+  "sameStyleSelection": {
+    "select": "PASS",
+    "deselect": "PASS",
+    "revisionBinding": "PASS"
+  },
   "examples": [
     {
       "id": "coffee-market",
@@ -45,6 +51,17 @@
   "word": "create/edit/preview PASS",
   "excel": "create/chart/edit/recalculate/preview PASS",
   "runtime": "bundled Python/openpyxl and LibreOffice",
+  "dmg": {
+    "file": "dsh-desktop-dev-mac-arm64.dmg",
+    "sha256": "01c73c75ed5fceb685376a7499686405a399bda44ef1802d410c8c7a7079b25e",
+    "hdiutilVerify": "PASS"
+  },
+  "zip": {
+    "file": "dsh-desktop-dev-mac-arm64.zip",
+    "sha256": "f1c23adeef30e34f8ec4327999fe668cfe1f56d4cef4547d4e260bd75548795a",
+    "archiveTest": "PASS"
+  },
   "liveModelAutonomy": "NOT_RUN",
-  "nativeOfficeSaveReopen": "NOT_RUN"
+  "nativeOfficeSaveReopen": "NOT_RUN",
+  "nativeSameStyleUI": "NOT_RUN"
 }

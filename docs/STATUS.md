@@ -17,15 +17,15 @@
 | 检查 | 状态与范围 |
 | --- | --- |
 | 干净依赖安装 | PASS：当前锁文件 npm ci，20 个补丁全部应用 |
-| 本次功能定向回归 | PASS：6 个文件、47 项测试；覆盖预览选择、移除、持久化、案例工具绑定、Word/Excel/PPT 模式切换与 PPT 回归 |
-| 自动回归 | PASS：108 个文件、958 项测试；另有 1 个文件、3 项测试按环境条件跳过 |
+| 本次功能定向回归 | PASS：6 个文件、41 项测试；覆盖预览选择、移除、持久化、案例工具绑定、Word/Excel/PPT 模式切换、资源装包规则与 PPT 回归 |
+| 自动回归 | PASS：108 个文件、959 项测试；另有 1 个文件、3 项测试按环境条件跳过 |
 | 类型与构建 | PASS：npm run typecheck、npm run build |
 | 模式切换资源 | PASS：PPT 包变动限于模式状态、客户端同步与类型；192 项预览清单语义一致，其余包内资源字节一致 |
-| Office 制品一致性 | PASS：PR 的运行代码、Skill、原件及预览与用户已验收的 macOS 包逐字节一致；两份 README 同步最新案例 |
-| 打包工具链 | 待生成本次 macOS arm64 包；上一份已验收包加载 188 个 Skill、678 个业务资源与 17 个工具 |
+| Office 制品完整性 | PASS：案例、设计说明、制作源码和预览均绑定目录版本；包内 678 个业务资源逐文件校验哈希 |
+| 打包工具链 | PASS：本次 macOS arm64 包加载 188 个 Skill、678 个业务资源与 17 个工具；案例选择/取消、五个可执行或可修改案例及基础读写链路通过；DMG 和 ZIP 完整性通过 |
 | Desktop 原生界面 | 本次“做同款”界面为 NOT_RUN，等待新包本地验收；上一份已验收包的案例预览、切 Sheet、滚动与返回为 PASS |
 
-结构化证据与截图见 [office-acceptance](office-acceptance/)。上一份已验收测试包 SHA-256：`544be60cf9cfa69207e732cae34d04c167aa6039bd1208eb6cc295479348578a`；该哈希不代表本次功能包。
+结构化证据与截图见 [office-acceptance](office-acceptance/)。本次 macOS arm64 开发包 SHA-256：DMG `01c73c75ed5fceb685376a7499686405a399bda44ef1802d410c8c7a7079b25e`；ZIP `f1c23adeef30e34f8ec4327999fe668cfe1f56d4cef4547d4e260bd75548795a`。
 
 ## 独立验收边界
 

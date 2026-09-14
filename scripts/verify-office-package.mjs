@@ -100,6 +100,7 @@ if (!values.worker) {
   assert.equal(selectedTemplate.value.data.selectedTemplateRevision, reviewed.revision)
   const deselectedTemplate = await routes.get('/dsh-office')('template/deselect', { sessionId })
   assert.equal(deselectedTemplate.value.data.selectedTemplateId, undefined)
+  const templateSelection = { templateId: reviewed.id, revision: reviewed.revision, select: 'PASS', deselect: 'PASS' }
   for (const { id: templateId } of exampleCatalog) {
     const selected = await routes.get('/dsh-office')('state', { sessionId })
     assert.equal(selected.value.data.selectedTemplateId, undefined)
@@ -176,7 +177,7 @@ await writeFile(office.output,await docx.Packer.toBuffer(document));` })
   const excelPreview = await call('office_preview', { file_path: calculated.path, expected_revision: calculated.sha256, output_file: 'Excel预览.pdf' })
   assert.equal(excelPreview.rendering, 'PASS')
   const evidence = { status: 'PASS', app: values.app, node: process.execPath, skills: skills.map(s => s.name), tools: [...tools.keys()], runtime, readiness,
-    businessSkillCount: 186, resourceCount, businessSamples, exampleResults,
+    businessSkillCount: 186, resourceCount, businessSamples, templateSelection, exampleResults,
     word, editedWord, wordPreview, excel, editedExcel, calculated, excelPreview, desktopModelAcceptance: 'NOT_RUN', nativeOfficeAcceptance: 'NOT_RUN' }
   await writeFile(path.join(values.output, 'verification.json'), JSON.stringify(evidence, null, 2) + '\n')
   console.log(JSON.stringify({ status: 'PASS', output: values.output, skillCount: skills.length, toolCount: tools.size, word: 'generate/edit/preview PASS', excel: 'generate/chart/edit/recalculate/preview PASS', runtime: 'bundled' }))

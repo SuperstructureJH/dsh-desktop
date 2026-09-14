@@ -1,23 +1,17 @@
 {
-  "base": "f7aebb5",
+  "pullRequest": 424,
+  "base": "main@6a9c668",
   "dependencyInstall": "PASS: npm ci with current lockfile; all 20 patches applied",
   "typecheck": "PASS",
   "build": "PASS",
   "fullRegression": {
     "status": "PASS",
-    "files": 99,
-    "tests": 848,
+    "files": 108,
+    "tests": 959,
+    "skippedFiles": 1,
+    "skippedTests": 3,
     "nativeRuntimeEnabled": true
   },
-  "followup": {
-    "files": [
-      "ppt-integration.test.ts",
-      "office-native-runtime.test.mjs"
-    ],
-    "passed": 14,
-    "includesResolvedLayoutAssertions": 2,
-    "includesNativeRuntimeTests": 3
-  },
-  "officeAcceptedArtifactParity": "Runtime, Skills, case originals and previews are byte-identical; two README files updated",
+  "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect and packaged Office authoring workflows",
   "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
 }
