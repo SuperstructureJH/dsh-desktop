@@ -10,10 +10,11 @@ import { listOfficeTemplates, officeTemplatePreview } from '../packages/dsh-offi
 
 const roots = []
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }) })
-async function fixture(mode = 'workspace-write') {
+async function fixture(mode = 'workspace-write', selectedDocumentTemplate) {
   const root = await mkdtemp(path.join(tmpdir(), 'word-template-')); roots.push(root)
   const tools = new Map()
-  registerOfficeTools({ tools: { register: tool => tools.set(tool.name, tool) }, get: () => ({ resolve: () => ({ mode }) }) }, { root: path.join(root, 'audit') })
+  registerOfficeTools({ tools: { register: tool => tools.set(tool.name, tool) }, get: () => ({ resolve: () => ({ mode }) }),
+    ...(selectedDocumentTemplate ? { officeModes: { state: async () => ({ selectedDocumentTemplate }) } } : {}) }, { root: path.join(root, 'audit') })
   return { root, call: id => tools.get('office_template').execute({ template_id: id }, {
     name: 'office_template', callId: 'template-test', signal: new AbortController().signal, agent: { id: 'test', session: { id: 'test', header: { cwd: root } } }
   }) }
@@ -56,6 +57,13 @@ it('enforces policy and canonical workspace paths before writing template resour
   await symlink(outside, path.join(f.root, 'office-templates'))
   await expect(f.call('coffee-market')).rejects.toThrow('regular files and directories')
   expect(await readdir(outside)).toEqual([])
+})
+
+it('enforces the reviewed example as the authoritative Office recipe', async () => {
+  const selected = { id: 'coffee-market', mode: 'word', revision: '20260911.6' }
+  const f = await fixture('workspace-write', selected)
+  await expect(f.call('equity-research')).rejects.toThrow('selected Office example coffee-market')
+  expect((await f.call('coffee-market')).templateId).toBe('coffee-market')
 })
 
 it('publishes all worksheet segments with exact sample revision and rejects unavailable pages', async () => {

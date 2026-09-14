@@ -34,7 +34,14 @@ if (!values.worker) {
   const services = {}, routes = new Map()
   const connection = { rpc: { handle: (route, handler) => routes.set(route, handler) } }
   const ppt = await import(pathToFileURL(path.join(resources, 'app/node_modules/dsh-ppt/lib/index.js')).href)
-  await ppt.apply({ provide: (name, value) => { services[name] = value }, inject() {}, get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection }, { root: path.join(values.output, 'composer-state') })
+  const pptHost = {
+    provide: (name, value) => { services[name] = value },
+    effect(run) { run(); return () => {} },
+    inject(names, activate) { if (names.includes('webServer')) return activate(pptHost) },
+    webServer: { register() { return () => {} } },
+    get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
+  }
+  await ppt.apply(pptHost, { root: path.join(values.output, 'composer-state') })
   apply({ tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
     connection, officeModes: services.officeModes, on() {},
     get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: values.output }) }) }, config)
@@ -87,6 +94,12 @@ if (!values.worker) {
   const exampleCatalog = (await routes.get('/dsh-office')('state', { sessionId })).value.data.templates
   assert.equal(exampleCatalog.filter(t => t.mode === 'word').length, 3)
   assert.equal(exampleCatalog.filter(t => t.mode === 'excel').length, 3)
+  const reviewed = exampleCatalog.find(template => template.mode === 'word')
+  const selectedTemplate = await routes.get('/dsh-office')('template/select', { sessionId, templateId: reviewed.id })
+  assert.equal(selectedTemplate.value.data.selectedTemplateId, reviewed.id)
+  assert.equal(selectedTemplate.value.data.selectedTemplateRevision, reviewed.revision)
+  const deselectedTemplate = await routes.get('/dsh-office')('template/deselect', { sessionId })
+  assert.equal(deselectedTemplate.value.data.selectedTemplateId, undefined)
   for (const { id: templateId } of exampleCatalog) {
     const selected = await routes.get('/dsh-office')('state', { sessionId })
     assert.equal(selected.value.data.selectedTemplateId, undefined)

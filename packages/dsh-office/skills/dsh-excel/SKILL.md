@@ -31,6 +31,8 @@ license: MIT
 
 多图仪表盘、物流分析、实验数据和年度经营分析，先读 `office_reference(topic="excel-dashboard")`。内置案例 `port-cargo` 与 `bio-assay` 提供可执行 Python 源码和固定模拟输入；`annual-business` 提供六张工作表的完整样例。调用 `office_template(template_id="port-cargo")` 或 `office_template(template_id="bio-assay")` 后，将返回的 `authoring.language/source/inputs` 用于 `office_build`，完成原样基准，再根据本轮材料调整输入、计算与版式。
 
+用户从案例预览点击“做同款”后，宿主会给出准确的案例编号与修订版本。先调用该案例的 `office_template`；带源码的案例使用返回的 authoring 与输入结构，原生案例使用返回的工作副本和设计说明，再以当前任务数据替换模拟内容并完成重算与预览。
+
 用户引用的外部 Skill 名称与当前目录不同，先匹配实际可用的业务方法和本基础流程，并说明采用的路线。涉及日度金融行情时，通过可用的数据工具或用户文件取得数据；演示请求使用明确标注的模拟数据。用户已经确定演示口径后，继续完成工作簿。
 
 ## 计算与复核

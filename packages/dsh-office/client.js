@@ -28,14 +28,18 @@ window.__ModuleLoader__.load({
         this.states.set(id, { ...this.snapshot(id), ...patch })
         for (const listener of this.listeners.get(id) ?? []) listener()
       }
-      request(rpc, id, endpoint, value) {
+      replace(id, state) {
+        this.states.set(id, state)
+        for (const listener of this.listeners.get(id) ?? []) listener()
+      }
+      request(rpc, id, endpoint, payload = {}) {
         const sequence = (this.requests.get(id) ?? 0) + 1
         this.requests.set(id, sequence)
         this.update(id, { loading: true, error: '' })
         const request = (this.queues.get(id) ?? Promise.resolve()).then(async () => {
           try {
-            const next = await call(rpc, id, endpoint, endpoint === 'mode' ? { mode: value } : {})
-            if (this.requests.get(id) === sequence) this.update(id, { ...next, loading: false, error: '' })
+            const next = await call(rpc, id, endpoint, endpoint === 'mode' ? { mode: payload } : payload)
+            if (this.requests.get(id) === sequence) this.replace(id, { ...next, loading: false, error: '' })
             if (endpoint !== 'state') window.dispatchEvent(new CustomEvent(EVENT, { detail: { ...next, origin: NS } }))
             return true
           } catch (error) {
@@ -83,7 +87,7 @@ window.__ModuleLoader__.load({
     }
 
     const useMode = (store, id) => React.useSyncExternalStore(listener => store.subscribe(id, listener), () => store.snapshot(id))
-    function Preview({ rpc, sessionId, template, close, t }) {
+    function Preview({ rpc, sessionId, template, close, select, selected, selecting, t }) {
       const dialog = React.useRef(null), titleId = React.useId()
       const [pages, setPages] = React.useState({})
       const [sheetIndex, setSheetIndex] = React.useState(0)
@@ -153,7 +157,11 @@ window.__ModuleLoader__.load({
                     h('button', { type: 'button', onClick: () => loadPage(page), 'aria-label': `${t('retry')} ${page}` }, t('retry'))) :
                     h('p', { className: 'wbo-page-message' }, `${t('loading')} ${page} / ${template.pages}`)),
                 h('figcaption', null, sheet ? label : `${page} / ${template.pages}`))
-            }))))
+            })),
+          h('footer', { className: 'wbo-preview-actions' },
+            h('button', { type: 'button', onClick: close }, t('close')),
+            h('button', { type: 'button', className: 'wbo-use-template', disabled: selecting || selected,
+              'aria-label': `${t('useTemplate')} ${template.title}`, onClick: () => select(template) }, selected ? t('selected') : t('useTemplate')))))
     }
     function TemplateDock(props) {
       const { rpc, store, sessionId, t } = props, state = useMode(store, sessionId)
@@ -175,22 +183,39 @@ window.__ModuleLoader__.load({
       }, [visible])
       if (!visible) return null
       const preview = templates.find(item => item.id === previewId)
+      const select = async template => {
+        const accepted = await store.request(rpc, sessionId, 'template/select', { templateId: template.id })
+        if (accepted) setPreviewId(null)
+      }
       return h('div', { ref: root, className: 'wbo-template-dock', 'data-office-template-dock': state.mode },
         h('section', { ref: panel, className: 'wbo-template-panel', 'aria-label': t('templates') },
           h('div', { className: 'wbo-template-viewport', 'data-native-wheel-owner': '' },
-            h('div', { className: 'wbo-template-grid' }, ...templates.map(template => h('div', { className: 'wbo-template-card', key: template.id },
+            h('div', { className: 'wbo-template-grid' }, ...templates.map(template => h('div', { className: 'wbo-template-card', key: template.id,
+              'data-selected': state.selectedTemplateId === template.id || undefined },
               h('button', { className: 'wbo-template-open', type: 'button', 'aria-label': `${t('preview')} ${template.title}`,
                 onClick: () => setPreviewId(template.id) },
                 h('span', { className: 'wbo-template-cover' }, h('img', { src: template.thumbnail, alt: '', draggable: false })),
                 h('span', { className: 'wbo-template-name', title: template.title }, template.title)))))),
           state.error ? h('div', { role: 'alert' }, state.error, h('button', { onClick: () => store.request(rpc, sessionId, 'state') }, t('retry'))) : null),
-        preview ? h(Preview, { key: `${sessionId}:${preview.id}`, ...props, template: preview, close: () => setPreviewId(null) }) : null)
+        preview ? h(Preview, { key: `${sessionId}:${preview.id}`, ...props, template: preview, close: () => setPreviewId(null), select,
+          selected: state.selectedTemplateId === preview.id, selecting: state.loading }) : null)
+    }
+
+    function SelectedTemplate(props) {
+      const { rpc, store, sessionId, t } = props, state = useMode(store, sessionId)
+      const template = state.templates.find(item => item.id === state.selectedTemplateId && (item.mode ?? 'word') === state.mode)
+      if (!props.session.blank || !template || !['word', 'excel'].includes(state.mode)) return null
+      return h('div', { className: 'wbo-selected', 'aria-label': `${t('selectedExample')}: ${template.title}` },
+        h('span', { className: 'wbo-selected-cover' }, h('img', { src: template.thumbnail, alt: '', draggable: false })),
+        h('span', { className: 'wbo-selected-copy' }, h('small', null, t('selectedExample')), h('strong', null, template.title)),
+        h('button', { type: 'button', disabled: state.loading, 'aria-label': t('removeTemplate'),
+          onClick: () => store.request(rpc, sessionId, 'template/deselect') }, '×'))
     }
 
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, {
-        zh: { formats: '输出格式', 'word.hint': '创建或修改 Word 文档', 'excel.hint': '创建或修改 Excel 表格', templates: '文档与表格案例', preview: '预览', close: '关闭预览', loading: '正在加载', retry: '重试', pages: '页', sheets: '个工作表', sheetScrollHint: '切换工作表，上下滚动查看预览', scrollHint: '向下滚动查看完整内容', reportContent: '案例内容' },
-        en: { formats: 'Output format', 'word.hint': 'Create or edit a Word document', 'excel.hint': 'Create or edit an Excel workbook', templates: 'Document and spreadsheet examples', preview: 'Preview', close: 'Close preview', loading: 'Loading', retry: 'Retry', pages: 'pages', sheets: 'worksheets', sheetScrollHint: 'Switch worksheets and scroll through the preview', scrollHint: 'Scroll to view the full example', reportContent: 'Example content' }
+        zh: { formats: '输出格式', 'word.hint': '创建或修改 Word 文档', 'excel.hint': '创建或修改 Excel 表格', templates: '文档与表格案例', preview: '预览', close: '关闭', loading: '正在加载', retry: '重试', pages: '页', sheets: '个工作表', sheetScrollHint: '切换工作表，上下滚动查看预览', scrollHint: '向下滚动查看完整内容', reportContent: '案例内容', useTemplate: '做同款', selected: '已选择', selectedExample: '已参考案例', removeTemplate: '移除案例参考' },
+        en: { formats: 'Output format', 'word.hint': 'Create or edit a Word document', 'excel.hint': 'Create or edit an Excel workbook', templates: 'Document and spreadsheet examples', preview: 'Preview', close: 'Close', loading: 'Loading', retry: 'Retry', pages: 'pages', sheets: 'worksheets', sheetScrollHint: 'Switch worksheets and scroll through the preview', scrollHint: 'Scroll to view the full example', reportContent: 'Example content', useTemplate: 'Make one like this', selected: 'Selected', selectedExample: 'Reference example', removeTemplate: 'Remove example reference' }
       }), 'office-mode:locale')
       ctx.effect(() => {
         const style = document.createElement('style')
@@ -207,12 +232,15 @@ window.__ModuleLoader__.load({
           .wbo-template-cover img{display:block;position:absolute;top:10%;left:50%;transform:translateX(-50%);width:auto;height:112%;max-width:82%;object-fit:contain;object-position:top;border-radius:5px;box-shadow:0 0 0 1px #2437521a,0 3px 12px #24375212}
           .wbo-template-cover::after{content:"";position:absolute;inset:82% 0 0;pointer-events:none;background:linear-gradient(transparent,#e5ebf3)}
           .wbo-template-card:hover .wbo-template-cover{transform:translateY(-1px)}.wbo-template-open:active .wbo-template-cover{transform:scale(.985)}.wbo-template-open:focus-visible .wbo-template-cover{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+          .wbo-template-card[data-selected=true] .wbo-template-cover{border-color:var(--dsw-alias-state-business-primary,#4479df);box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-business-primary,#4479df) 16%,transparent)}
           .wbo-template-name{min-width:0;max-width:100%;text-align:center;text-overflow:ellipsis;white-space:nowrap;padding-top:5px;font-size:12px;line-height:16px;overflow:hidden;align-self:center}
           .wbo-preview{padding:0;border:1px solid var(--dsw-alias-border-l1,#d8dce1);border-radius:16px;width:min(920px,calc(100vw - 40px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 40px);color:var(--dsw-alias-label-primary,#262626);background:var(--dsw-alias-bg-base,#fff)}
           .wbo-preview::backdrop{background:#15202d80}.wbo-preview-shell{display:flex;flex-direction:column;height:min(860px,calc(100dvh - 42px))}.wbo-preview header{display:flex;justify-content:space-between;flex:none;gap:20px;padding:18px 22px}.wbo-preview header strong{font-size:16px}.wbo-preview header p{font-size:12px;color:var(--dsw-alias-label-tertiary,#909399);margin:7px 0 0;line-height:1.6}
           .wbo-preview button{border:1px solid var(--dsw-alias-border-l1,#d8dce1);border-radius:8px;padding:6px 12px;background:transparent;color:inherit;cursor:pointer;font:inherit}.wbo-preview header>button{align-self:flex-start;font-size:20px;border:0;padding:0 5px}.wbo-preview button:focus-visible,.wbo-preview-pages:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4479df);outline-offset:-2px}
           .wbo-sheet-tabs{display:flex;flex:none;gap:6px;overflow-x:auto;overscroll-behavior:contain;padding:0 22px 12px;border-bottom:1px solid var(--dsw-alias-border-l1,#d8dce1);scrollbar-width:thin}.wbo-sheet-tabs button{flex:none;white-space:nowrap;font-size:13px;line-height:20px}.wbo-sheet-tabs button[aria-selected=true]{background:#26334b;border-color:#26334b;color:#fff}
           .wbo-preview-pages{min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;background:#eaf0f5;padding:22px;text-align:center}.wbo-report-page{width:min(100%,680px);margin:0 auto 22px}.wbo-report-page:last-child{margin-bottom:0}.wbo-page-paper{background:#fff;position:relative;box-shadow:0 3px 18px #20334b20;overflow:hidden}.wbo-page-paper img{display:block;width:100%;height:100%;object-fit:contain}.wbo-page-message{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#697684;padding:20px;font-size:13px}.wbo-report-page figcaption{font-size:12px;line-height:18px;color:#697684;padding-top:8px}
+          .wbo-preview-actions{display:flex;flex:none;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--dsw-alias-border-l1,#d8dce1);background:var(--dsw-alias-bg-base,#fff)}.wbo-preview-actions .wbo-use-template{min-width:104px;border-color:#262626;background:#262626;color:#fff;font-weight:600}.wbo-preview-actions .wbo-use-template:disabled{opacity:.55;cursor:default}
+          .wbo-selected{display:flex;align-items:center;gap:9px;max-width:min(360px,100%);height:46px;padding:5px 7px 5px 5px;border:1px solid var(--dsw-alias-border-l1,#d8dce1);border-radius:10px;background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#262626)}.wbo-selected-cover{position:relative;display:block;flex:none;width:54px;height:34px;border-radius:6px;overflow:hidden;background:#eef2f6}.wbo-selected-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.wbo-selected-copy{display:flex;flex-direction:column;min-width:0;line-height:1.25}.wbo-selected-copy small{font-size:10px;color:var(--dsw-alias-label-tertiary,#909399)}.wbo-selected-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:500}.wbo-selected>button{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;margin-left:auto;padding:0;border:0;border-radius:50%;background:transparent;color:var(--dsw-alias-label-secondary,#667085);font-size:16px;cursor:pointer}.wbo-selected>button:hover{background:#edf0f4}.wbo-selected>button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4479df)}
           @media(max-width:560px){.wbo-preview-pages{padding:10px}.wbo-preview header{padding:12px}}
           @media(prefers-reduced-motion:reduce){.wbo-template-cover{transition:none}}
         `
@@ -223,11 +251,15 @@ window.__ModuleLoader__.load({
         name: 'conversation.hero.modeActions', id: 'dsh-office', order: 10, locale: NS,
         inject: sessionId => ({ rpc, store, sessionId })
       }, ModeActions))
+      ctx.slots.inject('conversation.input.accessory', () => ctx.slots.register({
+        name: 'conversation.input.accessory', id: 'dsh-office', order: 20, locale: NS,
+        inject: sessionId => ({ rpc, store, sessionId })
+      }, SelectedTemplate))
       for (const [name, component] of [['conversation.composer.dock', TemplateDock]]) {
         ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'dsh-office', order: 10, locale: NS,
           inject: sessionId => ({ rpc, store, sessionId }) }, component))
       }
     }
-    return { apply, inject: ['slots', 'locale', 'connection'], ModeStore, TemplateDock }
+    return { apply, inject: ['slots', 'locale', 'connection'], ModeStore, TemplateDock, SelectedTemplate }
   }
 })

@@ -22,6 +22,7 @@ async function fixture(existingRoot) {
   ctx.provide('connection', { rpc: { handle(route, handler, options) {
     expect(options.authority).toBe('trusted-host'); routes.set(route, handler)
   } } })
+  ctx.provide('webServer', { register() { return () => {} } })
   ctx.provide('tools', { register(tool) { registered.add(tool.name) } })
   ctx.provide('sandboxPolicy', { resolve: () => ({ mode: 'workspace-write', workspaceRoot: root }) })
   for (const [plugin, config] of [[SystemPrompt, { includeHarnessIdentity: false }], [SkillRegistry, undefined],
@@ -67,7 +68,7 @@ it('activates both real plugins and atomically persists one document format per 
   expect(state.activities.some(activity => activity.operation === 'select-document-mode')).toBe(true)
 })
 
-it('serves the Word and Excel example catalog and bounded previews as read-only operations', async () => {
+it('serves bounded previews and persists a reviewed Word or Excel example selection', async () => {
   const f = await fixture(), sessionId = 'word-preview-session'
   await f.call('/dsh-office', 'mode', { sessionId, mode: 'word' })
   const state = await f.call('/dsh-office', 'state', { sessionId })
@@ -81,8 +82,13 @@ it('serves the Word and Excel example catalog and bounded previews as read-only 
   for (const payload of [{ templateId: '../design.md', page: 1 }, { templateId: 'equity-research', page: 13 }, { templateId: 'ai-office', page: 0 }, { templateId: 'ai-office', page: '1' }]) {
     expect((await f.routes.get('/dsh-office')('template/preview', { sessionId, ...payload })).value.status).toBe('error')
   }
-  expect((await f.routes.get('/dsh-office')('template/select', { sessionId, templateId: 'campaign-launch' })).value.status).toBe('error')
-  expect((await f.call('/dsh-office', 'state', { sessionId })).selectedTemplateId).toBeUndefined()
+  expect((await f.routes.get('/dsh-office')('template/select', { sessionId, templateId: 'annual-business' })).value.status).toBe('error')
+  const selected = await f.call('/dsh-office', 'template/select', { sessionId, templateId: 'equity-research' })
+  expect(selected.selectedTemplateId).toBe('equity-research')
+  expect((await f.ctx.officeModes.state(sessionId)).selectedDocumentTemplate).toEqual({ id: 'equity-research', mode: 'word', revision: '20260911.5' })
+  const restored = await fixture(f.root)
+  expect((await restored.call('/dsh-office', 'state', { sessionId })).selectedTemplateId).toBe('equity-research')
+  expect((await f.call('/dsh-office', 'template/deselect', { sessionId })).selectedTemplateId).toBeUndefined()
 })
 
 it('retires legacy Word selections and automatic template instructions while preserving the foundation and user text', async () => {
@@ -125,13 +131,19 @@ it('coordinates template selection, concurrent requests and return to ordinary c
 it('loads the selected Word/Excel skill and retires automatic instructions when changing formats', async () => {
   const f = await fixture(), agent = await f.agent()
   agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'User source remains available.' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
-  for (const mode of ['word', 'excel']) {
-    await f.call('/dsh-office', 'mode', { sessionId: agent.id, mode })
-    await f.preStep(agent)
-    expect(activeSkills(agent)).toEqual([`dsh-${mode}`])
-    await f.preStep(agent)
-    expect(activeSkills(agent)).toEqual([`dsh-${mode}`])
-  }
+  await f.call('/dsh-office', 'mode', { sessionId: agent.id, mode: 'word' })
+  await f.call('/dsh-office', 'template/select', { sessionId: agent.id, templateId: 'coffee-market' })
+  await f.preStep(agent); await f.preStep(agent)
+  expect(activeSkills(agent)).toEqual(['dsh-word'])
+  const wordSnapshot = agent.session.deriveMessages().find(message => message.source?.plugin === 'dsh-office-composer')
+  expect(wordSnapshot.source.sections.map(section => section.name)).toEqual(['dsh-word', 'office-template:coffee-market@20260911.6'])
+  expect(wordSnapshot.content[0].text).toContain('先调用 office_template(template_id="coffee-market")')
+  expect(wordSnapshot.content[0].text).toContain('案例中的公司、人物、事实、数字和观点仅用于展示')
+  await f.call('/dsh-office', 'mode', { sessionId: agent.id, mode: 'excel' })
+  await f.preStep(agent); await f.preStep(agent)
+  expect(activeSkills(agent)).toEqual(['dsh-excel'])
+  const excelSnapshot = agent.session.deriveMessages().find(message => message.source?.plugin === 'dsh-office-composer')
+  expect(excelSnapshot.source.sections.map(section => section.name)).toEqual(['dsh-excel'])
   await f.call('/dsh-ppt', 'presentation/mode', { sessionId: agent.id, mode: 'ppt' })
   await f.preStep(agent)
   expect(activeSkills(agent)).toEqual(['dsh-ppt'])

@@ -35,11 +35,14 @@ export async function officeTemplatePreview(id, page) {
 export async function officeTemplateGuide(id) {
   return (await asset(id, 'design.md', 32 * 1024)).toString('utf8')
 }
-export function registerTemplateTools(register) {
+export function registerTemplateTools(register, modes) {
   register('office_template', 'Load a built-in Office example design and prepare its editable example, authoring reference and ordered example inputs in the current workspace. Use the returned design with the matching Word or Excel foundation workflow; replace example facts with current task material before office_build.', {
     template_id: { type: 'string', required: true, enum: catalog.map(item => item.id) }
   }, true, async (args, exec, workspace) => {
     const template = officeTemplate(args.template_id)
+    const selected = modes ? (await modes.state(exec.agent.id)).selectedDocumentTemplate : null
+    if (selected && selected.id !== template.id) throw new Error(`Use the selected Office example ${selected.id}`)
+    if (selected && (selected.mode !== (template.mode ?? 'word') || selected.revision !== template.revision)) throw new Error('The selected Office example revision is no longer available')
     // Load and verify the entire immutable bundle before publishing a new, uniquely named working copy.
     const files = await Promise.all(Object.keys(template.files).map(async file => ({ file, bytes: await asset(template.id, file) })))
     const relative = `office-templates/${template.id}-${randomUUID()}`

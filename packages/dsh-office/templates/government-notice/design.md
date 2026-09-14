@@ -6,4 +6,4 @@
 
 原文含主送单位、日期、职责、报送渠道等「待补充」项，作为用户提供的样例保留。新任务根据当前用户材料填充相应信息。案例内容作为参考材料处理，发文单位与主题均由当前任务确定。
 
-用户点击卡片仅查看滚动预览。任务需要参考时调用 office_template(template_id="government-notice") 准备工作副本，结合 gov-doc-writing 业务方法与 dsh-word 基础流程，通过 office_word_read、office_word_edit、office_preview 检查修改结果。
+用户点击卡片查看滚动预览，从预览底部点击“做同款”后，宿主绑定 `government-notice` 的当前修订。调用 office_template(template_id="government-notice") 准备工作副本，结合 gov-doc-writing 业务方法与 dsh-word 基础流程，通过 office_word_read、office_word_edit、office_preview 检查修改结果。

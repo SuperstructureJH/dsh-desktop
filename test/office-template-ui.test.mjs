@@ -24,18 +24,22 @@ async function fixture() {
     if (failures.delete(`${endpoint}:${payload.page}`)) throw new Error('Temporary failure')
     if (endpoint === 'template/preview') return { ok: true, value: { status: 'ok', data: { image: `data:image/webp;base64,${payload.templateId}-${payload.page}`, page: payload.page } } }
     if (endpoint === 'mode') state = { ...state, mode: payload.mode }
+    if (endpoint === 'template/select') state = { ...state, selectedTemplateId: payload.templateId }
+    if (endpoint === 'template/deselect') { const { selectedTemplateId, ...next } = state; state = next }
     return { ok: true, value: { status: 'ok', data: { sessionId: payload.sessionId, ...state } } }
   } }
   store.update('a', { ...state, loading: false })
-  function render() { root.render(React.createElement(plugin.TemplateDock, { rpc, store, sessionId, session: { blank: true }, t: x => x })) }
+  function render() { root.render(React.createElement(React.Fragment, null,
+    React.createElement(plugin.SelectedTemplate, { rpc, store, sessionId, session: { blank: true }, t: x => x }),
+    React.createElement(plugin.TemplateDock, { rpc, store, sessionId, session: { blank: true }, t: x => x }))) }
   await act(render)
   return { store, rpc, calls, failures, async click(label) {
     const button = [...container.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === label || b.textContent === label)
     expect(button, label).toBeDefined(); await act(async () => button.click())
-  }, async switchSession() { sessionId = 'b'; store.update('b', { mode:'word',templates,selectedTemplateId:null,loading:false }); await act(render) },
+  }, async switchSession() { sessionId = 'b'; store.update('b', { mode:'word',templates,loading:false }); await act(render) },
   hold(endpoint) { let release; waits.set(endpoint, new Promise(r => release = r)); return async () => { await act(async () => { waits.delete(endpoint); release() }) } } }
 }
-it('opens the whole report from a card and closes without selecting a template or adding an accessory', async () => {
+it('selects an example only from the full preview and exposes the reference in the composer', async () => {
   const f = await fixture()
   expect(container.querySelectorAll('.wbo-template-card')).toHaveLength(3)
   expect(container.querySelector('.wbo-template-heading')).toBeNull()
@@ -47,12 +51,18 @@ it('opens the whole report from a card and closes without selecting a template o
   expect(container.querySelector('[data-report-page="12"] img').src).toContain('equity-research-12')
   expect(container.querySelector('dialog [role=alert]').textContent).toContain('Temporary failure')
   await f.click('retry 3'); expect(container.querySelectorAll('dialog img')).toHaveLength(12)
-  expect(container.querySelectorAll('dialog button')).toHaveLength(1)
-  expect(container.querySelector('dialog [data-native-wheel-owner]')).not.toBeNull()
-  await f.click('close'); expect(container.querySelector('dialog')).toBeNull()
-  expect(f.calls.every(call => call.endpoint === 'template/preview')).toBe(true)
-  expect(container.querySelector('[aria-pressed]')).toBeNull()
   expect(container.querySelector('.wbo-selected')).toBeNull()
+  expect(container.querySelectorAll('dialog button')).toHaveLength(3)
+  expect(container.querySelector('dialog [data-native-wheel-owner]')).not.toBeNull()
+  await f.click('useTemplate equity-research'); expect(container.querySelector('dialog')).toBeNull()
+  expect(f.store.snapshot('a').selectedTemplateId).toBe('equity-research')
+  expect(container.querySelector('.wbo-selected').textContent).toContain('equity-research')
+  expect(container.querySelector('.wbo-template-card[data-selected=true]')).not.toBeNull()
+  expect(f.calls.at(-1).endpoint).toBe('template/select')
+  await f.click('removeTemplate')
+  expect(f.store.snapshot('a').selectedTemplateId).toBeUndefined()
+  expect(container.querySelector('.wbo-selected')).toBeNull()
+  expect(f.calls.at(-1).endpoint).toBe('template/deselect')
 })
 it('retires the preview on session or mode changes and ignores old page responses', async () => {
   const f = await fixture()
@@ -60,7 +70,7 @@ it('retires the preview on session or mode changes and ignores old page response
   await f.click('preview coffee-market')
   await f.switchSession(); await release()
   expect(container.querySelector('dialog')).toBeNull()
-  expect(f.store.snapshot('b').selectedTemplateId).toBeNull()
+  expect(f.store.snapshot('b').selectedTemplateId).toBeUndefined()
   await act(() => f.store.update('b', { mode: 'excel' }))
   expect(container.querySelectorAll('.wbo-template-card')).toHaveLength(3)
   expect(container.querySelector('[data-office-template-dock]')?.getAttribute('data-office-template-dock')).toBe('excel')

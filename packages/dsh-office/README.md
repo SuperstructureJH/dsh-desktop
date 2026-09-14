@@ -18,6 +18,8 @@ The normal Desktop profile registers 188 discoverable Skills (two foundation Ski
 
 Word, Excel and PPT buttons appear above the blank-session input, immediately to the right of the agent preset and workspace. The formats share one serialized, audited session state: selecting Word/Excel closes PPT mode, selecting PPT or a PPT template clears Word/Excel, and clicking the selected format returns to ordinary conversation. The selected mode automatically loads its corresponding Skill at the start of a task. Ordinary conversation can also discover `dsh-word` and `dsh-excel`.
 
+Word and Excel example cards open a read-only preview. The preview footer's “做同款” action persists the reviewed example for the active session and shows it beside the composer until removed or replaced. At the next model step the Host injects the exact template id and revision and requires `office_template` before authoring. Executable examples supply their pinned source and inputs; native examples supply a governed working copy and design notes. Sample facts are always replaced with the current task's material.
+
 The Desktop's `dsh-ppt` Host supplies the `officeModes` service. Both format RPC routes and the model's Skill selection use this persisted state. The browser's change event refreshes display state after successful Host operations. `docs/STATUS.md` records separate automated, native interface and live-model acceptance results.
 
 ## Execution and publication

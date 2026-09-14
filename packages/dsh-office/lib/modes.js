@@ -1,10 +1,39 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { renderSkillContent } from '@deepseek-ai/dsh-skill'
-import { listOfficeTemplates, officeTemplatePreview } from './templates.js'
+import { listOfficeTemplates, officeTemplate, officeTemplatePreview } from './templates.js'
 
 const PLUGIN = 'dsh-office-composer'
 const CONTEXT_SOURCES = new Set([PLUGIN, 'workbuddy-office-composer'])
 export const selectedMode = state => state.documentMode ?? (state.presentationMode === 'ppt' ? 'ppt' : null)
+
+function selectedOfficeTemplate(state) {
+  const selection = state.selectedDocumentTemplate
+  if (!selection || selection.mode !== selectedMode(state)) return null
+  try {
+    const template = officeTemplate(selection.id)
+    return (template.mode ?? 'word') === selection.mode && template.revision === selection.revision ? template : null
+  } catch {
+    return null
+  }
+}
+
+function selectedTemplateContext(template) {
+  const mode = template.mode ?? 'word'
+  const route = template.authoringFile
+    ? `使用 office_template 返回的 ${template.authoringFile.endsWith('.py') ? 'Python/openpyxl' : 'JavaScript/docx'} authoring 源码和已校验输入作为同款基线。`
+    : `使用 office_template 返回的原生 ${mode === 'word' ? 'DOCX' : 'XLSX'} 工作副本和设计说明，在现有编辑能力范围内保留版式与结构。`
+  return [
+    '权威 Office 案例选择。该状态来自应用界面的“做同款”，属于宿主状态，不是用户输入的提示词。',
+    `selected_template_id: ${template.id}`,
+    `selected_template_revision: ${template.revision}`,
+    `selected_template_title: ${template.title}`,
+    `selected_template_mode: ${mode}`,
+    `selected_template_category: ${template.category}`,
+    `selected_template_description: ${template.description}`,
+    `执行要求：开始制作前先调用 office_template(template_id="${template.id}")。${route}`,
+    '案例中的公司、人物、事实、数字和观点仅用于展示。使用当前用户材料替换案例内容，保留适合本任务的视觉语言、章节或工作表结构，并执行对应检查与预览。'
+  ].join('\n')
+}
 
 const matches = (source, names) => source?.form === 'snapshot' && source.sections.length === names.length && source.sections.every((section, i) => section.name === names[i])
 
@@ -16,7 +45,7 @@ function clearPreviousContext(agent, names, sections) {
     if (event?.type !== 'user/message' || source?.kind !== 'plugin' || !CONTEXT_SOURCES.has(source.plugin) || source.form !== 'snapshot') continue
     if (source.plugin === PLUGIN && matches(source, names) && (!sections || source.sections.every((section, i) => section.text === sections[i].text))) continue
     session.append('user/message', createUserMessage({ content: [{ type: 'text', text: '输出格式已按当前会话选择更新。' }],
-      source: { kind: 'plugin', plugin: 'dsh-office-context-updated' } }), { surfaceOp: { op: 'replace', start: seq, end: seq }, sourceEventSeqs: [seq] })
+      source: { kind: 'plugin', plugin: 'dsh-office-context-updated' } }), { surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq }, sourceEventSeqs: [seq] })
   }
 }
 
@@ -29,12 +58,22 @@ export function registerOfficeModes(ctx) {
       if (endpoint === 'mode') {
         if (![null, 'word', 'excel'].includes(payload.mode)) throw new Error('Choose Word, Excel or ordinary conversation')
         await modes.select(sessionId, payload.mode)
+      } else if (endpoint === 'template/select') {
+        const template = officeTemplate(payload.templateId)
+        const state = await modes.state(sessionId)
+        const mode = template.mode ?? 'word'
+        if (selectedMode(state) !== mode) throw new Error('Choose the matching Word or Excel format before using this example')
+        await modes.selectTemplate(sessionId, { id: template.id, mode, revision: template.revision })
+      } else if (endpoint === 'template/deselect') {
+        await modes.deselectTemplate(sessionId)
       } else if (endpoint === 'template/preview') {
         return { ok: true, value: { status: 'ok', data: await officeTemplatePreview(payload.templateId, payload.page) } }
       } else if (endpoint !== 'state') throw new Error('Unknown Office mode operation')
       const state = await modes.state(sessionId)
       const templates = await listOfficeTemplates()
-      return { ok: true, value: { status: 'ok', data: { sessionId, mode: selectedMode(state), templates } } }
+      const selected = selectedOfficeTemplate(state)
+      return { ok: true, value: { status: 'ok', data: { sessionId, mode: selectedMode(state), templates,
+        ...(selected ? { selectedTemplateId: selected.id, selectedTemplateRevision: selected.revision } : {}) } } }
     } catch (error) {
       return { ok: true, value: { status: 'error', error: { code: 'invalid-request', message: error.message } } }
     }
@@ -43,7 +82,8 @@ export function registerOfficeModes(ctx) {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision
     const state = await modes.state(agent.id), mode = selectedMode(state)
-    const names = (mode === 'word' || mode === 'excel') ? [`dsh-${mode}`] : []
+    const template = selectedOfficeTemplate(state)
+    const names = (mode === 'word' || mode === 'excel') ? [`dsh-${mode}`, ...(template ? [`office-template:${template.id}@${template.revision}`] : [])] : []
     if (step !== 1 || (mode !== 'word' && mode !== 'excel')) {
       clearPreviousContext(agent, names)
       return decision
@@ -52,7 +92,10 @@ export function registerOfficeModes(ctx) {
     const skill = await ctx.skills.get(name, { cwd: agent.session.header.cwd, signal, scope: agent })
     if (!skill) throw new Error(`The selected output format requires ${name}`)
     signal.throwIfAborted()
-    const sections = [{ name, text: `当前会话输出格式：${mode === 'word' ? 'Word (.docx)' : 'Excel (.xlsx)'}。该选择来自应用界面。按以下 Skill 使用受治理的 Office 工具完成创建、修改、检查和交付。\n\n${renderSkillContent(skill)}` }]
+    const sections = [
+      { name, text: `当前会话输出格式：${mode === 'word' ? 'Word (.docx)' : 'Excel (.xlsx)'}。该选择来自应用界面。按以下 Skill 使用受治理的 Office 工具完成创建、修改、检查和交付。\n\n${renderSkillContent(skill)}` },
+      ...(template ? [{ name: `office-template:${template.id}@${template.revision}`, text: selectedTemplateContext(template) }] : [])
+    ]
     clearPreviousContext(agent, names, sections)
     const active = agent.session.deriveMessages().some(message => message.role === 'user' && message.source?.kind === 'plugin'
       && message.source.plugin === PLUGIN && matches(message.source, names))

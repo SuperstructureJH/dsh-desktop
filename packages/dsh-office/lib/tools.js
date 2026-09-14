@@ -35,7 +35,7 @@ export function registerOfficeTools(ctx, config) {
     }
   }))
   registerWorkflowTools(register, config)
-  registerTemplateTools(register)
+  registerTemplateTools(register, ctx.officeModes)
   registerBusinessSkillTools(register)
   const projectPath = { type: 'string', required: true, description: 'Workspace-relative path ending in .office.json.' }
   const load = async (root, relative) => {
