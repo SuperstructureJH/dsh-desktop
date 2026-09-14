@@ -62,7 +62,8 @@ it('copies catalogue resources that electron-builder excludes from its normal ap
 it('publishes real session catalogue summaries and loads a selected business Skill through the host skill tool', async () => {
   const root = await temp(), ctx = new Context()
   new SystemPrompt(ctx, {}); new SkillRegistry(ctx); new ToolRuntime(ctx)
-  ctx.provide('connection', { rpc: { handle() {} } })
+  ctx.provide('connection', { requestRejection() {} })
+  ctx.provide('webServer', { register() { return () => {} } })
   ctx.provide('officeModes', { state: async () => ({ documentMode: 'word' }) })
   apply(ctx, { root: path.join(root, 'audit') })
   skillTool.apply(ctx)

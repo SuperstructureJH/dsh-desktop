@@ -2,8 +2,10 @@
 // test workspace policy. Full Desktop/model and native Office acceptance are separate.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
@@ -32,29 +34,44 @@ if (!values.worker) {
   new SystemPrompt(toolContext, {})
   new ToolRuntime(toolContext)
   const services = {}, routes = new Map()
-  const connection = { rpc: { handle: (route, handler) => routes.set(route, handler) } }
+  const connection = { requestRejection() {} }
+  const webServer = { register(route) { routes.set(route.path, route); return () => routes.delete(route.path) } }
+  const rpc = async (channel, method, payload) => {
+    const rpcId = randomUUID()
+    const request = Readable.from([Buffer.from(JSON.stringify({ type: 'client-request', rpcId, method, payload }))])
+    Object.assign(request, { method: 'POST', url: `${channel}/${method}`, headers: { 'content-type': 'application/json' } })
+    const response = await new Promise((resolve, reject) => {
+      let status
+      const res = { writeHead(value) { status = value }, end(value) { resolve({ status, body: Buffer.from(value ?? '').toString('utf8') }) } }
+      Promise.resolve(routes.get(channel).handler(request, res)).catch(reject)
+    })
+    assert.equal(response.status, 200, `${channel}/${method} returned HTTP ${response.status}`)
+    const body = JSON.parse(response.body)
+    assert.equal(body.rpcId, rpcId)
+    return body.result
+  }
   const ppt = await import(pathToFileURL(path.join(resources, 'app/node_modules/dsh-ppt/lib/index.js')).href)
   const pptHost = {
     provide: (name, value) => { services[name] = value },
     effect(run) { run(); return () => {} },
     inject(names, activate) { if (names.includes('webServer')) return activate(pptHost) },
-    webServer: { register() { return () => {} } },
+    webServer,
     get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
   }
   await ppt.apply(pptHost, { root: path.join(values.output, 'composer-state') })
   const officeHost = { tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },
-    connection, officeModes: services.officeModes, on() {}, effect(run) { run(); return () => {} }, webServer: { register() { return () => {} } },
+    connection, officeModes: services.officeModes, on() {}, effect(run) { run(); return () => {} }, webServer,
     inject(names, activate) { if (names.includes('webServer')) return activate(officeHost) },
     get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: values.output }) }) }
   apply(officeHost, config)
   const sessionId = 'packaged-office-test'
   for (const mode of ['word', 'excel', null]) {
-    const response = await routes.get('/dsh-office')('mode', { sessionId, mode })
+    const response = await rpc('/dsh-office', 'mode', { sessionId, mode })
     assert.equal(response.value.data.mode, mode)
   }
-  await routes.get('/dsh-ppt')('presentation/mode', { sessionId, mode: 'ppt' })
-  assert.equal((await routes.get('/dsh-office')('state', { sessionId })).value.data.mode, 'ppt')
-  await routes.get('/dsh-office')('mode', { sessionId, mode: 'word' })
+  await rpc('/dsh-ppt', 'presentation/mode', { sessionId, mode: 'ppt' })
+  assert.equal((await rpc('/dsh-office', 'state', { sessionId })).value.data.mode, 'ppt')
+  await rpc('/dsh-office', 'mode', { sessionId, mode: 'word' })
   assert.equal((await services.officeModes.state(sessionId)).presentationMode, undefined)
   const hostManifest = JSON.parse(await readFile(path.join(resources, 'app/node_modules/@deepseek-ai/dsh/package.json'), 'utf8'))
   assert.equal(hostManifest.dependencies['dsh-office'], '0.2.0')
@@ -93,23 +110,23 @@ if (!values.worker) {
   const scoringReference = await call('office_skill_read', { name: 'weighted-scoring', file: 'scripts/decision_matrix.py' })
   assert.ok(scoringReference.content.includes('def '))
   const exampleResults = []
-  const exampleCatalog = (await routes.get('/dsh-office')('state', { sessionId })).value.data.templates
+  const exampleCatalog = (await rpc('/dsh-office', 'state', { sessionId })).value.data.templates
   assert.equal(exampleCatalog.filter(t => t.mode === 'word').length, 3)
   assert.equal(exampleCatalog.filter(t => t.mode === 'excel').length, 3)
   const reviewed = exampleCatalog.find(template => template.mode === 'word')
-  const selectedTemplate = await routes.get('/dsh-office')('template/select', { sessionId, templateId: reviewed.id })
+  const selectedTemplate = await rpc('/dsh-office', 'template/select', { sessionId, templateId: reviewed.id })
   assert.equal(selectedTemplate.value.data.selectedTemplateId, reviewed.id)
   assert.equal(selectedTemplate.value.data.selectedTemplateRevision, reviewed.revision)
-  const deselectedTemplate = await routes.get('/dsh-office')('template/deselect', { sessionId })
+  const deselectedTemplate = await rpc('/dsh-office', 'template/deselect', { sessionId })
   assert.equal(deselectedTemplate.value.data.selectedTemplateId, undefined)
   const templateSelection = { templateId: reviewed.id, revision: reviewed.revision, select: 'PASS', deselect: 'PASS' }
   for (const { id: templateId } of exampleCatalog) {
-    const selected = await routes.get('/dsh-office')('state', { sessionId })
+    const selected = await rpc('/dsh-office', 'state', { sessionId })
     assert.equal(selected.value.data.selectedTemplateId, undefined)
     const prepared = await call('office_template', { template_id: templateId })
     assert.equal(prepared.templateId, templateId)
     assert.ok(prepared.inputs.length >= 2)
-    const galleryPreview = await routes.get('/dsh-office')('template/preview', { sessionId, templateId, page: selected.value.data.templates.find(t => t.id === templateId).pages })
+    const galleryPreview = await rpc('/dsh-office', 'template/preview', { sessionId, templateId, page: selected.value.data.templates.find(t => t.id === templateId).pages })
     assert.ok(galleryPreview.value.data.image.startsWith('data:image/webp;base64,'))
     let source = { path: prepared.example, sha256: prepared.sha256 }
     if (prepared.authoring) {

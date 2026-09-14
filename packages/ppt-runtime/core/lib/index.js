@@ -7,6 +7,7 @@ import { validationSchema, validationReport, formatValidation } from "./validati
  */
 import { registerPreviewAssets } from "./preview-assets.js";
 import { previewFiles } from "./preview-manifest.js";
+import { registerHostRpcChannel } from "./host-rpc.js";
 import { definitions as DSH_PPT_TEMPLATE_DEFINITIONS, semantics as DSH_PPT_TEMPLATE_SEMANTICS } from "./catalog.js";
 import { i as renderPptdProject, n as loadPptdProject, o as recommendedTextCapacity, r as parsePptdProject, t as checkPptdProject } from "./pptd-2VqVzr_T.js";
 import z from "@deepseek-ai/schemastery";
@@ -3643,6 +3644,7 @@ const name = "dsh-ppt";
 /** Required host services. */
 const inject = [
 	"connection",
+	"webServer",
 	"tools",
 	"systemPrompt",
 	"skills"
@@ -3671,16 +3673,9 @@ async function apply(ctx, config) {
 		selectTemplate: (sessionId, template) => service.selectDocumentTemplate(sessionId, template, { kind: "user" }),
 		deselectTemplate: (sessionId) => service.deselectDocumentTemplate(sessionId, { kind: "user" })
 	});
-	// Harness 0.1.5 registers an RPC channel as a webServer route owned by the
-	// Context that read `connection`, and that Context must itself declare
-	// `webServer`. Registering from a scoped inject Context is upstream's own
-	// pattern; reading `ctx.connection` directly throws
-	// `cannot get property "webServer" without inject` and fails the whole tree.
-	ctx.inject(["webServer"], (webCtx) => {
-		webCtx.connection.rpc.handle("/dsh-ppt", pptRpc(service), { authority: "trusted-host" });
-		// Older loaded clients can finish their in-flight requests after upgrade.
-		webCtx.connection.rpc.handle("/kimi-ppt", pptRpc(service), { authority: "trusted-host" });
-	});
+	registerHostRpcChannel(ctx, "/dsh-ppt", pptRpc(service));
+	// Older loaded clients can finish their in-flight requests after upgrade.
+	registerHostRpcChannel(ctx, "/kimi-ppt", pptRpc(service));
 	registerPptTools(ctx, service);
 }
 //#endregion

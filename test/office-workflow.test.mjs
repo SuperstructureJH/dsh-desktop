@@ -214,9 +214,9 @@ describe('Office governed workspace workflow', () => {
   })
   it('registers discoverable Word and Excel skills with the executable format reference', async () => {
     let provider
-    const host = { tools: { register() {} }, skills: { registerProvider(factory) { provider = factory() } }, connection: { rpc: { handle() {} } },
+    const host = { tools: { register() {} }, skills: { registerProvider(factory) { provider = factory() } }, connection: { requestRejection() {} },
       webServer: { register() { return () => {} } }, effect(run) { run(); return () => {} },
-      inject(names, activate) { if (names.includes('webServer')) return activate(host) }, on() {} }
+      on() {} }
     apply(host, { root: '/tmp/office-test' })
     const skills = await provider.list()
     expect(skills).toHaveLength(188)

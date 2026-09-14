@@ -8,7 +8,7 @@ import { registerOfficeModes } from './lib/modes.js'
 import { businessSkills, stripFrontmatter } from './lib/business-skills.js'
 
 export const name = 'dsh-office'
-export const inject = ['tools', 'skills', 'sandboxPolicy', 'connection', 'officeModes']
+export const inject = ['tools', 'skills', 'sandboxPolicy', 'connection', 'webServer', 'officeModes']
 export const Config = z.object({ root: z.string().required(), node: z.string(), python: z.string(), libreOffice: z.string(), bwrap: z.string(), fontDirectories: z.array(z.string()) })
 
 export function apply(ctx, config) {

@@ -12,17 +12,17 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import * as ppt from 'dsh-ppt'
 import * as office from '../packages/dsh-office/index.js'
+import { callRpcRoute, rpcRouteFixture } from './helpers/rpc-route.mjs'
 
 const cleanup = []
 afterEach(async () => { for (const dispose of cleanup.splice(0).reverse()) await dispose() })
 async function fixture(existingRoot) {
   const root = existingRoot ?? await mkdtemp(path.join(os.tmpdir(), 'office-modes-'))
   if (!existingRoot) cleanup.push(() => rm(root, { recursive: true, force: true }))
-  const ctx = new Context(), routes = new Map(), registered = new Set()
-  ctx.provide('connection', { rpc: { handle(route, handler, options) {
-    expect(options.authority).toBe('trusted-host'); routes.set(route, handler)
-  } } })
-  ctx.provide('webServer', { register() { return () => {} } })
+  const ctx = new Context(), registered = new Set()
+  const { routes, connection, webServer } = rpcRouteFixture()
+  ctx.provide('connection', connection)
+  ctx.provide('webServer', webServer)
   ctx.provide('tools', { register(tool) { registered.add(tool.name) } })
   ctx.provide('sandboxPolicy', { resolve: () => ({ mode: 'workspace-write', workspaceRoot: root }) })
   for (const [plugin, config] of [[SystemPrompt, { includeHarnessIdentity: false }], [SkillRegistry, undefined],
@@ -30,7 +30,7 @@ async function fixture(existingRoot) {
     const fork = ctx.plugin(plugin, config); await fork; cleanup.push(() => fork.dispose())
   }
   const call = async (channel, endpoint, payload) => {
-    const response = await routes.get(channel)(endpoint, payload)
+    const response = await callRpcRoute(routes, channel, endpoint, payload)
     expect(response.ok).toBe(true); expect(response.value.status).toBe('ok')
     return response.value.data
   }
@@ -80,9 +80,9 @@ it('serves bounded previews and persists a reviewed Word or Excel example select
   expect(preview.image.startsWith('data:image/webp;base64,')).toBe(true)
   expect(await f.ctx.officeModes.state(sessionId)).toEqual(before)
   for (const payload of [{ templateId: '../design.md', page: 1 }, { templateId: 'equity-research', page: 13 }, { templateId: 'ai-office', page: 0 }, { templateId: 'ai-office', page: '1' }]) {
-    expect((await f.routes.get('/dsh-office')('template/preview', { sessionId, ...payload })).value.status).toBe('error')
+    expect((await callRpcRoute(f.routes, '/dsh-office', 'template/preview', { sessionId, ...payload })).value.status).toBe('error')
   }
-  expect((await f.routes.get('/dsh-office')('template/select', { sessionId, templateId: 'annual-business' })).value.status).toBe('error')
+  expect((await callRpcRoute(f.routes, '/dsh-office', 'template/select', { sessionId, templateId: 'annual-business' })).value.status).toBe('error')
   const selected = await f.call('/dsh-office', 'template/select', { sessionId, templateId: 'equity-research' })
   expect(selected.selectedTemplateId).toBe('equity-research')
   expect((await f.ctx.officeModes.state(sessionId)).selectedDocumentTemplate).toEqual({ id: 'equity-research', mode: 'word', revision: '20260911.5' })

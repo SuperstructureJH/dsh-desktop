@@ -1,6 +1,7 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { renderSkillContent } from '@deepseek-ai/dsh-skill'
 import { listOfficeTemplates, officeTemplate, officeTemplatePreview } from './templates.js'
+import { registerHostRpcChannel } from './host-rpc.js'
 
 const PLUGIN = 'dsh-office-composer'
 const CONTEXT_SOURCES = new Set([PLUGIN, 'workbuddy-office-composer'])
@@ -78,9 +79,7 @@ export function registerOfficeModes(ctx) {
       return { ok: true, value: { status: 'error', error: { code: 'invalid-request', message: error.message } } }
     }
   }
-  ctx.inject(['webServer'], webCtx => {
-    webCtx.connection.rpc.handle('/dsh-office', handle, { authority: 'trusted-host' })
-  })
+  registerHostRpcChannel(ctx, '/dsh-office', handle)
   ctx.on('agent/pre-step', async ({ agent, step, signal }, next) => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision
