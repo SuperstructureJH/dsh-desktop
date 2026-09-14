@@ -1,6 +1,6 @@
 # Enterprise login implementation status
 
-Updated 2026-09-14. This clean migration is based on `main@6a9c668`. The enterprise-login feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits.
+Updated 2026-09-14. This clean migration is based on `main@4115a96`. The enterprise-login feature commits were replayed without the retired `v0.9.0` merge, Harness-upgrade commits already present in `main`, and CI-only commits. The branch includes the current Harness session-header contract and the declaration required to type-check the current rollout configuration.
 
 ## Implemented
 
@@ -11,6 +11,6 @@ Updated 2026-09-14. This clean migration is based on `main@6a9c668`. The enterpr
 ## Verification
 
 - Clean dependency installation completed with Harness `0.1.5-rc.2` and all 24 package patches applied.
-- Full automated regression passed: 109 test files and 929 tests.
+- The current rebase passes all 64 enterprise and release contract tests.
 - TypeScript validation passed with `tsc --noEmit -p tsconfig.node.json`.
 - Real enterprise login, model calls and native packaged-app acceptance remain separate gates.
