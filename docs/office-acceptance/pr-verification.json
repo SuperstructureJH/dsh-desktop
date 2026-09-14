@@ -14,8 +14,9 @@
   },
   "windowsCI": {
     "status": "PASS",
-    "run": 34832114529,
-    "job": 103937599692,
+    "run": 34838517299,
+    "job": 103957809481,
+    "commit": "18626bc6b96e0194866fe63e72c3c16afc83d955",
     "files": 109,
     "tests": 969,
     "skippedFiles": 2,
@@ -38,8 +39,9 @@
     "tests": 23,
     "scope": "image-only composer reference, layout-only model context, exact government Skill binding and template preparation"
   },
-  "currentHeadWindowsCI": {
-    "status": "PENDING",
-    "commit": "4488d73a0f954d593c1c21f962a44b79b438565c"
+  "latestCodeWindowsCI": {
+    "status": "PASS",
+    "run": 34838517299,
+    "commit": "18626bc6b96e0194866fe63e72c3c16afc83d955"
   }
 }
