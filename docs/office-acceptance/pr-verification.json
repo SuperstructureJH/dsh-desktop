@@ -12,7 +12,23 @@
     "skippedTests": 3,
     "nativeRuntimeEnabled": true
   },
-  "windowsCI": "PENDING: prior run reached one EBUSY teardown failure after all business assertions passed; runtime shutdown now awaits child and log-handle release",
+  "windowsCI": {
+    "status": "PASS",
+    "run": 34832114529,
+    "job": 103937599692,
+    "files": 109,
+    "tests": 969,
+    "skippedFiles": 2,
+    "skippedTests": 5,
+    "checks": [
+      "typecheck",
+      "build",
+      "recovery UI at three Windows display scales",
+      "isolated Windows development package",
+      "packaged Windows Harness smoke"
+    ],
+    "shutdownRegression": "PASS: startup-failure cleanup released the child process and log handle before temporary-directory removal"
+  },
   "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect, packaged Office authoring workflows and real packaged Host RPC mode transitions",
   "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
 }
