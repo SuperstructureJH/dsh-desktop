@@ -1,8 +1,8 @@
 # Implementation status
 
-2026-09-14 migration baseline: `main@6a9c668`. The personal-template feature commits were replayed without the retired `v0.9.0` merge and CI-only commits. Current automated verification is recorded below after a clean dependency install.
+2026-09-14 migration baseline: `main@4115a96`. The personal-template feature commits were replayed without the retired `v0.9.0` merge and CI-only commits. The branch also carries the declaration required to type-check the current rollout configuration.
 
-- `PASS`：main 迁移分支共 110 个测试文件、924 项测试，以及 TypeScript 检查；16 套内置模板源检查无错误或警告。
+- `PASS`：`main@4115a96` 重放后，34 项个人模板和导入导出定向测试及 TypeScript 检查通过；此前 16 套内置模板源检查无错误或警告。
 
 ## 个人模板上传大小调整 — 2026-09-11
 
@@ -23,7 +23,7 @@
 - 实际包内 Node 24.9.0 / Host：两份原稿共 53 页完成上传、1920px 预览、保存、重载、选择、独立副本和原生导出。13 个运行模块在测试依赖、应用和 ZIP 中字节一致；签名和安装包完整性通过。
 - 浏览器：两端真实分发组件连接 Host 的上传、分页、取消、保存、自动选中、重载、浅色/深色和窄/矮窗口通过。外层页面使用测试容器。
 - 既有 56 份原稿的批量转换回归通过。该结果仅覆盖本地样本。
-- PR 分支基于 `upstream/main@6a9c668` 整理，范围采用已验收包中的运行时。模板画廊边界样式由原 PR #369 的 `main` 迁移 PR 独立交付。
+- PR 分支基于 `upstream/main@4115a96` 整理，范围采用已验收包中的运行时。模板画廊边界样式由原 PR #369 的 `main` 迁移 PR 独立交付。
 - 首次 PR 提交复核 `PASS`：72 项相关测试、16 套内置模板源检查、TypeScript、生产构建和 diff 检查通过。5 项 HTTP 预览测试在允许本机监听的环境重跑通过。
 - 首次 PR 提交真实 Host 复核 `PASS`：两份原稿共 53 页重新完成导入、预览、保存、重载、跨会话选择、独立副本与原生导出；两端真实分发组件连接 Host 的浏览器流程通过。11 个 Host/转换模块与已验收应用字节一致；客户端差异限于由 #369 独立交付的画廊样式。
 - PowerPoint/WPS 编辑、保存与重开的专项验收：`NOT_RUN`。复杂版式逐页视觉一致性仍需核对；用户整体体验反馈与专项验收分开记录。
