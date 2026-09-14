@@ -12,7 +12,7 @@
     "skippedTests": 3,
     "nativeRuntimeEnabled": true
   },
-  "windowsCI": "PENDING: rebased PR head has not completed the remote workflow yet",
+  "windowsCI": "PENDING: prior run reached one EBUSY teardown failure after all business assertions passed; runtime shutdown now awaits child and log-handle release",
   "packageVerification": "PASS: 188 Skills, 678 business resources, 17 tools, same-style select/deselect, packaged Office authoring workflows and real packaged Host RPC mode transitions",
   "productionAcceptance": "macOS development isolation; Windows authoring confinement, native Office save-reopen and live model autonomy require separate evidence"
 }

@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "scope": "macOS arm64 development package built from PR #424 code at 6a82e8b, rebased on main@4115a96, with bundled Office runtime",
+  "scope": "macOS arm64 development package built from PR #424 code at 7acbd5c, rebased on main@4115a96, with bundled Office runtime",
   "skillCount": 188,
   "businessSkillCount": 186,
   "toolCount": 17,
@@ -67,12 +67,12 @@
   },
   "dmg": {
     "file": "dsh-desktop-dev-mac-arm64.dmg",
-    "sha256": "f7eda4e0495e858412b648535b3e86abd1494fa1ae5716fcb4b1bf8707771e50",
+    "sha256": "82fe6b97f2757299877996eb6468c24f78f39d71754002b4132eeba789886413",
     "hdiutilVerify": "PASS"
   },
   "zip": {
     "file": "dsh-desktop-dev-mac-arm64.zip",
-    "sha256": "82ef527da17aac35eeccbbbe9b51d379640851bf85f56559966bcf16f43da599",
+    "sha256": "d141dec6b385138127c7e20362768d0b772bbb6cc5803468b41d62eab47fe035",
     "archiveTest": "PASS"
   },
   "liveModelAutonomy": "NOT_RUN",

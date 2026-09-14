@@ -14,6 +14,7 @@
 - Office 案例和业务 Skill 资源在 Git 中按原始字节检出，Windows 不再将换行转换为 CRLF，目录版本在各平台保持一致。
 - Office/PPT 插件直接拥有 Host Web 路由，并复用 Connection 的 Host/Origin 限制与浏览器会话认证。打包后的 `/dsh-office`、`/dsh-ppt` 和兼容 `/kimi-ppt` 通道均从实际 Host 路由接收请求。
 - 最新 `main` 的灰度发布脚本补充公开类型声明，相关测试在严格 TypeScript 检查下通过。
+- Harness 启动失败后的停止流程等待后台子进程退出和日志句柄关闭，后续启动与 Windows 临时目录清理不会再与旧进程竞争。
 
 ## 验证证据
 
@@ -30,7 +31,7 @@
 | 打包后 Host RPC | PASS：从应用包内启动 Harness，`/dsh-office/mode`、`/dsh-ppt/presentation/mode`、`/dsh-office/state` 均返回成功，状态按 `word → ppt` 共享切换 |
 | Desktop 原生界面 | 本次“做同款”界面为 NOT_RUN，等待新包本地验收；上一份已验收包的案例预览、切 Sheet、滚动与返回为 PASS |
 
-结构化证据与截图见 [office-acceptance](office-acceptance/)。本次 macOS arm64 开发包 SHA-256：DMG `f7eda4e0495e858412b648535b3e86abd1494fa1ae5716fcb4b1bf8707771e50`；ZIP `82ef527da17aac35eeccbbbe9b51d379640851bf85f56559966bcf16f43da599`。
+结构化证据与截图见 [office-acceptance](office-acceptance/)。本次 macOS arm64 开发包 SHA-256：DMG `82fe6b97f2757299877996eb6468c24f78f39d71754002b4132eeba789886413`；ZIP `d141dec6b385138127c7e20362768d0b772bbb6cc5803468b41d62eab47fe035`。
 
 ## 独立验收边界
 
