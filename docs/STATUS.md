@@ -10,7 +10,7 @@
 - 桌面端演示导出 `PASS`：通过模板选择、工作区副本和打包运行时生成 22 页 PPTX；修正多页导出中的无效母版类型声明、单层分类引用和图表 0 值工作簿写入，4 项相关回归测试通过。最终文件 `f1d41218ef9336122cb25f4b66d518bef2fa0ac990a29bf886ab529d41095519` 通过 OOXML、版式、字体、原生表格、原生图表与一方导入校验，并由 LibreOffice 成功打开、导出 PDF、完成 22 页逐页目视检查。
 - 交付边界：已在 `V0.9.1` 基线上重建 core/adapter 运行时归档并同步锁文件完整性，core SHA-256 为 `43ebb350c9df9904b09866a13f6bc283d450aed8c248dbad969facdbdf331b78`。Desktop 安装包、真实生图服务商会话、PowerPoint/WPS 打开编辑保存重开、部署均为 `NOT_RUN`。
 - 依赖关系：`V0.9.1` 尚未包含可编辑工程复制与个人模板库；本分支完整携带 PR #423 对应的基础能力。PR #423 合并后可将本分支收窄为 Green Pulse 模板与导出修复。
-- 基线证据：工作树 `.worktrees/dsh-desktop-green-pulse-v091`，分支 `codex/green-pulse-template-v091`，目标基线 `upstream/V0.9.1@f4f0fbde30e56d2f436ebfa06409b3b04136414c`，Harness `0.1.5-rc.2`。远端目标 SHA、本地工作树和依赖版本已于 2026-09-15 复核。
+- 基线证据：工作树 `.worktrees/dsh-desktop-green-pulse-v091`，分支 `codex/green-pulse-template-v091`，目标基线 `upstream/V0.9.1@f4f0fbde30e56d2f436ebfa06409b3b04136414c`，Harness `0.1.5-rc.2`。远端目标 SHA、本地工作树和依赖版本已于 2026-09-15 复核；交付 PR 为 `dataelement/dsh-desktop#436`。
 
 ## 个人模板上传大小调整 — 2026-09-11
 
