@@ -52,9 +52,9 @@ describe('configureRollout', () => {
 
     // 1 GET + 3 POSTs = 4 calls
     expect(calls).toHaveLength(4)
-    expect(calls[0].method).toBe('GET')
-    expect(calls[0].headers).toMatchObject({
-      Authorization: 'Bearer test-admin-token-12345678901234567890'
+    expect(calls[0]).toMatchObject({
+      method: 'GET',
+      headers: { Authorization: 'Bearer test-admin-token-12345678901234567890' }
     })
 
     const postCalls = calls.slice(1)
