@@ -1,11 +1,11 @@
 # Office 办公统一开关
 
-在「设置 → 插件 → 内置能力」中提供一个「Office 办公」入口，共用一个开关控制当前安装的 PPT、Word、Excel 能力。默认启用。
+在「设置 → 插件 → 插件配置」中提供一个「Office 办公」入口，共用一个开关控制当前安装的 PPT、Word、Excel 能力。默认启用。标题为「Office 办公」，描述为「制作和编辑 Word、Excel、PPT。」。复用 DS 插件配置卡片的字号、颜色、间距和边框，右侧使用 DS Switch；正常状态显示标题、描述与开关。
 
 ## 用户行为
 
 - 停用后，格式入口、模板与案例入口、专用 Skills、工具和自动注入的 Office 指令随插件一起退出后续执行。
-- 当前运行的任务及其子任务继续完成。界面显示「当前任务结束后生效」；随后提交的任务等待切换完成，再按有效设置执行。
+- 当前运行的任务及其子任务继续完成。等待期间禁用开关，悬停提示「当前任务结束后生效」；随后提交的任务等待切换完成，再按有效设置执行。
 - 重新启用后恢复格式入口和已保存的模式选择。开关操作保留未发送草稿、附件、历史消息、文件、个人模板及配置。
 - 用户选择保存在当前 `DSH_HOME/desktop-office/settings.json`，重启和配置重载沿用。设置文件采用原子替换，保留最近 50 次显式变更记录。
 - 保存或插件切换失败时恢复先前状态，页面展示重试入口。
@@ -18,13 +18,15 @@ Host 在 `appReady` 后应用持久化设置，该时点涵盖启动时的用户
 
 管理接口为 `GET/POST /dsh-desktop/office`，沿用 Connection 的登录、Host 和 Origin 校验；POST 接受一个布尔 `enabled` 字段。`GET /dsh-desktop/office?clients=1` 返回同一 Host 的客户端模块图。
 
+插件配置页通过 `settings.plugin.control` 列表插槽接收具备独立生命周期接口的即时控制条目；已有 `settings.plugin.item` 继续按 Host settings namespace 分发表单。两者共用列表；`PluginToggleCard` 直接复用原生配置卡片 CSS 和 DS Switch，Office 客户端只提供状态和文案。
+
 客户端通过 Loader 实时启停 Office 界面。关闭状态下打开的客户端，在重新启用时通过 `ClientModuleSystem.updateGraph()` 获取新增模块，再交由 Loader 创建入口。模块更新使用独立 bundle URL，保留已载入模块的状态。该接口通过现有 Harness 依赖补丁交付。
 
 ## 基线与集成范围
 
 2026-09-15 核对：远端 `v0.9.0` 已删除；从 `upstream/v0.10.0@6a9c6687c14f9d4183d6907935024f9dd804043e` 建立分支，快进至其后继 `upstream/main@f76daa1368a9b20d2c3315f556712d9b59abb723`。Harness 声明及安装版本均为 `0.1.5-rc.2`。
 
-当前 main 已包含 PPT。Word、Excel 来自 [PR #424](https://github.com/dataelement/dsh-desktop/pull/424)，验证头为 `6343ae89c53c8d431164237bc758037cd8989f7c`。本改动按当前装配识别格式；#424 合入后自动纳入同一个开关。主线界面说明展示 PPT，三种格式组合后展示 PPT、Word、Excel。生图插件继续独立运行。
+当前 main 已包含 PPT。Word、Excel 来自 [PR #424](https://github.com/dataelement/dsh-desktop/pull/424)，验证头为 `6343ae89c53c8d431164237bc758037cd8989f7c`。本改动按当前装配识别格式；#424 合入后自动纳入同一个开关。入口统一展示 Office 的三种格式说明。生图插件继续独立运行。
 
 ## 验证
 
@@ -35,7 +37,7 @@ Host 在 `appReady` 后应用持久化设置，该时点涵盖启动时的用户
 | 三格式组合回归 | #424 与主线组合：开关、模式、业务 Skills、运行契约、PPT 激活及插件闭包共 43 项通过 |
 | 类型与构建 | `npm run typecheck`、`npm run build` 通过 |
 | 真实 Host | main 与 #424 组合均通过启停、真实 Loader 清单、登录/Origin/请求体校验、重启关闭状态及配置重载；组合版 Word/Excel 的可调用 Skills 随开关变化 |
-| 浏览器交互 | 单入口单开关；三种格式和案例收起/恢复；草稿保留；关闭状态打开客户端后重新启用可恢复三种格式 |
+| 浏览器交互 | Office 直接位于「插件配置」，复用 DS 原生卡片与 Switch；文案按产品要求精简；单入口单开关；三种格式和案例收起/恢复；草稿保留；关闭状态打开客户端后重新启用可恢复三种格式 |
 | 原生应用与文档交付 | Electron 安装包、真实模型生成和 Word/Excel/WPS 编辑保存重开为 NOT_RUN |
 
 Host 检查使用隔离的 `DSH_HOME`，创建空工作区和会话，调用方式：

@@ -56,11 +56,28 @@ describe('Office settings client lifecycle', () => {
         return { ok: true, json: async () => server }
       }
     })
+    const element = (type, props, ...children) => typeof type === 'function'
+      ? type({ ...props, children }) : ({ type, props: { ...props, children } })
     const React = {
-      createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+      createElement: element,
       useSyncExternalStore: (_subscribe, snapshot) => snapshot()
     }
-    const plugin = definition.factory(() => React)
+    let nativeDefinition
+    vm.runInNewContext(await readFile(new URL('../node_modules/@deepseek-ai/dsh-client-ui-settings-plugins/lib/client.js', import.meta.url), 'utf8'), {
+      window: { __ModuleLoader__: { load: value => { nativeDefinition = value } } }
+    })
+    const native = nativeDefinition.factory(name => {
+      if (name === 'react') return React
+      if (name === 'react/jsx-runtime') return {
+        jsx: (type, { children, ...props }) => element(type, props, children),
+        jsxs: (type, { children, ...props }) => element(type, props, ...children)
+      }
+      if (name === '@deepseek-ai/dsh-client-ui-primitives') return {
+        Switch: props => element('button', { ...props, role: 'switch' })
+      }
+      return {}
+    })
+    const plugin = definition.factory(name => name === 'react' ? React : native)
     const entry = name => ({
       options: { name }, disabled: false,
       async update({ disabled }) { this.disabled = disabled }
@@ -78,7 +95,7 @@ describe('Office settings client lifecycle', () => {
     })
     const { store, t } = registration.config.inject()
     await store.refresh()
-    expect(registration.config.name).toBe('settings.plugins.tab')
+    expect(registration.config.name).toBe('settings.plugin.control')
     expect(interval).toHaveBeenCalledOnce()
     const allNodes = node => [node, ...node.props.children.filter(child => child && typeof child === 'object').flatMap(allNodes)]
     const before = allNodes(registration.component({ store, t }))
