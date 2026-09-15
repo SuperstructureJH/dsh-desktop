@@ -1,5 +1,17 @@
 # Implementation status
 
+## Green Pulse 内置可编辑配图模板 — 2026-09-15
+
+- 名称与目录统一为 `Green Pulse · 绿色活力配图模板` / `dsh-green-pulse`。模板以完整 PPTD 工程进入内置目录，选择后通过 `ppt_template_create_project` 复制到当前工作区；打包源保持只读并经过逐文件 SHA-256 校验。
+- 模板采用独立品牌、原创文案、示例数据、配色和 17 张专门生成的无品牌配图，保留 22 个可编辑版式的通用结构。页面 `notes` 使用 `dsh.template-images/v1` 绑定内容、构图、比例、复用组、素材策略和遮罩；第 12 页采用原生可编辑图解。
+- 已建立持续追加流程：每个模板维护 `template.json`、PPTD 工程、素材来源和 1–3 张预览图；`npm run ppt:bundled-projects` 自动生成页面索引、嵌入预览和文件哈希清单，正常运行时构建会自动执行该步骤。
+- 源工程验证完成：22 页、365 个原生对象、0 错误、0 fallback。检查器保留第 18 页 3 条已知提示，对应数据标签与环图的有意叠放。22 页已通过联系表目视检查，封面、故事页、原生图解页、数据页和结束页完成原尺寸复核。
+- 运行时验证 `PASS`：打包后目录、预览、选择持久化、可编辑副本、17 个槽位、11 个遮罩绑定、路径边界、源文件隔离和 mutation audit 验证通过。15 个 PPT 测试文件共 75 项通过，打包工程专项验证 1 项通过；16 套既有参考模板源检查、TypeScript 与生产构建通过。
+- 桌面端演示导出 `PASS`：通过模板选择、工作区副本和打包运行时生成 22 页 PPTX；修正多页导出中的无效母版类型声明、单层分类引用和图表 0 值工作簿写入，4 项相关回归测试通过。最终文件 `f1d41218ef9336122cb25f4b66d518bef2fa0ac990a29bf886ab529d41095519` 通过 OOXML、版式、字体、原生表格、原生图表与一方导入校验，并由 LibreOffice 成功打开、导出 PDF、完成 22 页逐页目视检查。
+- 交付边界：已在 `V0.9.1` 基线上重建 core/adapter 运行时归档并同步锁文件完整性，core SHA-256 为 `43ebb350c9df9904b09866a13f6bc283d450aed8c248dbad969facdbdf331b78`。Desktop 安装包、真实生图服务商会话、PowerPoint/WPS 打开编辑保存重开、部署均为 `NOT_RUN`。
+- 依赖关系：`V0.9.1` 尚未包含可编辑工程复制与个人模板库；本分支完整携带 PR #423 对应的基础能力。PR #423 合并后可将本分支收窄为 Green Pulse 模板与导出修复。
+- 基线证据：工作树 `.worktrees/dsh-desktop-green-pulse-v091`，分支 `codex/green-pulse-template-v091`，目标基线 `upstream/V0.9.1@f4f0fbde30e56d2f436ebfa06409b3b04136414c`，Harness `0.1.5-rc.2`。远端目标 SHA、本地工作树和依赖版本已于 2026-09-15 复核；交付 PR 为 `dataelement/dsh-desktop#436`。
+
 ## PR #423 个人模板上传：V0.9.1 冲突处理 — 2026-09-17
 
 - 基线：远端 `V0.9.1@97e02f8bf773a3b28bd4c6c05f874156be8ab5ab`；工作树 `.worktrees/dsh-desktop-v090-pr386`，分支 `codex/main-pr386-update`；按锁文件重新安装后的 Harness 为 `0.1.5-rc.2`。更新前远端 PR 头为 `0041d9fd22be4b1b647dce81cecbec0d19ee47f4`。
