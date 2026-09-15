@@ -6,10 +6,12 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { rebuildBundledTemplateManifest } from './build-bundled-ppt-projects.mjs';
 const run = promisify(execFile);
 const root = path.resolve('packages/ppt-runtime');
 const dest = path.resolve('packages/ppt-bundles');
 const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-ppt-build-'));
+await rebuildBundledTemplateManifest();
 const specs = [];
 for (const c of await fs.readdir(root + '/templates'))
     for (const d of await fs.readdir(root + '/templates/' + c))
