@@ -1,8 +1,8 @@
 {
   "core": {
     "file": "dsh-ppt-0.1.1-rc.2-desktop-20260906.tgz",
-    "sha256": "693aa686288ce1c01206878b5e248ff244b3c1af6b3db355237846fb08603363",
-    "integrity": "sha512-fo3+u71VHeobQmHC9F1KGqYlzyEOFc/50/y3pbcvPkmmgd7i31eYB+Qle4wGOTv66PbaFaXn+WElyM7RwkSlhA=="
+    "sha256": "43ebb350c9df9904b09866a13f6bc283d450aed8c248dbad969facdbdf331b78",
+    "integrity": "sha512-4n9gM+qCGHZu+t6IF5Uq24iuZAjx8ACmnQAvE7q6y9iNoVzZ/FehdSRJXnICBpCoJMRovkpGWb+JqjnK5RjqUw=="
   },
   "adapter": {
     "file": "dsh-ppt-composer-0.1.1-rc.2-desktop-20260906.tgz",
