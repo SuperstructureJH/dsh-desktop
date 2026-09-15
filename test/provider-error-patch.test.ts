@@ -86,9 +86,11 @@ describe('provider error classification patches', () => {
     })
     const valid = { ...malformed, content: [] }
     expect(completeTerminalMessage(valid, completed)).toBe(valid)
-    expect(additions.split('\n').map(line => line.trim())).toContain(
-      'const message = completeTerminalMessage(event.message, completed);'
+    expect(patch).toContain(
+      '+\t\t\tconst message = completeTerminalMessage(event.message, completed);'
     )
-    expect(additions.split('\n').map(line => line.trim())).toContain('replayState: toPiReplayState(message, requestedModel)')
+    expect(patch).toContain(
+      '+\t\t\t\treplayState: toPiReplayState(message, requestedModel)'
+    )
   })
 })
