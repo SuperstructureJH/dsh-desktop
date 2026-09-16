@@ -6,6 +6,7 @@ Updated 2026-09-16. PR #422 targets `V0.9.1@f4f0fbde30e56d2f436ebfa06409b3b04136
 
 - BiSheng enterprise browser login, callback handling, secure local credential vault, token refresh and logout.
 - Enterprise model adapter and account settings for the compatible `0.4.0` and `0.5.0` contracts.
+- Enterprise model catalogues publish each model's managed vision capability. Image-capable models advertise text and image input; text-only models continue to advertise text input.
 - Enterprise account API routes explicitly use buffered request bodies, which keeps the local state read and browser-login refresh compatible with Harness `0.1.5-rc.2`.
 - Stable Harness port and prewarmed shell environment remain active while enterprise variables are added to the child process.
 - Expired enterprise model selection is cleared and recovered through the session model-selection API. Preference order is the last available non-enterprise model, an available default, then an advertised and routed external model. With no available alternative, the picker shows Select model and keeps submission blocked.
@@ -14,5 +15,5 @@ Updated 2026-09-16. PR #422 targets `V0.9.1@f4f0fbde30e56d2f436ebfa06409b3b04136
 ## Verification
 
 - The original model-recovery worktree passed 68 related tests, type checking, isolated actual-component rendering and macOS arm64 package integrity checks. This PR adapts the same recovery logic to the V0.9.1 enterprise-login branch.
-- Current merged PR: clean lockfile installation applied all 24 dependency patches; all 967 tests across 113 files passed, including the enterprise account route-body regression. Type checking, production build and `git diff --check` passed.
+- Current merged PR: clean lockfile installation applied all 24 dependency patches; all 970 tests across 114 files passed, including the enterprise account route-body and managed-vision catalogue regressions. Type checking and production build passed.
 - Real enterprise login, model calls and native packaged-app acceptance remain separate gates.
