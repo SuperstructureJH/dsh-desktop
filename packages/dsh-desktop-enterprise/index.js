@@ -205,13 +205,13 @@ export function createEnterpriseController(ctx, options = {}) {
   }
 
   const publishModels = (next) => {
+    models = next
+    modelsAvailable = true
     if (!providerRegistration) {
       providerRegistration = ctx.llm.registerAdapter([BISHENG_PROVIDER_ROUTE], adapter)
     } else {
       providerRegistration.replace([BISHENG_PROVIDER_ROUTE])
     }
-    models = next
-    modelsAvailable = true
   }
 
   const disposeProvider = () => {
