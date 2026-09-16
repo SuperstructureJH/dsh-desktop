@@ -184,6 +184,7 @@ export function createEnterpriseController(ctx, options = {}) {
   const activeRequests = new Set()
 
   const adapter = new EnterpriseLlmAdapter({
+    readImage: (ref, signal) => ctx.get('attachments')?.readImageRequest(ref, { maxPixels: 4194304, maxBytes: 1048576 }, signal),
     providerName: () => session?.tenant?.name ?? 'BiSheng Enterprise',
     models: () => modelsAvailable ? models : [],
     request: (body, signal, headers) => requestChat(body, signal, headers),
