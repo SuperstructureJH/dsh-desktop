@@ -766,5 +766,6 @@ export function apply(ctx) {
   registerJsonRoute(connection, LOCAL_PATHS.logout, ['POST'], (request) =>
     controller.logout(request.signal))
   ctx.effect(() => () => controller.dispose(), 'dsh-desktop-enterprise: lifecycle')
-  queueMicrotask(() => { void controller.restore() })
+  const ready = Promise.resolve().then(() => controller.restore()).catch(() => undefined)
+  ctx.provide('enterpriseModelState', { ready })
 }
