@@ -123,13 +123,14 @@ describe('DSH Desktop enterprise package', () => {
   })
 
   it('does not override enterprise service inject from the desktop patch', async () => {
-    const desktopPatch = await readFile(
+    const desktopPatch = (await readFile(
       path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'),
       'utf8'
-    )
+    )).replaceAll('\r\n', '\n')
     const enterpriseBlock = desktopPatch.match(
       /- id: dsh-desktop-enterprise\n(?: {6}.*\n)*/u
     )?.[0]
+    expect(enterpriseBlock).toBeDefined()
     expect(enterpriseBlock).toContain('name: dsh-desktop-enterprise')
     expect(enterpriseBlock).not.toMatch(/\binject:/u)
   })
