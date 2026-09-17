@@ -171,7 +171,10 @@ describe('restricted enterprise credential broker', () => {
     const callback = new URL(JSON.parse(callbackLiteral!))
     expect(await fetch(callback).then((response) => response.status)).toBe(200)
 
-    await viWaitFor(() => service.snapshot().phase === 'connected')
+    await viWaitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     const state = await (await brokerFetch(broker, '/v1/state')).json()
     assertPublicBrokerPayload(state)
     expect(state).toMatchObject({

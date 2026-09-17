@@ -81,7 +81,10 @@ describe('enterprise service login loop', () => {
     expect(started.authorizationUrl).toContain(origin)
     expect(service.snapshot().phase).toBe('authorizing')
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     const connected = service.snapshot()
     expect(connected.connected).toBe(true)
     expect(connected.user?.username).toBe('alice')
@@ -119,7 +122,10 @@ describe('enterprise service login loop', () => {
     const { service } = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     failRefresh = true
     const degraded = await service.refresh()
     expect(degraded.phase).toBe('degraded')
@@ -146,7 +152,10 @@ describe('enterprise service login loop', () => {
     const { service } = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     rejectRefresh = true
     const cleared = await service.refresh()
     expect(cleared.connected).toBe(false)
@@ -169,7 +178,10 @@ describe('enterprise service login loop', () => {
     const { service, notes } = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     const loggedOut = await service.logout()
     expect(loggedOut.phase).toBe('idle')
     expect(loggedOut.connected).toBe(false)

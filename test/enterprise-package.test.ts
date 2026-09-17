@@ -127,10 +127,11 @@ describe('DSH Desktop enterprise package', () => {
       path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'),
       'utf8'
     )).replaceAll('\r\n', '\n')
-    const enterpriseBlock = desktopPatch.match(
-      /- id: dsh-desktop-enterprise\n(?: {6}.*\n)*/u
-    )?.[0]
-    expect(enterpriseBlock).toBeDefined()
+    const start = desktopPatch.indexOf('- id: dsh-desktop-enterprise')
+    expect(start).toBeGreaterThanOrEqual(0)
+    const rest = desktopPatch.slice(start)
+    const nextPlugin = rest.search(/\n[ \t]*- id:/u)
+    const enterpriseBlock = nextPlugin === -1 ? rest : rest.slice(0, nextPlugin)
     expect(enterpriseBlock).toContain('name: dsh-desktop-enterprise')
     expect(enterpriseBlock).not.toMatch(/\binject:/u)
   })

@@ -130,7 +130,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService()
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
 
     const response = new FakeResponse()
     await service.proxyChat(chatPayload(), response as never, new AbortController().signal)
@@ -164,7 +167,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
 
     const response = new FakeResponse()
     await service.proxyChat(chatPayload(), response as never, new AbortController().signal)
@@ -206,7 +212,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
 
     const controller = new AbortController()
     const response = new FakeResponse()
@@ -238,7 +247,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
 
     const response = new FakeResponse()
     await service.proxyChat(chatPayload(), response as never, new AbortController().signal)
@@ -259,7 +271,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService(createEnterpriseFetch(fetchImpl))
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
     await expect(service.proxyChat(
       chatPayload('missing-model'),
       new FakeResponse() as never,
@@ -275,7 +290,10 @@ describe('enterprise chat SSE proxy', () => {
     const service = await createService()
     const started = await service.startLogin(origin)
     await completeBrowserLogin(origin, started.authorizationUrl)
-    await waitFor(() => service.snapshot().phase === 'connected')
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+    })
 
     const response = new FakeResponse()
     response.holdWrites = true
