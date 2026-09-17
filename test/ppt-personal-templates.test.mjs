@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import PptxGenJS from 'pptxgenjs';
@@ -26,10 +27,15 @@ async function fixture(existingRoot) {
   const storage = path.join(root, 'storage');
   const workspace = path.join(root, 'workspace');
   await mkdir(workspace, { recursive: true });
-  const tools = new Map(); let rpc;
-  const connection = { rpc: { handle: (_route, handler) => { rpc = handler; } } };
+  const tools = new Map(); const routes = new Map(); let rpc;
+  const connection = {
+    rpc: { handle: (_route, handler) => { rpc = handler; } },
+    requestRejection: req => req.headers.authorization === 'Bearer test-session' ? undefined : 401
+  };
   const host = {
-    effect(run) { run(); return () => {}; }, webServer: { register() { return () => {}; } },
+    effect(run) { run(); return () => {}; },
+    webServer: { register(route) { routes.set(route.path, route); return () => routes.delete(route.path); } },
+    get(name) { if (name === 'connection') return connection; throw new Error(`Unexpected service: ${name}`); },
     inject(_services, activate) { return activate(host); }, skills: { registerProvider() {} }, systemPrompt: { section() {} }, on() {},
     tools: { register: tool => tools.set(tool.name, tool) },
     connection
@@ -48,7 +54,17 @@ async function fixture(existingRoot) {
     expect(validateJsonSchemaValue(tool.output.schema, value, 'value')).toEqual([]);
     return value;
   }
-  return { root, storage, workspace, request, tool, rpc };
+  async function httpRequest(endpoint, payload, { channel = '/dsh-ppt', authorized = true } = {}) {
+    const req = Readable.from([Buffer.from(JSON.stringify({ rpcId: 'template-request', payload: { ...payload, sessionId: 'session-a' } }))]);
+    Object.assign(req, { method: 'POST', url: `${channel}/${endpoint}`, headers: authorized ? { authorization: 'Bearer test-session' } : {} });
+    const response = { status: undefined, body: undefined };
+    await routes.get(channel).handler(req, {
+      writeHead(status) { response.status = status; },
+      end(body) { response.body = body; }
+    });
+    return response;
+  }
+  return { root, storage, workspace, request, tool, rpc, httpRequest };
 }
 
 async function source() {
@@ -73,6 +89,20 @@ async function save(f) {
 }
 
 describe('personal PPT templates in the shipped runtime', () => {
+  it('uploads and saves a personal template through authenticated current and legacy HTTP routes', async () => {
+    const f = await fixture();
+    const bytes = await source();
+    const input = { input: { fileName: 'Company.pptx', base64: bytes.toString('base64') } };
+    expect(await f.httpRequest('template/prepare', input, { authorized: false })).toEqual({ status: 401, body: 'unauthorized' });
+    const prepared = await f.httpRequest('template/prepare', input);
+    expect(prepared.status).toBe(200);
+    const message = JSON.parse(prepared.body);
+    expect(message).toMatchObject({ type: 'server-response', rpcId: 'template-request', result: { ok: true } });
+    const saved = await f.httpRequest('template/save', { draftId: message.result.value.data.draftId, name: 'HTTP template' }, { channel: '/kimi-ppt' });
+    expect(saved.status).toBe(200);
+    expect(JSON.parse(saved.body).result.value.data).toMatchObject({ name: 'HTTP template' });
+  }, 30_000);
+
   it('imports and reuses a PPTX above 16 MB with its real image assets intact', async () => {
     const f = await fixture();
     const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE';

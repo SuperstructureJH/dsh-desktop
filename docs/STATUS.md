@@ -1,5 +1,16 @@
 # Implementation status
 
+## PR #423 个人模板上传：V0.9.1 冲突处理 — 2026-09-17
+
+- 基线：远端 `V0.9.1@97e02f8bf773a3b28bd4c6c05f874156be8ab5ab`；工作树 `.worktrees/dsh-desktop-v090-pr386`，分支 `codex/main-pr386-update`；按锁文件重新安装后的 Harness 为 `0.1.5-rc.2`。更新前远端 PR 头为 `0041d9fd22be4b1b647dce81cecbec0d19ee47f4`。
+- 功能范围：上传个人 PPTX 模板、预览、保存管理和跨会话复用。PR #436 在本功能上独立交付 Green Pulse 内置模板。
+- 冲突处理：在版本分支的 HTTP 路由实现中初始化个人模板库，沿用版本分支的发布配置类型与测试，保留 Harness 退出处理；由合并后的源码重建 core/adapter 归档并同步锁文件完整性。
+- 自动验证 `PASS`：114 个测试文件、960 项测试，包含当前及旧版 HTTP 路由的模板上传、保存与鉴权拒绝；16 套既有模板源检查均为 0 错误、0 警告；TypeScript、生产构建和 `git diff --check` 通过。
+- CI：现有安装包工作流覆盖目标 `V0.9.1` 的 PR，本次远端检查待提交后回读。
+- 本轮原生安装包、真实模型调用和 PowerPoint/WPS 编辑保存重开为 `NOT_RUN`。下方记录保留各历史基线的验收范围。
+
+## 历史 main 迁移验证 — 2026-09-14
+
 2026-09-14 migration baseline: `main@4115a96`. The personal-template feature commits were replayed without the retired `v0.9.0` merge and CI-only commits. The branch also carries the declaration required to type-check the current rollout configuration.
 
 - `PASS`：`main@4115a96` 重放后，34 项个人模板和导入导出定向测试及 TypeScript 检查通过；此前 16 套内置模板源检查无错误或警告。
