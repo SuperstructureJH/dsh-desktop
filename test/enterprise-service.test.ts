@@ -83,7 +83,9 @@ describe('enterprise service login loop', () => {
     await completeBrowserLogin(origin, started.authorizationUrl)
     await waitFor(() => {
       const snapshot = service.snapshot()
-      return snapshot.phase === 'connected' && snapshot.modelsAvailable === true
+      return snapshot.phase === 'connected'
+        && snapshot.modelsAvailable === true
+        && typeof snapshot.modelUsage?.['bisheng:42']?.used === 'number'
     })
     const connected = service.snapshot()
     expect(connected.connected).toBe(true)
