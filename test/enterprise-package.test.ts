@@ -122,6 +122,16 @@ describe('DSH Desktop enterprise package', () => {
     expect(enterpriseInject).toEqual(['connection', 'llm'])
   })
 
+  it('registers the chat adapter from settings state reads instead of waiting for the idle poll', async () => {
+    const source = await readFile(
+      path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'index.js'),
+      'utf8'
+    )
+    expect(source).toContain('ingestEnterpriseState(state)')
+    expect(source).toContain('const delay = [\'authorizing\', \'refreshing\'].includes(latest.phase)')
+    expect(source).not.toContain('!modelsAvailable ||')
+  })
+
   it('does not override enterprise service inject from the desktop patch', async () => {
     const desktopPatch = (await readFile(
       path.join(projectRoot, 'build', 'dsh-desktop.patch.yml'),

@@ -6,6 +6,7 @@ import { apply as applyEnterprise } from '../packages/dsh-desktop-enterprise/ind
 import { startEnterpriseCredentialBroker } from '../src/main/enterprise/credential-broker'
 import { createEnterpriseFetch } from '../src/main/enterprise/platform-fetch'
 import { EnterpriseService } from '../src/main/enterprise/enterprise-service'
+import { createMockEnterpriseServer } from '../scripts/mock-bisheng-enterprise.mjs'
 import {
   ENTERPRISE_VAULT_FILENAME,
   type SafeStorageCryptoAdapter,
@@ -19,7 +20,7 @@ type RegisteredRoute = {
   fetch: (request: Request) => Promise<Response>
 }
 
-function createPluginContext() {
+function createPluginContext(llm?: { registerAdapter: (...args: never[]) => unknown }) {
   const routes: RegisteredRoute[] = []
   applyEnterprise({
     connection: {
@@ -29,9 +30,38 @@ function createPluginContext() {
           return () => undefined
         }
       }
-    }
+    },
+    ...(llm ? { llm } : {})
   } as never)
   return routes
+}
+
+async function completeBrowserLogin(origin: string, authorizationUrl: string) {
+  const authId = new URL(authorizationUrl).searchParams.get('auth_id')
+  const browserResponse = await fetch(`${origin}/__mock/authorize`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      auth_id: authId ?? '',
+      email: 'alice@demo.bisheng.local',
+      password: 'WorkBuddy123!',
+      decision: 'allow'
+    })
+  })
+  const html = await browserResponse.text()
+  const callbackLiteral = /location\.replace\((".*?")\)/u.exec(html)?.[1]
+  expect(callbackLiteral).toBeTruthy()
+  const callback = new URL(JSON.parse(callbackLiteral!))
+  expect(await fetch(callback).then((response) => response.status)).toBe(200)
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error('Timed out waiting for enterprise adapter.')
 }
 
 async function invoke(routes: RegisteredRoute[], path: string, method = 'GET', body?: unknown) {
@@ -140,5 +170,48 @@ describe('enterprise adapter with a Broker', () => {
       models: [],
       modelsAvailable: false
     })
+  })
+
+  it('registers enterprise models when settings reads a published catalog', async () => {
+    const platform = createMockEnterpriseServer({ port: 0 })
+    const origin = await platform.listen()
+    adapterCleanups.push(async () => platform.close())
+
+    const directory = await mkdtemp(join(tmpdir(), 'enterprise-adapter-'))
+    const vault = new SecureEnterpriseCredentialVault(join(directory, ENTERPRISE_VAULT_FILENAME), memorySafeStorage())
+    const service = new EnterpriseService({
+      vault,
+      fetchImpl: createEnterpriseFetch(globalThis.fetch),
+      allowInsecureLoopback: true
+    })
+    await service.restore()
+    const broker = await startEnterpriseCredentialBroker(service, { allowInsecureLoopback: true })
+    adapterCleanups.push(async () => {
+      await broker.stop()
+      await service.stop()
+    })
+    process.env.DSH_DESKTOP_ENTERPRISE_BROKER_URL = broker.url
+    process.env.DSH_DESKTOP_ENTERPRISE_BROKER_CAPABILITY = broker.capability
+    process.env.DSH_DESKTOP_ENTERPRISE_ALLOW_INSECURE_LOOPBACK = '1'
+
+    const registered: string[][] = []
+    const routes = createPluginContext({
+      registerAdapter(providers: string[]) {
+        registered.push(providers)
+        return Object.assign(() => undefined, { replace: () => undefined })
+      }
+    } as never)
+
+    const started = await service.startLogin(origin)
+    await completeBrowserLogin(origin, started.authorizationUrl)
+    await waitFor(() => service.snapshot().modelsAvailable === true && service.snapshot().models.length > 0)
+
+    const response = await invoke(routes, '/api/enterprise.state')
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      modelsAvailable: true,
+      phase: expect.stringMatching(/refreshing|connected/)
+    })
+    expect(registered).toContainEqual(['bisheng-enterprise'])
   })
 })

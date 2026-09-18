@@ -167,10 +167,13 @@ async function brokerJson(path, body) {
 
 export function apply(ctx) {
   const connection = Reflect.get(ctx, 'connection')
-  registerJsonRoute(connection, LOCAL_PATHS.state, ['GET'], async () => {
-    if (!brokerConfig()) return disabledState()
-    return brokerJson('/v1/state')
-  })
+  let ingestEnterpriseState = () => undefined
+  const readBrokerState = async () => {
+    const state = brokerConfig() ? await brokerJson('/v1/state') : disabledState()
+    ingestEnterpriseState(state)
+    return state
+  }
+  registerJsonRoute(connection, LOCAL_PATHS.state, ['GET'], async () => readBrokerState())
   registerJsonRoute(connection, LOCAL_PATHS.inspectBase, ['POST'], async (request) => {
     const body = await readJson(request)
     return inspectedBase(normalizeEnterpriseServerUrl(String(body?.base ?? ''), inspectUrlOptions()))
@@ -184,7 +187,9 @@ export function apply(ctx) {
   })
   registerJsonRoute(connection, LOCAL_PATHS.manual, ['POST'], async (request) => {
     const body = await readJson(request)
-    return brokerJson('/v1/login/manual', { identityTicket: String(body?.identityTicket ?? '') })
+    const state = await brokerJson('/v1/login/manual', { identityTicket: String(body?.identityTicket ?? '') })
+    ingestEnterpriseState(state)
+    return state
   })
   registerJsonRoute(connection, LOCAL_PATHS.inspectDeepLink, ['POST'], async (request) => {
     const body = await readJson(request)
@@ -201,16 +206,21 @@ export function apply(ctx) {
   registerJsonRoute(connection, LOCAL_PATHS.refresh, ['POST'], async (request) => {
     await readJson(request)
     if (!brokerConfig()) return disabledState()
-    return brokerJson('/v1/refresh', {})
+    const state = await brokerJson('/v1/refresh', {})
+    ingestEnterpriseState(state)
+    return state
   })
   registerJsonRoute(connection, LOCAL_PATHS.logout, ['POST'], async (request) => {
     await readJson(request)
     if (!brokerConfig()) return disabledState()
-    return brokerJson('/v1/logout', {})
+    const state = await brokerJson('/v1/logout', {})
+    ingestEnterpriseState(state)
+    return state
   })
   const llm = ctx.llm
   if (llm && brokerConfig()) {
     const handle = startEnterpriseLlm(ctx, llm)
+    ingestEnterpriseState = handle.ingest
     if (typeof ctx.effect === 'function') {
       ctx.effect(() => handle.dispose, 'dsh-desktop-enterprise: poll broker state')
     }
@@ -235,22 +245,25 @@ function startEnterpriseLlm(ctx, llm) {
     }, signal)
   })
 
+  const ingest = (state) => {
+    latest = state
+    if (state.revision === revision) return
+    const nextRevision = Number.isSafeInteger(state.revision) ? state.revision : revision
+    models = Array.isArray(state.models) ? state.models : []
+    modelsAvailable = state.modelsAvailable === true && models.length > 0
+    if (modelsAvailable) {
+      if (!registration) registration = llm.registerAdapter([BISHENG_PROVIDER_ROUTE], adapter)
+      else registration.replace([BISHENG_PROVIDER_ROUTE])
+    } else if (registration) {
+      registration.replace([])
+    }
+    revision = nextRevision
+  }
+
   const poll = async () => {
     if (stopped) return
     try {
-      const state = brokerConfig() ? await brokerJson('/v1/state') : disabledState()
-      latest = state
-      if (state.revision !== revision) {
-        revision = Number.isSafeInteger(state.revision) ? state.revision : revision
-        models = Array.isArray(state.models) ? state.models : []
-        modelsAvailable = state.modelsAvailable === true && models.length > 0
-        if (modelsAvailable) {
-          if (!registration) registration = llm.registerAdapter([BISHENG_PROVIDER_ROUTE], adapter)
-          else registration.replace([BISHENG_PROVIDER_ROUTE])
-        } else if (registration) {
-          registration.replace([])
-        }
-      }
+      ingest(brokerConfig() ? await brokerJson('/v1/state') : disabledState())
     } catch {
       // Keep the last published catalog until the next local snapshot.
     }
@@ -264,6 +277,14 @@ function startEnterpriseLlm(ctx, llm) {
   }
   void poll()
   return {
+    ingest(state) {
+      if (stopped) return
+      try {
+        ingest(state)
+      } catch {
+        // Settings reads must not fail if adapter registration throws.
+      }
+    },
     dispose() {
       stopped = true
       if (timer) clearTimeout(timer)

@@ -208,14 +208,18 @@ describe('enterprise service login loop', () => {
     const origin = await platform.listen()
     cleanups.push(async () => platform.close())
 
+    let releaseModels: (() => void) | undefined
     let releaseUsage: (() => void) | undefined
+    const modelsGate = new Promise<void>((resolve) => {
+      releaseModels = resolve
+    })
     const usageGate = new Promise<void>((resolve) => {
       releaseUsage = resolve
     })
     const fetchImpl: EnterpriseFetch = async (input, init) => {
-      if (String(input).includes('/api/v1/dsh/usage')) {
-        await usageGate
-      }
+      const url = String(input)
+      if (url.includes('/api/v1/dsh/models')) await modelsGate
+      if (url.includes('/api/v1/dsh/usage')) await usageGate
       return globalThis.fetch(input, init)
     }
     const { service } = await createService(createEnterpriseFetch(fetchImpl))
@@ -225,12 +229,20 @@ describe('enterprise service login loop', () => {
 
     await waitFor(() => {
       const snapshot = service.snapshot()
+      return snapshot.phase === 'refreshing' && snapshot.modelsAvailable !== true
+    })
+    const revisionBeforeModels = service.snapshot().revision
+
+    releaseModels!()
+    await waitFor(() => {
+      const snapshot = service.snapshot()
       return snapshot.modelsAvailable === true && snapshot.models.length > 0
     })
     const midCatalog = service.snapshot()
     expect(midCatalog.phase).toBe('refreshing')
     expect(midCatalog.connected).toBe(true)
     expect(midCatalog.modelUsage).toBeUndefined()
+    expect(midCatalog.revision).toBeGreaterThan(revisionBeforeModels)
 
     releaseUsage!()
     await waitFor(() => {

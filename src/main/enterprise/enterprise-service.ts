@@ -561,6 +561,7 @@ export class EnterpriseService {
       if (Object.keys(seededUsage).length > 0) {
         this.modelUsage = { ...this.modelUsage, ...seededUsage }
       }
+      this.publish()
       this.rememberRequest(undefined, modelsResult.requestId)
     } catch (error) {
       if (this.epoch !== expectedEpoch) return
