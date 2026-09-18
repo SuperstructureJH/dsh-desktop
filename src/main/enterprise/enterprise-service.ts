@@ -510,10 +510,9 @@ export class EnterpriseService {
       if (this.epoch !== expectedEpoch) return
       this.vaultGeneration = stored.generation
       this.session = stored.session
-      this.phase = 'connected'
       this.clearError()
       this.modelsAttempt = 0
-      this.publish()
+      // Leave phase as refreshing; syncCatalog flips to connected after usage.
     } catch {
       this.session = null
       this.allowPrivateHttpForSession = false

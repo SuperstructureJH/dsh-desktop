@@ -203,6 +203,47 @@ describe('enterprise service login loop', () => {
     })
   })
 
+  it('keeps refreshing until per-model usage finishes after login', async () => {
+    const platform = createMockEnterpriseServer({ port: 0 })
+    const origin = await platform.listen()
+    cleanups.push(async () => platform.close())
+
+    let releaseUsage: (() => void) | undefined
+    const usageGate = new Promise<void>((resolve) => {
+      releaseUsage = resolve
+    })
+    const fetchImpl: EnterpriseFetch = async (input, init) => {
+      if (String(input).includes('/api/v1/dsh/usage')) {
+        await usageGate
+      }
+      return globalThis.fetch(input, init)
+    }
+    const { service } = await createService(createEnterpriseFetch(fetchImpl))
+
+    const started = await service.startLogin(origin)
+    await completeBrowserLogin(origin, started.authorizationUrl)
+
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.modelsAvailable === true && snapshot.models.length > 0
+    })
+    const midCatalog = service.snapshot()
+    expect(midCatalog.phase).toBe('refreshing')
+    expect(midCatalog.connected).toBe(true)
+    expect(midCatalog.modelUsage).toBeUndefined()
+
+    releaseUsage!()
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'connected'
+        && typeof snapshot.modelUsage?.['bisheng:42']?.used === 'number'
+    })
+    const connected = service.snapshot()
+    expect(connected.phase).toBe('connected')
+    expect(connected.modelUsage?.['bisheng:42']?.used).toEqual(expect.any(Number))
+    expect(connected.modelUsage?.['bisheng:42']?.limit).toBeGreaterThan(0)
+  })
+
   it('completes login from a pasted one-time code without the loopback callback', async () => {
     const platform = createMockEnterpriseServer({ port: 0 })
     const origin = await platform.listen()
@@ -232,7 +273,11 @@ describe('enterprise service login loop', () => {
 
     const connected = await service.submitManualTicket(ticket!)
     expect(connected.connected).toBe(true)
+    expect(connected.phase).toBe('connected')
     expect(connected.user?.username).toBe('alice')
+    expect(connected.modelsAvailable).toBe(true)
+    expect(connected.modelUsage?.['bisheng:42']?.used).toEqual(expect.any(Number))
+    expect(connected.modelUsage?.['bisheng:42']?.limit).toBeGreaterThan(0)
     expect(connected.loginExpiresAt).toBeUndefined()
     expect(JSON.stringify(connected)).not.toMatch(/access_token|refresh_token|identity_ticket|ticket_/u)
   })
