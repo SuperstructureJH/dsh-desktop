@@ -44,7 +44,7 @@ node packages/dsh-office/scripts/setup-runtime.mjs --root /absolute/office-state
 
 The installer creates a new root/runtime environment using pinned [requirements](requirements.txt). Existing environments are preserved; select a new root to replace one. Python lookup uses the explicitly configured interpreter, root/runtime/bin/python3, the app's embedded interpreter, then PATH. Virtual-environment interpreter paths retain their identity and packages.
 
-Install LibreOffice and configure `libreOffice` when it is outside the normal platform location or PATH. Preview uses private profile/font-cache files and explicit font roots, preserving the user's Office settings. Use office_runtime to inspect readiness.
+On macOS and Linux, install LibreOffice and configure `libreOffice` when it is outside the normal platform location or PATH. Windows uses the staged runtime and its `program/dsh-office-convert.exe` worker, which calls LibreOfficeKit inside LPAC. Before each Windows operation the host copies the engine's default presets into a private profile and records completed initialization and automatic OOXML recalculation. Preview uses private profile/font-cache files and explicit font roots, preserving the user's Office settings. Use office_runtime to inspect readiness.
 
 To create a self-contained local Apple Silicon test package from supplied runtimes:
 

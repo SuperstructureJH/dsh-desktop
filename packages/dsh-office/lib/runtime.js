@@ -232,7 +232,7 @@ export function libreOfficeConversionArgv(runtime, { profile, input, outputDir, 
 
 export async function prepareLibreOfficeProfile(profile, runtime, platform = process.platform) {
   const user = path.join(profile, 'user')
-  await mkdir(user, { recursive: true })
+  await mkdir(profile, { recursive: true })
   let setup = ''
   if (platform === 'win32') {
     // Match LibreOffice userinstall::create: copy the shipped presets, then mark
@@ -244,7 +244,7 @@ export async function prepareLibreOfficeProfile(profile, runtime, platform = pro
       return true
     } })
     setup = '<item oor:path="/org.openoffice.Setup/Office"><prop oor:name="ooSetupInstCompleted" oor:op="fuse"><value>true</value></prop></item>'
-  }
+  } else await mkdir(user)
   // A failed profile write propagates before engine execution. LibreOffice reads
   // user/registrymodifications.xcu relative to its UserInstallation URL.
   await writeFile(path.join(user, 'registrymodifications.xcu'), `<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry">${setup}<item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>`)

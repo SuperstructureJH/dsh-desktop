@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { bundledRuntimeRoot, confinementArgv, libreOfficeConversionArgv, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
+import { bundledRuntimeRoot, confinementArgv, libreOfficeConversionArgv, prepareLibreOfficeProfile, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
 
 it('discovers engines after Windows installer and app relocation, including packaged Node', () => {
   for (const app of ['C:\\Users\\user\\AppData\\Local\\Programs\\DSH Desktop', 'D:\\中文目录\\DSH Dev']) {
@@ -48,5 +48,29 @@ it('normalizes Python stdlib ZIP, nested and duplicate paths into directory gran
     await fs.mkdir(site, { recursive: true }); await fs.mkdir(sibling)
     const zip = path.join(python, 'python313.zip'); await fs.writeFile(zip, 'stdlib fixture')
     expect(await readGrantDirectories([zip, python, site, python, sibling])).toEqual([await fs.realpath(python), await fs.realpath(sibling)])
+  } finally { await fs.rm(root, { recursive: true, force: true }) }
+})
+
+it('prepares independent Windows profiles from the shipped presets before marking setup complete', async () => {
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const os = await import('node:os')
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-profile-'))
+  try {
+    const defaults = path.join(root, 'engine/presets/config')
+    await fs.mkdir(defaults, { recursive: true })
+    await fs.writeFile(path.join(defaults, 'settings.xml'), 'bundled defaults')
+    const runtime = { libreOffice: path.join(root, 'engine/program/soffice.com') }
+    const first = path.join(root, 'first'), second = path.join(root, 'second')
+    await prepareLibreOfficeProfile(first, runtime, 'win32')
+    await prepareLibreOfficeProfile(second, runtime, 'win32')
+    await fs.writeFile(path.join(first, 'user/config/settings.xml'), 'private changes')
+    expect(await fs.readFile(path.join(second, 'user/config/settings.xml'), 'utf8')).toBe('bundled defaults')
+    expect(await fs.readFile(path.join(defaults, 'settings.xml'), 'utf8')).toBe('bundled defaults')
+    const settings = await fs.readFile(path.join(first, 'user/registrymodifications.xcu'), 'utf8')
+    expect(settings).toContain('ooSetupInstCompleted')
+    expect(settings).toContain('OOXMLRecalcMode')
+    await expect(prepareLibreOfficeProfile(path.join(root, 'missing'), { libreOffice: path.join(root, 'absent/program/soffice.com') }, 'win32')).rejects.toThrow()
+    await expect(fs.access(path.join(root, 'missing/user/registrymodifications.xcu'))).rejects.toThrow()
   } finally { await fs.rm(root, { recursive: true, force: true }) }
 })
