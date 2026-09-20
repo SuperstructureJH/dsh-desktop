@@ -5,9 +5,24 @@
 #include <iostream>
 #include <string>
 #pragma comment(lib, "dbghelp.lib")
+#pragma comment(lib, "user32.lib")
+static BOOL CALLBACK describeWindow(HWND window, LPARAM pid) {
+  DWORD owner = 0; GetWindowThreadProcessId(window, &owner);
+  if (owner != static_cast<DWORD>(pid)) return TRUE;
+  wchar_t text[4096]{};
+  GetWindowTextW(window, text, 4096);
+  if (text[0]) std::wcout << L"Office window: " << text << L'\n';
+  EnumChildWindows(window, [](HWND child, LPARAM) -> BOOL {
+    wchar_t value[4096]{}; GetWindowTextW(child, value, 4096);
+    if (value[0]) std::wcout << L"Office dialog: " << value << L'\n';
+    return TRUE;
+  }, 0);
+  return TRUE;
+}
 int wmain(int argc, wchar_t** argv) {
   if (argc != 2) return 1;
   DWORD pid = std::stoul(argv[1]);
+  EnumWindows(describeWindow, static_cast<LPARAM>(pid));
   HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
   if (!process) { std::cerr << "OpenProcess: " << GetLastError() << '\n'; return 1; }
   SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_FAIL_CRITICAL_ERRORS | SYMOPT_NO_PROMPTS);

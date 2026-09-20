@@ -10,12 +10,13 @@ if (process.platform !== 'win32' || !root) throw new Error('Windows bundled runt
 const program = path.join(root, 'libreoffice/program')
 const converter = path.join(program, 'dsh-office-convert.exe')
 const stacks = path.join(path.dirname(root), 'office-thread-stacks.exe')
+let isolatedReady = false
 for (const mode of ['trusted-fixture', 'isolated', 'isolated-unipoll']) {
   await withJob(async job => {
     const profile = path.join(job, 'profile'), input = path.join(job, 'input.txt'), output = path.join(job, 'output.pdf')
     await mkdir(profile); await writeFile(input, 'Office conversion diagnostic fixture')
     const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'pdf']
-    const env = { SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { LOK_OPTIONS: 'unipoll' } : {}) }
+    const env = { SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { SAL_LOK_OPTIONS: 'unipoll' } : {}) }
     console.log(`Office probe: ${mode}`)
     const timer = setTimeout(() => {
       try {
@@ -27,8 +28,11 @@ for (const mode of ['trusted-fixture', 'isolated', 'isolated-unipoll']) {
       const result = mode === 'trusted-fixture'
         ? await runProcess(argv, { cwd: job, env: { ...env, HOME: job, USERPROFILE: job, APPDATA: job, LOCALAPPDATA: job, TMP: job, TEMP: job }, timeoutMs: 25000 })
         : await runIsolated(argv, { job, readRoots: [path.dirname(program)], windowsSandbox: path.join(root, 'bin/office-sandbox.exe'), timeoutMs: 25000, env })
-      console.log(JSON.stringify({ mode, code: result.code, stdout: result.stdout, stderr: result.stderr, outputBytes: await stat(output).then(s => s.size).catch(() => 0) }))
+      const outputBytes = await stat(output).then(s => s.size).catch(() => 0)
+      console.log(JSON.stringify({ mode, code: result.code, stdout: result.stdout, stderr: result.stderr, outputBytes }))
+      if (mode === 'isolated') isolatedReady = result.code === 0 && outputBytes > 0
     } catch (error) { console.log(JSON.stringify({ mode, error: error.message })) }
     finally { clearTimeout(timer) }
   })
 }
+if (!isolatedReady) throw new Error('The isolated Windows conversion worker requires a successful startup probe')
