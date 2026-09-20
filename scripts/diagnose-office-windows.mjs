@@ -11,13 +11,13 @@ const program = path.join(root, 'libreoffice/program')
 const converter = path.join(program, 'dsh-office-convert.exe')
 const stacks = path.join(path.dirname(root), 'office-thread-stacks.exe')
 let isolatedReady = false
-for (const mode of ['trusted-fixture', 'isolated-default', 'isolated']) {
+for (const mode of ['isolated']) {
   await withJob(async job => {
     const profile = path.join(job, 'profile'), input = path.join(job, 'input.xlsx'), output = path.join(job, 'output.xlsx')
     await prepareLibreOfficeProfile(profile, { libreOffice: path.join(program, 'soffice.com') })
     await authorScript({ language: 'python', source: "from openpyxl import Workbook\nwb=Workbook()\nws=wb.active\nws['A1']=4\nws['B1']=120\nws['C1']='=A1*B1'\nwb.save(office['output'])", inputs: [], outputName: 'input.xlsx', job, config: { runtimeRoot: root } })
     const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'xlsx']
-    const env = { DSH_OFFICE_DIAGNOSTICS: '1', SAL_LOG: '+WARN+INFO.lok', ...(mode === 'isolated' ? { SAL_DISABLE_OPENCL: '1' } : {}) }
+    const env = { DSH_OFFICE_DIAGNOSTICS: '1', SAL_LOG: '+WARN+INFO.lok', ...(mode === 'isolated' ? { SAL_DISABLE_OPENCL: '1', SAL_LOK_OPTIONS: 'unipoll' } : {}) }
     console.log(`Office probe: ${mode}`)
     const timer = setTimeout(() => {
       try {

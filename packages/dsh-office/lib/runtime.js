@@ -276,7 +276,9 @@ export async function convertWithLibreOffice({ bytes, extension, format, config,
     const escapeXml = value => value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;')
     await writeFile(fontConfig, `<?xml version="1.0"?><fontconfig>${fontRoots.map(p => `<dir>${escapeXml(p)}</dir>`).join('')}<cachedir>${escapeXml(path.join(job, 'font-cache'))}</cachedir></fontconfig>`)
     await writeFile(input, bytes)
-    const execution = await runIsolated(libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }), { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job, ...(process.platform === 'win32' ? { SAL_DISABLE_OPENCL: '1' } : {}) } })
+    // Windows VCL controls and the Kit calls share their creating thread.
+    // unipoll keeps Calc loading on that thread; calculation uses the CPU.
+    const execution = await runIsolated(libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }), { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job, ...(process.platform === 'win32' ? { SAL_DISABLE_OPENCL: '1', SAL_LOK_OPTIONS: 'unipoll' } : {}) } })
     const output = await boundedRead(path.join(outputDir, `input.${format.split(':')[0]}`), format === 'pdf' ? 64 * 1024 * 1024 : 16 * 1024 * 1024)
     return { bytes: output, execution }
   })
