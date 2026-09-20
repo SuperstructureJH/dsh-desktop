@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <memory>
+#include <cstdlib>
+#pragma comment(lib, "user32.lib")
 
 static std::string utf8(const wchar_t* value) {
   int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, nullptr, 0, nullptr, nullptr);
@@ -23,6 +25,54 @@ static std::string engineError(LibreOfficeKit* kit) {
   std::string result = error ? error : "Unknown LibreOfficeKit error";
   if (error) kit->pClass->freeError(error);
   return result;
+}
+using Office = std::unique_ptr<LibreOfficeKit, void (*)(LibreOfficeKit*)>;
+struct Conversion {
+  Office office;
+  std::string input, output, format;
+  DWORD thread = GetCurrentThreadId();
+  bool started = false, completed = false;
+  int result = 1;
+};
+static int pollWindows(void*, int timeoutUs) {
+  DWORD timeout = timeoutUs < 0 ? INFINITE : static_cast<DWORD>(timeoutUs / 1000 + (timeoutUs % 1000 != 0));
+  return MsgWaitForMultipleObjectsEx(0, nullptr, timeout, QS_ALLINPUT, MWMO_INPUTAVAILABLE) == WAIT_OBJECT_0;
+}
+static void wakeWindows(void* data) {
+  PostThreadMessageW(static_cast<Conversion*>(data)->thread, WM_NULL, 0, 0);
+}
+static LRESULT CALLBACK conversionWindow(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+  if (message == WM_NCCREATE) {
+    auto* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
+    SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+  }
+  auto* task = reinterpret_cast<Conversion*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+  if (message != WM_TIMER || wParam != 1 || !task || task->started)
+    return DefWindowProcW(window, message, wParam, lParam);
+  task->started = true;
+  KillTimer(window, 1);
+  try {
+    auto* kit = task->office.get();
+    std::cerr << "OFFICE_CONVERT: load\n";
+    auto* rawDocument = kit->pClass->documentLoadWithOptions(kit, task->input.c_str(),
+      "Batch=true,EnableMacrosExecution=false,MacroSecurityLevel=3");
+    if (!rawDocument) throw std::runtime_error("Load document: " + engineError(kit));
+    std::unique_ptr<LibreOfficeKitDocument, void (*)(LibreOfficeKitDocument*)> document(rawDocument, rawDocument->pClass->destroy);
+    std::cerr << "OFFICE_CONVERT: save\n";
+    if (!document->pClass->saveAs(document.get(), task->output.c_str(), task->format.c_str(), nullptr))
+      throw std::runtime_error("Save document: " + engineError(kit));
+    task->result = 0;
+    std::cerr << "OFFICE_CONVERT: complete\n";
+  } catch (const std::exception& error) {
+    std::cerr << "OFFICE_CONVERT_FAILED: " << error.what() << '\n';
+  } catch (...) {
+    std::cerr << "OFFICE_CONVERT_FAILED: Native engine exception\n";
+  }
+  task->completed = true;
+  // End the Kit loop after document handles close. In unipoll mode Kit has no
+  // background main thread; runLoop returns through normal Desktop shutdown.
+  task->office.reset();
+  return 0;
 }
 // CI startup diagnostics use the engine's own stable SAL filesystem API.
 static void probePaths(HMODULE sal, wchar_t** argv) {
@@ -63,6 +113,10 @@ int wmain(int argc, wchar_t** argv) {
       throw std::runtime_error("LibreOffice program directory must be an absolute local path");
     const auto format = utf8(argv[5]);
     if (format != "pdf" && format != "xlsx") throw std::runtime_error("Office conversion format must be pdf or xlsx");
+    // Windows VCL windows and every Kit call belong to this one thread.
+    // The engine's Desktop startup runs before our low-priority timer message.
+    if (_putenv_s("SAL_LOK_OPTIONS", "unipoll") != 0)
+      throw std::runtime_error("Configure LibreOfficeKit event loop failed");
     if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS) || !AddDllDirectory(program.c_str()))
       throw std::runtime_error("Configure LibreOffice DLL directory: " + std::to_string(GetLastError()));
     HMODULE library = nullptr;
@@ -80,18 +134,23 @@ int wmain(int argc, wchar_t** argv) {
     std::cerr << "OFFICE_CONVERT: initialize\n";
     auto* rawKit = initialize(utf8(argv[1]).c_str(), utf8(argv[2]).c_str());
     if (!rawKit) throw std::runtime_error("LibreOfficeKit initialization failed");
-    std::unique_ptr<LibreOfficeKit, void (*)(LibreOfficeKit*)> kit(rawKit, rawKit->pClass->destroy);
-    if (!LIBREOFFICEKIT_HAS(kit.get(), freeError)) throw std::runtime_error("LibreOfficeKit ABI is too old");
-    std::cerr << "OFFICE_CONVERT: load\n";
-    auto* rawDocument = kit->pClass->documentLoadWithOptions(kit.get(), utf8(argv[3]).c_str(),
-      "Batch=true,EnableMacrosExecution=false,MacroSecurityLevel=3");
-    if (!rawDocument) throw std::runtime_error("Load document: " + engineError(kit.get()));
-    std::unique_ptr<LibreOfficeKitDocument, void (*)(LibreOfficeKitDocument*)> document(rawDocument, rawDocument->pClass->destroy);
-    std::cerr << "OFFICE_CONVERT: save\n";
-    if (!document->pClass->saveAs(document.get(), utf8(argv[4]).c_str(), format.c_str(), nullptr))
-      throw std::runtime_error("Save document: " + engineError(kit.get()));
-    std::cerr << "OFFICE_CONVERT: complete\n";
-    return 0;
+    Conversion task{Office(rawKit, rawKit->pClass->destroy), utf8(argv[3]), utf8(argv[4]), format};
+    if (!LIBREOFFICEKIT_HAS(rawKit, runLoop)) throw std::runtime_error("LibreOfficeKit ABI is too old");
+    WNDCLASSW windowClass{};
+    windowClass.lpfnWndProc = conversionWindow;
+    windowClass.hInstance = GetModuleHandleW(nullptr);
+    windowClass.lpszClassName = L"DSH.Office.Convert";
+    if (!RegisterClassW(&windowClass)) throw std::runtime_error("Register conversion event window failed");
+    HWND window = CreateWindowExW(0, windowClass.lpszClassName, L"", 0, 0, 0, 0, 0,
+      HWND_MESSAGE, nullptr, windowClass.hInstance, &task);
+    if (!window || !SetTimer(window, 1, USER_TIMER_MINIMUM, nullptr))
+      throw std::runtime_error("Create conversion event timer failed");
+    std::cerr << "OFFICE_CONVERT: event-loop\n";
+    rawKit->pClass->runLoop(rawKit, pollWindows, wakeWindows, &task);
+    DestroyWindow(window);
+    UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
+    if (!task.completed) throw std::runtime_error("Office event loop stopped before conversion completed");
+    return task.result;
   } catch (const std::exception& error) {
     std::cerr << "OFFICE_CONVERT_FAILED: " << error.what() << '\n';
     return 1;
