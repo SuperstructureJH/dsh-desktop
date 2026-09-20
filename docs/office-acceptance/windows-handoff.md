@@ -41,13 +41,17 @@ node scripts/verify-office-package.mjs --app "$PWD/dist-dev/win-unpacked" --outp
 
 输出目录每次使用新路径，保留旧结果。CI 自动执行以上功能检查，并把安装包移出源码目录后再次验证运行时发现、内置案例、DOCX/XLSX 创建与修改、Excel 数值独立核对、PDF 导出及 Word/PPT 状态切换。隔离测试覆盖普通 AppContainer 可读文件的拒绝访问、越界写入、网络拒绝、环境变量隔离、子进程清理、取消和超时。
 
-Actions 的 `windows-x64-dev` 提供开发安装包，`windows-office-evidence` 提供生成文档、预览和 JSON 证据。以对应提交的 Windows CI 结果为准。
+已验证代码提交：`e13541001ef4681d9c722a19d075a5de1a4c3842`。后续交接记录更新只涉及文档。
+
+- [Windows x64 开发安装包](https://github.com/dataelement/dsh-desktop/actions/runs/35491099351/artifacts/10599840107)：下载并解压 `windows-x64-dev`，运行 `dsh-desktop-dev-windows-x64-setup.exe`。压缩包约 601 MB，包含 Office 引擎。
+- [Office 自动验证产物](https://github.com/dataelement/dsh-desktop/actions/runs/35491099351/artifacts/10599406142)：生成文档、预览、审计记录和 `packaged/verification.json`。
+- [完整 Windows CI](https://github.com/dataelement/dsh-desktop/actions/runs/35491099351)：Windows Server 2022 x64，全部要求步骤通过。Windows 10/11 实机由下述清单验收。
 
 ## 同事实机验收
 
 使用对应提交的 Windows 开发安装包；记录 Windows 版本、账号权限、安装目录、DSH 版本和所用模型。开发包显示为 DSH Desktop Dev。
 
-1. 用普通用户安装到含空格或中文的路径，启动并确认 Word、Excel、PPT 模式与案例预览可用。依次切换，重开会话检查选中状态。
+1. 用普通用户选择“仅为我安装”，使用当前用户拥有的目录（可包含空格或中文），启动并确认 Word、Excel、PPT 模式与案例预览可用。依次切换，重开会话检查选中状态。执行器需要为每次任务添加和撤销运行时目录的只读 ACL；管理员统一部署到受保护的 Program Files 目录需要另外配置权限与验收。
 2. Word：选择咖啡市场调研“做同款”，提供新材料，生成含中文、标题、表格、页眉页脚的 DOCX；修改一个金额，再打开生成文件和 PDF 预览。记录文档内容、排版、字体及分页结果。
 3. Excel：生成采购表和原生图表（材料 A 数量 3、单价 120；材料 B 数量 5、单价 80），合计应为 760。把 A 数量改为 4，执行重算后检查 A 金额 480、合计 880、图表与 PDF 预览。
 4. 在 Windows Word / Excel 或 WPS 中打开、编辑、保存、关闭再打开上述文件；分别记录使用的应用和结果。确认公式、图表、中文和页眉页脚保持正确。
@@ -57,6 +61,7 @@ Actions 的 `windows-x64-dev` 提供开发安装包，`windows-office-evidence` 
 ## 证据状态
 
 - 本地 macOS，Desktop 内置 Node `24.9.0`：全量回归 128 个文件、1132 项测试通过，7 项平台/引擎测试跳过；Windows 路径、命令参数、私有 profile 和环境合同定向测试通过；类型检查和应用构建通过。
-- Windows 原生 Word/Excel 创建、局部修改、公式重算、图表、PDF 导出及访问隔离与进程清理：14 项测试通过；全量 Windows 回归、类型检查、构建和三种显示缩放的恢复界面检查通过。[CI 记录](https://github.com/dataelement/dsh-desktop/actions/runs/35490465978)。转换器在同一线程运行 LibreOffice 事件循环与文档操作，解决 Excel 加载时的跨线程窗口死锁。
-- 上述 CI 已构建安装包，并通过移出源码目录后的 Harness 启动、原生 koffi 和 Office/PPT RPC 检查。Office 包内资源检查发现通用依赖裁剪移除了目录声明的 Skill README；本次改为完整复制受版本和哈希约束的资源目录，等待最终安装包验证。
+- Windows 原生 Word/Excel 创建、局部修改、公式重算、图表、PDF 导出及访问隔离与进程清理：14 项定向测试通过；全量回归 127 个测试文件、1130 项通过，2 项平台测试跳过。类型检查、构建和三种显示缩放的恢复界面检查通过。转换器在同一线程运行 LibreOffice 事件循环与文档操作，解决 Excel 加载时的跨线程窗口死锁。
+- 完整安装包移出源码目录、放入含中文和空格的路径后，Harness 启动、原生 koffi、Office/PPT RPC、188 个 Skill、678 项资源哈希、17 个工具、案例生成和修改、Word/Excel 生成和修改、独立公式核对、图表及 PDF 预览全部通过。专门的资源目录复制规则保留运行所需的 README、许可证和隐藏资源。[最终 CI 记录](https://github.com/dataelement/dsh-desktop/actions/runs/35491099351)。
+- Windows 生成的采购 Word 与 Excel PDF 已做视觉检查，中文、表格、页眉页脚、480/400/880 的金额与柱状图显示正常；该证据为 PDF 检查。
 - 同事 Windows 实机界面、真实模型任务、Word/Excel/WPS 保存重开：`NOT_RUN`。

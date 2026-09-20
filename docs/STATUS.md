@@ -9,7 +9,8 @@
 - 固定版本 Python/openpyxl、LibreOffice 和原生执行器随开发包与正式包提供。构建验证下载及引擎 SHA-256，运行时按安装位置定位，支持应用移动。
 - Windows CI 强制运行真实 DOCX/XLSX 生成、局部修改、公式重算、PDF 预览和隔离测试；打包后在源码目录之外再次运行完整 Office 检查并上传证据。
 - 本地使用 Desktop 内置 Node `24.9.0` 全量回归通过：128 个文件、1132 项测试；7 项目标平台/引擎测试在 macOS 环境跳过。类型检查、应用构建和 51 项运行时与发布定向回归通过。版本合并后的测试夹具已按当前 Host 服务合同适配。
-- [Windows CI](https://github.com/dataelement/dsh-desktop/actions/runs/35490465978) 的 14 项原生功能与隔离定向测试、全量回归、类型检查、构建、恢复界面检查通过；移出源码目录后的安装包启动、koffi 与 Office/PPT RPC 检查通过。Office 技能资源现由专门的完整目录规则打包，最终包内 Office 生成检查继续由 CI 执行。同事实机与真实模型验收为 `NOT_RUN`。
+- [Windows CI](https://github.com/dataelement/dsh-desktop/actions/runs/35491099351) 验证代码提交 `e1354100`：14 项原生功能与隔离定向测试通过；全量回归 127 个文件、1130 项测试通过，2 项平台测试跳过；类型检查、构建、恢复界面检查通过。Windows Server 2022 x64 上生成开发安装包，移出源码目录并放入中文和空格路径后的 Harness 启动、koffi、Office/PPT RPC、188 个 Skill、678 项资源哈希、17 个工具和真实 Word/Excel 生成、修改、独立公式核对、图表与 PDF 预览均通过。安装包与产物下载见交接文档。
+- 同事实机使用 Windows 10/11 x64 当前用户安装；受保护的全用户安装目录需要单独配置执行器的 ACL 管理权限与验收。Windows 实机界面、真实模型任务、Word/Excel/WPS 保存重开为 `NOT_RUN`。最终代码后的交接记录更新只涉及文档。
 
 以下保留 2026-09-14 原提交的历史验证范围。
 
