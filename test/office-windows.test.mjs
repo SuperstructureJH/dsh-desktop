@@ -23,7 +23,7 @@ it('passes literal Windows argv and explicit grants to the confined runner', () 
 
 it('constructs the Windows loader environment from a small allowlist', () => {
   const env = runtimeEnvironment('win32', 'D:\\Windows')
-  expect(env).toEqual({ SystemRoot: 'D:\\Windows', WINDIR: 'D:\\Windows', PATH: 'D:\\Windows\\System32', LANG: 'en_US.UTF-8' })
+  expect(env).toEqual({ SystemRoot: 'D:\\Windows', WINDIR: 'D:\\Windows', PATH: 'D:\\Windows\\System32', LANG: 'en_US.UTF-8', NODE_OPTIONS: '--preserve-symlinks --preserve-symlinks-main' })
   expect(env).not.toHaveProperty('USERPROFILE')
 })
 

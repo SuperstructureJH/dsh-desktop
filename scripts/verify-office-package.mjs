@@ -187,7 +187,7 @@ await writeFile(office.output,await docx.Packer.toBuffer(document));` })
   const wordPreview = await call('office_preview', { file_path: editedWord.path, expected_revision: editedWord.sha256, output_file: 'Word预览.pdf' })
   assert.equal(wordPreview.rendering, 'PASS')
   const reference = await call('office_reference', { topic: 'excel-create' })
-  const source = reference.content.match(/```python\n([\s\S]*?)```/u)[1]
+  const source = reference.content.match(/```python\r?\n([\s\S]*?)```/u)[1]
   const excel = await call('office_build', { language: 'python', source, output_file: '采购.xlsx' })
   const editedExcel = await call('office_excel_edit', { file_path: excel.path, expected_revision: excel.sha256, output_file: '采购调整.xlsx', operations: [{ sheet: '采购', cell: 'B2', value: 4 }] })
   const calculated = await call('office_recalculate', { file_path: editedExcel.path, expected_revision: editedExcel.sha256, output_file: '采购已核对.xlsx', checks: [{ sheet: '采购', cell: 'D2', expected: 480 }, { sheet: '采购', cell: 'D4', expected: 880 }] })

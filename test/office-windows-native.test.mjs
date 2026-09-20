@@ -35,10 +35,10 @@ socket.on('error',e=>{if(!['EPERM','EACCES'].includes(e.code))throw e;fs.writeFi
       expect(await readFile(fixture, 'utf8')).toBe('private')
     } finally { delete process.env.DSH_OFFICE_PRIVATE_FIXTURE; await rm(outside, { recursive: true, force: true }) }
   }, 60000)
-  it('terminates detached descendants when the author process exits', async () => {
+  it('terminates background descendants when the author process exits', async () => {
     await withJob(async job => {
       const grandchild = `setTimeout(()=>require('fs').writeFileSync('escaped-child.txt','escaped'),1500)`
-      await invoke(job, `const c=require('child_process').spawn(process.execPath,['-e',${JSON.stringify(grandchild)}],{detached:true,stdio:'ignore'});c.on('error',e=>{throw e});c.unref()`)
+      await invoke(job, `const c=require('child_process').spawn(process.execPath,['-e',${JSON.stringify(grandchild)}],{windowsHide:true,stdio:'inherit'});c.on('error',e=>{throw e});c.unref()`)
       await new Promise(resolve => setTimeout(resolve, 1800))
       await expect(access(path.join(job, 'escaped-child.txt'))).rejects.toThrow()
     })

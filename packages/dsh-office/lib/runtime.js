@@ -11,7 +11,7 @@ export const MAX_LOG_BYTES = 128 * 1024
 
 export function runtimeEnvironment(platform = process.platform, systemRoot = process.env.SystemRoot || 'C:\\Windows') {
   return platform === 'win32'
-    ? { SystemRoot: systemRoot, WINDIR: systemRoot, PATH: path.win32.join(systemRoot, 'System32'), LANG: 'en_US.UTF-8' }
+    ? { SystemRoot: systemRoot, WINDIR: systemRoot, PATH: path.win32.join(systemRoot, 'System32'), LANG: 'en_US.UTF-8', NODE_OPTIONS: '--preserve-symlinks --preserve-symlinks-main' }
     : { PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8' }
 }
 
@@ -149,7 +149,7 @@ export function bundledRuntimeRoot(executablePath = process.execPath, platform =
   }
   const marker = '.app/Contents/'
   const index = executablePath.indexOf(marker)
-  return index < 0 ? undefined : path.join(executablePath.slice(0, index + marker.length), 'Resources', 'office-runtime')
+  return index < 0 ? undefined : path.posix.join(executablePath.slice(0, index + marker.length), 'Resources', 'office-runtime')
 }
 
 export async function resolveRuntime(config = {}, signal, kind = 'all') {

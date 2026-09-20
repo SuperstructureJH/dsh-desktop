@@ -49,7 +49,7 @@ await writeFile(office.output,await Packer.toBuffer(doc));`
   }, 60000)
   it('creates charts and conditional formatting, edits inputs, recalculates all formulas and preserves original objects', async () => {
     const reference = await call('office_reference', { topic: 'excel-create' })
-    let source = reference.content.match(/```python\n([\s\S]*?)```/u)[1]
+    let source = reference.content.match(/```python\r?\n([\s\S]*?)```/u)[1]
     source = source.replace("wb.save(office['output'])", "ws['E2']='=\"\"'\nws['E3']='=B2>0'\nws['A20']='#标签'\nws['B20']='=literal'\nws['B20'].data_type='s'\nwb.save(office['output'])")
     const built = await call('office_build', { language: 'python', source, output_file: '采购.xlsx' })
     const edited = await call('office_excel_edit', { file_path: built.path, expected_revision: built.sha256, output_file: '采购调整.xlsx', operations: [{ sheet: '采购', cell: 'B2', value: 4 }] })
