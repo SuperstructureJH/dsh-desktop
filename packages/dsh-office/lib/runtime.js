@@ -192,6 +192,7 @@ export async function resolveRuntime(config = {}, signal, kind = 'all') {
   if (kind === 'all' || kind === 'libreoffice') {
     result.libreOffice = await executable([config.libreOffice, bundledRoot && path.join(bundledRoot, 'libreoffice', ...(windows ? ['program', 'soffice.com'] : ['LibreOffice.app', 'Contents', 'MacOS', 'soffice'])), ...(windows ? ['soffice.com', 'soffice.exe'] : ['/Applications/LibreOffice.app/Contents/MacOS/soffice', 'soffice', 'libreoffice'])])
     if (result.libreOffice) {
+      if (windows) result.windowsConverter = await executable([path.join(path.dirname(result.libreOffice), 'dsh-office-convert.exe')])
       const app = result.libreOffice.indexOf('.app/')
       result.loReadRoots = [app >= 0 ? result.libreOffice.slice(0, app + 4) : path.dirname(path.dirname(result.libreOffice))]
     }
@@ -220,6 +221,15 @@ export async function authorScript({ language, source, inputs, outputName, job, 
   return { output, execution, engine: language === 'javascript' ? 'docx@9.6.1' : `openpyxl@${runtime.openpyxl}` }
 }
 
+export function libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }, platform = process.platform) {
+  if (platform === 'win32') {
+    if (!runtime.windowsConverter) throw new Error('OFFICE_ENGINE_UNAVAILABLE: the Windows bundle requires the LibreOfficeKit conversion worker')
+    const output = path.win32.join(outputDir, `input.${format}`)
+    return [runtime.windowsConverter, path.win32.dirname(runtime.libreOffice), pathToFileURL(profile, { windows: true }).href, pathToFileURL(input, { windows: true }).href, pathToFileURL(output, { windows: true }).href, format]
+  }
+  return [runtime.libreOffice, `-env:UserInstallation=${pathToFileURL(profile).href}`, '--headless', '--nologo', '--nodefault', '--nolockcheck', '--convert-to', format, '--outdir', outputDir, input]
+}
+
 export async function convertWithLibreOffice({ bytes, extension, format, config, signal }) {
   const runtime = await resolveRuntime(config, signal, 'libreoffice')
   if (!runtime.libreOffice) throw new Error('OFFICE_ENGINE_UNAVAILABLE: configure LibreOffice for calculation and preview')
@@ -235,7 +245,7 @@ export async function convertWithLibreOffice({ bytes, extension, format, config,
     // A failed force-recalculation profile write propagates before engine execution.
     await writeFile(path.join(profile, 'registrymodifications.xcu'), '<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>')
     await writeFile(input, bytes)
-    const execution = await runIsolated([runtime.libreOffice, `-env:UserInstallation=${pathToFileURL(profile).href}`, '--headless', '--nologo', '--nodefault', '--nolockcheck', '--convert-to', format, '--outdir', outputDir, input], { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job } })
+    const execution = await runIsolated(libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }), { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job } })
     const output = await boundedRead(path.join(outputDir, `input.${format.split(':')[0]}`), format === 'pdf' ? 64 * 1024 * 1024 : 16 * 1024 * 1024)
     return { bytes: output, execution }
   })

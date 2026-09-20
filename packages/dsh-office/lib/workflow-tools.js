@@ -54,10 +54,11 @@ export function registerWorkflowTools(register, config) {
       await withJob(job => runIsolated([runtime.node, '-e', 'process.stdout.write("ready")'], { job, readRoots: runtime.nodeReadRoots ?? [], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal: exec.signal, env: { ELECTRON_RUN_AS_NODE: '1' }, timeoutMs: 10000 }))
       execution = 'PASS'
     } catch (error) { reason = error.message }
-    return { status: execution === 'PASS' ? runtime.openpyxl && runtime.libreOffice ? 'ready' : 'partial' : 'blocked', isolation: execution, isolationDetail: reason ?? null, backend: runtime.sandbox,
+    const calculationReady = runtime.libreOffice && (runtime.platform !== 'win32' || runtime.windowsConverter)
+    return { status: execution === 'PASS' ? runtime.openpyxl && calculationReady ? 'ready' : 'partial' : 'blocked', isolation: execution, isolationDetail: reason ?? null, backend: runtime.sandbox,
       word: runtime.docx ? 'docx@9.6.1' : runtime.nodeError,
       excel: runtime.openpyxl ? `openpyxl@${runtime.openpyxl}` : runtime.pythonError,
-      calculation: runtime.libreOffice ? 'LibreOffice installed; execution checked per operation' : 'BLOCKED: configure LibreOffice', nativeAcceptance: 'NOT_RUN' }
+      calculation: calculationReady ? 'LibreOffice installed; execution checked per operation' : 'BLOCKED: configure the complete LibreOffice runtime', nativeAcceptance: 'NOT_RUN' }
   })
   register('office_build', 'Generate a rich native DOCX/XLSX using a JavaScript docx or Python openpyxl script in a filesystem and network isolated job. Read office_reference first. Only declared input copies are readable; publish a validated new file.', {
     language: { type: 'string', required: true, enum: ['javascript', 'python'] },

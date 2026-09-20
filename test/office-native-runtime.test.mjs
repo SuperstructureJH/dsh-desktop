@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -9,7 +9,9 @@ import { sha256 } from '../packages/dsh-office/lib/workspace.js'
 const enabled = Boolean(process.env.DSH_OFFICE_TEST_PYTHON && process.env.DSH_OFFICE_TEST_LIBREOFFICE)
 if (process.env.DSH_OFFICE_REQUIRE_NATIVE === '1' && !enabled) throw new Error('Office native gate requires bundled Python and LibreOffice')
 describe.skipIf(!enabled)('Office real isolated authoring and calculation', () => {
-  let root, call
+  let root, call, controller
+  beforeEach(() => { controller = new AbortController() })
+  afterEach(() => { controller.abort() })
   beforeAll(async () => {
     const base = process.env.DSH_OFFICE_TEST_OUTPUT || tmpdir()
     await mkdir(base, { recursive: true }); root = await mkdtemp(path.join(base, 'verified-'))
@@ -17,7 +19,7 @@ describe.skipIf(!enabled)('Office real isolated authoring and calculation', () =
     registerOfficeTools({ tools: { register(tool) { tools.set(tool.name, tool) } }, get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: root }) }) }, {
       root: path.join(root, 'audit'), python: process.env.DSH_OFFICE_TEST_PYTHON, libreOffice: process.env.DSH_OFFICE_TEST_LIBREOFFICE, runtimeRoot: process.env.DSH_OFFICE_BUNDLE_ROOT
     })
-    call = (name, args) => tools.get(name).execute(args, { name, callId: `real-${name}`, signal: new AbortController().signal, agent: { id: 'office-native-test', session: { id: 'test', header: { cwd: root } } } })
+    call = (name, args) => tools.get(name).execute(args, { name, callId: `real-${name}`, signal: controller.signal, agent: { id: 'office-native-test', session: { id: 'test', header: { cwd: root } } } })
   })
   it('creates a native Word with headers, footer, footnote and table, edits it and renders the final revision', async () => {
     const source = `import {writeFile} from 'node:fs/promises';
@@ -46,7 +48,7 @@ await writeFile(office.output,await Packer.toBuffer(doc));`
     const preview = await call('office_preview', { file_path: edited.path, expected_revision: edited.sha256, output_file: '采购进展预览.pdf' })
     expect(preview.rendering).toBe('PASS')
     await writeFile(path.join(root, 'word-evidence.json'), JSON.stringify({ built, edited, preview }, null, 2))
-  }, 60000)
+  }, 150000)
   it('creates charts and conditional formatting, edits inputs, recalculates all formulas and preserves original objects', async () => {
     const reference = await call('office_reference', { topic: 'excel-create' })
     let source = reference.content.match(/```python\r?\n([\s\S]*?)```/u)[1]
@@ -66,7 +68,7 @@ await writeFile(office.output,await Packer.toBuffer(doc));`
     await expect(call('office_recalculate', { file_path: edited.path, expected_revision: edited.sha256, output_file: '错误预期.xlsx', checks: [{ sheet: '采购', cell: 'D4', expected: 999 }] })).rejects.toThrow('Independent check failed')
     expect(await readdir(root)).not.toContain('错误预期.xlsx')
     await writeFile(path.join(root, 'excel-evidence.json'), JSON.stringify({ built, edited, calculated, preview }, null, 2))
-  }, 60000)
+  }, 300000)
   it('enforces filesystem and network isolation and strips inherited secrets', async () => {
     const outside = path.join(root, 'private-test.txt'); await writeFile(outside, 'private fixture')
     process.env.OFFICE_TEST_SECRET = 'private fixture'

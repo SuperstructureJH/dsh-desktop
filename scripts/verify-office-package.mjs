@@ -173,6 +173,9 @@ if (!values.worker) {
   }
 
   for (const engine of [runtime.python, runtime.libreOffice]) assert.ok(engine.startsWith(path.join(resources, 'office-runtime') + path.sep), 'Use the bundled engines')
+  if (process.platform === 'win32') {
+    for (const engine of [runtime.windowsSandbox, runtime.windowsConverter]) assert.ok(engine.startsWith(path.join(resources, 'office-runtime') + path.sep), 'Use the bundled Windows workers')
+  }
   assert.ok(runtime.pythonReadRoots.every(p => p.startsWith(path.join(resources, 'office-runtime/python') + path.sep) || p === path.join(resources, 'office-runtime/python')))
   const readiness = await call('office_runtime')
   assert.equal(readiness.status, 'ready')

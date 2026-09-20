@@ -14,7 +14,7 @@ Office 工具继续通过 Host 工作区策略、审计和版本校验。JavaScr
 
 执行器采用 `PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY` 退出普通 AppContainer 的通用文件授权。令牌仅提供 `registryRead`，网络能力列表为空。创建 Job 后以挂起状态启动子进程，加入 Job 再恢复执行；Job 限制 64 个进程、2 GiB 总内存，并在超时、取消及主进程结束时终止进程树。每次操作撤销该任务 SID 的目录授权并删除私有 AppContainer profile。操作系统仍为 AppContainer 提供独立的临时 profile 存储；该 profile 也随操作清理。进程被操作系统强行终止时，残留 profile/ACL 需要按任务记录清理，后续任务使用新 SID。
 
-Python `3.13.12`、openpyxl `3.1.5`、et_xmlfile `2.0.0`、LibreOffice `26.2.6` 和原生执行器随 Windows 安装包提供。下载地址和 SHA-256 固定在 `scripts/office-runtime-windows.json`；打包前再次核对可执行文件校验值。开发包和正式包共用运行时配置。用户安装测试包后可离线调用 Office 工具。
+Python `3.13.12`、openpyxl `3.1.5`、et_xmlfile `2.0.0`、LibreOffice `26.2.6` 和原生执行器随 Windows 安装包提供。Windows 转换器使用 LibreOfficeKit 稳定 C API，在进程内加载、重算和保存文档，宏执行关闭、交互对话框自动取消；每次调用使用独立 profile。下载地址和 SHA-256 固定在 `scripts/office-runtime-windows.json`；打包前再次核对可执行文件校验值。开发包和正式包共用运行时配置。用户安装测试包后可离线调用 Office 工具。
 
 这里的隔离与功能测试对应 Desktop Office 操作。全局 G3 生产验收还包括 CPU、磁盘配额及完整逃逸测试等独立要求。
 
@@ -56,6 +56,6 @@ Actions 的 `windows-x64-dev` 提供开发安装包，`windows-office-evidence` 
 
 ## 证据状态
 
-- 本地 macOS：全量回归 128 个文件、1128 项测试通过，6 项平台/引擎测试跳过；Windows 路径、命令参数和环境合同定向测试通过；类型检查和应用构建通过。
+- 本地 macOS：全量回归 128 个文件、1129 项测试通过，6 项平台/引擎测试跳过；Windows 路径、命令参数和环境合同定向测试通过；类型检查和应用构建通过。
 - Windows 原生自动化、安装包内 Office 功能：等待本次 Windows CI。
 - 同事 Windows 实机界面、真实模型任务、Word/Excel/WPS 保存重开：`NOT_RUN`。

@@ -62,6 +62,9 @@ try {
   New-Item -ItemType Directory -Path $bin | Out-Null
   & cl.exe /nologo /std:c++17 /O2 /W4 /WX /MT /EHsc /guard:cf /DUNICODE /D_UNICODE (Join-Path $repo 'native/office-sandbox/main.cpp') "/Fe:$(Join-Path $bin 'office-sandbox.exe')" "/Fo:$(Join-Path $scratch 'office-sandbox.obj')" /link /DYNAMICBASE /NXCOMPAT
   if ($LASTEXITCODE -ne 0) { throw 'Office sandbox compilation failed.' }
+  $converter = Join-Path $pending 'libreoffice/program/dsh-office-convert.exe'
+  & cl.exe /nologo /std:c++17 /O2 /W4 /WX /MT /EHsc /guard:cf /DUNICODE /D_UNICODE "/I$(Join-Path $repo 'native/office-convert/include')" (Join-Path $repo 'native/office-convert/main.cpp') "/Fe:$converter" "/Fo:$(Join-Path $scratch 'office-convert.obj')" /link /DYNAMICBASE /NXCOMPAT
+  if ($LASTEXITCODE -ne 0) { throw 'Office LibreOfficeKit worker compilation failed.' }
   # Keep the licensed engines intact, including their bundled notices and DLLs.
   $links = @(Get-ChildItem $pending -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint })
   if ($links.Count) { throw 'Office runtime staging requires regular files and directories.' }
@@ -75,7 +78,7 @@ try {
   $loVersion = & (Join-Path $pending 'libreoffice/program/soffice.com') --headless --version
   if ($LASTEXITCODE -ne 0) { throw 'Bundled LibreOffice probe failed.' }
   $hashes = @{}
-  foreach ($relative in @('python/python.exe','libreoffice/program/soffice.com','bin/office-sandbox.exe')) {
+  foreach ($relative in @('python/python.exe','libreoffice/program/soffice.com','libreoffice/program/dsh-office-convert.exe','bin/office-sandbox.exe')) {
     $hashes[$relative] = (Get-FileHash (Join-Path $pending $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
   }
   @{ version = 1; platform = 'win32'; arch = 'x64'; sources = $versions; python = $info; libreOffice = "$loVersion"; hashes = $hashes; sandbox = 'windows-appcontainer'; nativeOfficeAcceptance = 'NOT_RUN' } | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $pending 'manifest.json') -Encoding utf8NoBOM

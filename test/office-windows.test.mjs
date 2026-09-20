@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { bundledRuntimeRoot, confinementArgv, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
+import { bundledRuntimeRoot, confinementArgv, libreOfficeConversionArgv, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
 
 it('discovers engines after Windows installer and app relocation, including packaged Node', () => {
   for (const app of ['C:\\Users\\user\\AppData\\Local\\Programs\\DSH Desktop', 'D:\\中文目录\\DSH Dev']) {
@@ -25,6 +25,15 @@ it('constructs the Windows loader environment from a small allowlist', () => {
   const env = runtimeEnvironment('win32', 'D:\\Windows')
   expect(env).toEqual({ SystemRoot: 'D:\\Windows', WINDIR: 'D:\\Windows', PATH: 'D:\\Windows\\System32', LANG: 'en_US.UTF-8', NODE_OPTIONS: '--preserve-symlinks --preserve-symlinks-main' })
   expect(env).not.toHaveProperty('USERPROFILE')
+})
+
+it('uses the embedded conversion worker with escaped Unicode file URLs on Windows', () => {
+  const runtime = { libreOffice: 'C:\\Office\\program\\soffice.com', windowsConverter: 'C:\\Office\\program\\dsh-office-convert.exe' }
+  const options = { profile: 'D:\\任务 空间\\profile', input: 'D:\\任务 空间\\input.docx', outputDir: 'D:\\任务 空间\\converted', format: 'pdf' }
+  const args = libreOfficeConversionArgv(runtime, options, 'win32')
+  expect(args.slice(0, 2)).toEqual([runtime.windowsConverter, 'C:\\Office\\program'])
+  expect(args.slice(2)).toEqual(['file:///D:/%E4%BB%BB%E5%8A%A1%20%E7%A9%BA%E9%97%B4/profile', 'file:///D:/%E4%BB%BB%E5%8A%A1%20%E7%A9%BA%E9%97%B4/input.docx', 'file:///D:/%E4%BB%BB%E5%8A%A1%20%E7%A9%BA%E9%97%B4/converted/input.pdf', 'pdf'])
+  expect(() => libreOfficeConversionArgv({ libreOffice: runtime.libreOffice }, options, 'win32')).toThrow('LibreOfficeKit conversion worker')
 })
 
 it('normalizes Python stdlib ZIP, nested and duplicate paths into directory grants', async () => {
