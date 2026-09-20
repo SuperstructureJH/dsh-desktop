@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createEnterpriseController } from '../packages/dsh-desktop-enterprise/index.js'
 import { createMockEnterpriseServer } from '../scripts/mock-bisheng-enterprise.mjs'
 
@@ -8,6 +8,7 @@ let controller
 afterEach(async () => {
   await controller?.dispose()
   await service?.close()
+  vi.unstubAllEnvs()
   controller = undefined
   service = undefined
 })
@@ -56,7 +57,18 @@ describe('enterprise controller', () => {
     expect(controller.state()).not.toHaveProperty('error')
   })
 
+  it('omits optional version metadata when the desktop host does not provide it', async () => {
+    vi.stubEnv('DSH_DESKTOP_VERSION', '')
+    service = createMockEnterpriseServer({ port: 0 })
+    const origin = await service.listen()
+    controller = createEnterpriseController({ llm: {} }, { vault: memoryVault(), allowInsecureLoopback: true })
+    const login = await controller.startLogin({ base: origin })
+    const authId = new URL(login.authorizationUrl).searchParams.get('auth_id')
+    expect(service.state.authorizations.get(authId).clientVersion).toBeNull()
+  })
+
   it('owns the complete browser login, provider registration, refresh state, and logout lifecycle', async () => {
+    vi.stubEnv('DSH_DESKTOP_VERSION', '0.1.1-beta.2+build.7')
     service = createMockEnterpriseServer({ port: 0 })
     const origin = await service.listen()
     let registered = false
@@ -84,6 +96,7 @@ describe('enterprise controller', () => {
     expect(login.authorizationUrl).toContain('/desktop-login?auth_id=')
 
     const authorize = new URL(login.authorizationUrl)
+    expect(service.state.authorizations.get(authorize.searchParams.get('auth_id')).clientVersion).toBe('0.1.1-beta.2+build.7')
     const page = await fetch(`${origin}/__mock/authorize`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -98,6 +111,7 @@ describe('enterprise controller', () => {
     expect(callback).toContain('/dsh/callback?')
     const callbackResponse = await fetch(callback)
     expect(callbackResponse.status).toBe(200)
+    expect([...service.state.sessions.values()][0].clientVersion).toBe('0.1.1-beta.2+build.7')
     expect(callbackResponse.headers.get('referrer-policy')).toBe('no-referrer')
     expect(await callbackResponse.text()).toContain('正在返回 DSH Desktop')
 

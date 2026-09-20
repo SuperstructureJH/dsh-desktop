@@ -2657,6 +2657,7 @@ async function bootstrap(): Promise<void> {
     safeStorage
   )
   enterpriseCredentialBroker = new EnterpriseCredentialBroker(enterpriseVault, {
+    desktopVersion: app.getVersion(),
     activateDesktop: async () => {
       const snapshot = runtime?.snapshot()
       if (snapshot?.phase === 'ready' && snapshot.url) {

@@ -168,6 +168,7 @@ export function createEnterpriseController(ctx, options = {}) {
   const allowInsecureLoopback = options.allowInsecureLoopback ??
     process.env.DSH_DESKTOP_ENTERPRISE_ALLOW_INSECURE_LOOPBACK === '1'
   const vault = options.vault ?? brokerClient()
+  const desktopVersion = options.desktopVersion ?? process.env.DSH_DESKTOP_VERSION
   let generation = 0
   let session = null
   let models = []
@@ -508,7 +509,8 @@ export function createEnterpriseController(ctx, options = {}) {
           code_challenge: pkce.codeChallenge,
           code_challenge_method: 'S256',
           state: pkce.state,
-          device_name: hostname().slice(0, 100)
+          device_name: hostname().slice(0, 100),
+          ...(desktopVersion ? { client_version: desktopVersion } : {})
         }
       })
       lastRequestId = requestId

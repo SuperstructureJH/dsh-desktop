@@ -38,3 +38,10 @@ http://127.0.0.1:17860
 
 - 本地自动化与 Mock：可验证 DSH 客户端合同和错误处理。
 - 真实 BiSheng/Gateway：仍需逐项执行 `client-api.md` 的 C01–C18，并核对 Nginx 路由、真实模型适配、SSE 超时与服务端日志。
+
+
+## 登录会话中的客户端版本
+
+DSH Desktop 从 Electron `app.getVersion()` 读取应用版本，通过现有 Harness 子进程环境传给 enterprise 插件，在 `POST /api/dsh/authorizations` 中发送可选 `client_version`。该值不是插件版本，也不是 contract_version；无需用户配置，不参与登录资格或版本拦截。
+
+联调需配套更新 Gateway，以将该字段保存到登录会话；不为尚未发布的旧 Gateway 添加未知字段降级重试。历史空版本记录仍为空，更新客户端后重新登录会记录版本。Mock 同样保存授权事务及会话的 clientVersion，以便测试核对。

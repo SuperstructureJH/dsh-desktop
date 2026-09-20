@@ -38,8 +38,9 @@ describe('enterprise secure credential broker', () => {
     const filename = join(directory, 'credentials.v1')
     const vault = new SecureEnterpriseCredentialVault(filename, safeStorage)
     const activateDesktop = vi.fn()
-    const broker = new EnterpriseCredentialBroker(vault, { activateDesktop })
+    const broker = new EnterpriseCredentialBroker(vault, { activateDesktop, desktopVersion: '0.1.1-beta.2+build.7' })
     const environment = await broker.start()
+    expect(environment.DSH_DESKTOP_VERSION).toBe('0.1.1-beta.2+build.7')
     const endpoint = `${environment.DSH_DESKTOP_ENTERPRISE_BROKER_URL}/v1/session`
     const headers = {
       authorization: `Bearer ${environment.DSH_DESKTOP_ENTERPRISE_BROKER_TOKEN}`,

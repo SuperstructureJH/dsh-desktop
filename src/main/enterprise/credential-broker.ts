@@ -48,6 +48,7 @@ export interface EnterpriseCredentialBrokerEnvironment extends NodeJS.ProcessEnv
 }
 
 export interface EnterpriseCredentialBrokerOptions {
+  desktopVersion?: string
   activateDesktop?: () => Promise<void> | void
 }
 
@@ -94,7 +95,8 @@ export class EnterpriseCredentialBroker {
     if (!this.server || !this.origin || !this.token) throw new Error('Enterprise credential broker is not running.')
     return {
       DSH_DESKTOP_ENTERPRISE_BROKER_URL: this.origin,
-      DSH_DESKTOP_ENTERPRISE_BROKER_TOKEN: this.token
+      DSH_DESKTOP_ENTERPRISE_BROKER_TOKEN: this.token,
+      DSH_DESKTOP_VERSION: this.options.desktopVersion
     }
   }
 
