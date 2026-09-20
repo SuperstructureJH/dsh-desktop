@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { access, cp, lstat, mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
@@ -230,20 +230,38 @@ export function libreOfficeConversionArgv(runtime, { profile, input, outputDir, 
   return [runtime.libreOffice, `-env:UserInstallation=${pathToFileURL(profile).href}`, '--headless', '--nologo', '--nodefault', '--nolockcheck', '--convert-to', format, '--outdir', outputDir, input]
 }
 
+export async function prepareLibreOfficeProfile(profile, runtime, platform = process.platform) {
+  const user = path.join(profile, 'user')
+  await mkdir(user, { recursive: true })
+  let setup = ''
+  if (platform === 'win32') {
+    // Match LibreOffice userinstall::create: copy the shipped presets, then mark
+    // setup complete. The host prepares this private profile before LPAC starts;
+    // the worker can use it without desktop first-run installation or migration.
+    const presets = path.join(path.dirname(runtime.libreOffice), '..', 'presets')
+    await cp(presets, user, { recursive: true, force: false, errorOnExist: true, filter: async source => {
+      if ((await lstat(source)).isSymbolicLink()) throw new Error('Office profile presets must contain regular files and directories')
+      return true
+    } })
+    setup = '<item oor:path="/org.openoffice.Setup/Office"><prop oor:name="ooSetupInstCompleted" oor:op="fuse"><value>true</value></prop></item>'
+  }
+  // A failed profile write propagates before engine execution. LibreOffice reads
+  // user/registrymodifications.xcu relative to its UserInstallation URL.
+  await writeFile(path.join(user, 'registrymodifications.xcu'), `<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry">${setup}<item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>`)
+}
+
 export async function convertWithLibreOffice({ bytes, extension, format, config, signal }) {
   const runtime = await resolveRuntime(config, signal, 'libreoffice')
   if (!runtime.libreOffice) throw new Error('OFFICE_ENGINE_UNAVAILABLE: configure LibreOffice for calculation and preview')
   return withJob(async job => {
     const input = path.join(job, `input.${extension}`), outputDir = path.join(job, 'converted'), profile = path.join(job, 'profile')
-    await mkdir(outputDir); await mkdir(path.join(profile, 'user'), { recursive: true })
+    await mkdir(outputDir); await prepareLibreOfficeProfile(profile, runtime)
     const defaultFonts = process.platform === 'darwin' ? ['/System/Library/Fonts', '/System/Library/Fonts/Supplemental', '/Library/Fonts', path.join(homedir(), 'Library', 'Fonts')] : process.platform === 'win32' ? [path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts')] : ['/usr/share/fonts', '/usr/local/share/fonts']
     const fontRoots = (await Promise.all((config.fontDirectories ?? defaultFonts).map(p => path.isAbsolute(p) ? realpath(p).catch(() => null) : null))).filter(Boolean)
     const grantedFonts = process.platform === 'win32' ? fontRoots.filter(p => path.relative(path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts'), p) !== '') : fontRoots
     const fontConfig = path.join(job, 'fonts.conf')
     const escapeXml = value => value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;')
     await writeFile(fontConfig, `<?xml version="1.0"?><fontconfig>${fontRoots.map(p => `<dir>${escapeXml(p)}</dir>`).join('')}<cachedir>${escapeXml(path.join(job, 'font-cache'))}</cachedir></fontconfig>`)
-    // A failed force-recalculation profile write propagates before engine execution.
-    await writeFile(path.join(profile, 'user', 'registrymodifications.xcu'), '<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>')
     await writeFile(input, bytes)
     const execution = await runIsolated(libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }), { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job } })
     const output = await boundedRead(path.join(outputDir, `input.${format.split(':')[0]}`), format === 'pdf' ? 64 * 1024 * 1024 : 16 * 1024 * 1024)

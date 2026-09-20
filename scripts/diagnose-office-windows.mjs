@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { runIsolated, runProcess, withJob } from '../packages/dsh-office/lib/runtime.js'
+import { prepareLibreOfficeProfile, runIsolated, runProcess, withJob } from '../packages/dsh-office/lib/runtime.js'
 const root = process.env.DSH_OFFICE_BUNDLE_ROOT
 if (process.platform !== 'win32' || !root) throw new Error('Windows bundled runtime required')
 const program = path.join(root, 'libreoffice/program')
@@ -14,7 +14,7 @@ let isolatedReady = false
 for (const mode of ['trusted-fixture', 'isolated', 'isolated-unipoll']) {
   await withJob(async job => {
     const profile = path.join(job, 'profile'), input = path.join(job, 'input.txt'), output = path.join(job, 'output.pdf')
-    await mkdir(profile); await writeFile(input, 'Office conversion diagnostic fixture')
+    await prepareLibreOfficeProfile(profile, { libreOffice: path.join(program, 'soffice.com') }); await writeFile(input, 'Office conversion diagnostic fixture')
     const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'pdf']
     const env = { SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { SAL_LOK_OPTIONS: 'unipoll' } : {}) }
     console.log(`Office probe: ${mode}`)
