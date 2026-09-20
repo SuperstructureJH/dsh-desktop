@@ -27,7 +27,7 @@ for (const mode of ['trusted-fixture', 'isolated']) {
     try {
       const result = mode === 'trusted-fixture'
         ? await runProcess(argv, { cwd: job, env: { ...env, HOME: job, USERPROFILE: job, APPDATA: job, LOCALAPPDATA: job, TMP: job, TEMP: job }, timeoutMs: 25000 })
-        : await runIsolated(argv, { job, readRoots: [path.dirname(program)], windowsSandbox: path.join(root, 'bin/office-sandbox.exe'), timeoutMs: 25000, env })
+        : await runIsolated(argv, { job, readRoots: [root], windowsSandbox: path.join(root, 'bin/office-sandbox.exe'), timeoutMs: 25000, env })
       const outputBytes = await stat(output).then(s => s.size).catch(() => 0)
       console.log(JSON.stringify({ mode, code: result.code, stdout: result.stdout, stderr: result.stderr, outputBytes }))
       if (mode === 'isolated') isolatedReady = result.code === 0 && outputBytes > 0

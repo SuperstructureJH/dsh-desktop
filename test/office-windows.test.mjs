@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { bundledRuntimeRoot, confinementArgv, libreOfficeConversionArgv, prepareLibreOfficeProfile, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
+import { bundledRuntimeRoot, confinementArgv, libreOfficeConversionArgv, libreOfficeReadRoots, prepareLibreOfficeProfile, runtimeEnvironment } from '../packages/dsh-office/lib/runtime.js'
 
 it('discovers engines after Windows installer and app relocation, including packaged Node', () => {
   for (const app of ['C:\\Users\\user\\AppData\\Local\\Programs\\DSH Desktop', 'D:\\中文目录\\DSH Dev']) {
@@ -73,4 +73,11 @@ it('prepares independent Windows profiles from the shipped presets before markin
     await expect(prepareLibreOfficeProfile(path.join(root, 'missing'), { libreOffice: path.join(root, 'absent/program/soffice.com') }, 'win32')).rejects.toThrow()
     await expect(fs.access(path.join(root, 'missing/user/registrymodifications.xcu'))).rejects.toThrow()
   } finally { await fs.rm(root, { recursive: true, force: true }) }
+})
+
+it('bounds Windows conversion discovery to the dedicated bundled engines', () => {
+  const root = 'D:\\中文 应用\\resources\\office-runtime'
+  expect(libreOfficeReadRoots(root + '\\libreoffice\\program\\soffice.com', root, 'win32')).toEqual([root])
+  expect(() => libreOfficeReadRoots('C:\\Program Files\\LibreOffice\\program\\soffice.com', root, 'win32')).toThrow('inside the configured runtime bundle')
+  expect(() => libreOfficeReadRoots(root + '\\libreoffice\\program\\soffice.com', undefined, 'win32')).toThrow('configured runtime bundle')
 })

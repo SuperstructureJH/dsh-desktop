@@ -193,11 +193,24 @@ export async function resolveRuntime(config = {}, signal, kind = 'all') {
     result.libreOffice = await executable([config.libreOffice, bundledRoot && path.join(bundledRoot, 'libreoffice', ...(windows ? ['program', 'soffice.com'] : ['LibreOffice.app', 'Contents', 'MacOS', 'soffice'])), ...(windows ? ['soffice.com', 'soffice.exe'] : ['/Applications/LibreOffice.app/Contents/MacOS/soffice', 'soffice', 'libreoffice'])])
     if (result.libreOffice) {
       if (windows) result.windowsConverter = await executable([path.join(path.dirname(result.libreOffice), 'dsh-office-convert.exe')])
-      const app = result.libreOffice.indexOf('.app/')
-      result.loReadRoots = [app >= 0 ? result.libreOffice.slice(0, app + 4) : path.dirname(path.dirname(result.libreOffice))]
+      result.loReadRoots = libreOfficeReadRoots(result.libreOffice, bundledRoot)
     }
   }
   return result
+}
+
+export function libreOfficeReadRoots(executablePath, bundledRoot, platform = process.platform) {
+  if (platform === 'win32') {
+    const expected = bundledRoot && path.win32.join(bundledRoot, 'libreoffice', 'program', 'soffice.com')
+    if (!expected || path.win32.normalize(executablePath).toLowerCase() !== expected.toLowerCase())
+      throw new Error('Windows Office conversion requires LibreOffice inside the configured runtime bundle')
+    // Bootstrap checks the LibreOffice installation directory with FindFirstFile.
+    // Its parent must be enumerable, so the boundary is the dedicated engine
+    // bundle, which contains only staged runtimes and their license notices.
+    return [bundledRoot]
+  }
+  const app = executablePath.indexOf('.app/')
+  return [app >= 0 ? executablePath.slice(0, app + 4) : path.dirname(path.dirname(executablePath))]
 }
 
 export async function authorScript({ language, source, inputs, outputName, job, config, signal }) {
