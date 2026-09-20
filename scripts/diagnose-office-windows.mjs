@@ -11,12 +11,12 @@ const program = path.join(root, 'libreoffice/program')
 const converter = path.join(program, 'dsh-office-convert.exe')
 const stacks = path.join(path.dirname(root), 'office-thread-stacks.exe')
 let isolatedReady = false
-for (const mode of ['trusted-fixture', 'isolated', 'isolated-unipoll']) {
+for (const mode of ['trusted-fixture', 'isolated']) {
   await withJob(async job => {
     const profile = path.join(job, 'profile'), input = path.join(job, 'input.txt'), output = path.join(job, 'output.pdf')
     await prepareLibreOfficeProfile(profile, { libreOffice: path.join(program, 'soffice.com') }); await writeFile(input, 'Office conversion diagnostic fixture')
     const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'pdf']
-    const env = { SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { SAL_LOK_OPTIONS: 'unipoll' } : {}) }
+    const env = { DSH_OFFICE_DIAGNOSTICS: '1', SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { SAL_LOK_OPTIONS: 'unipoll' } : {}) }
     console.log(`Office probe: ${mode}`)
     const timer = setTimeout(() => {
       try {

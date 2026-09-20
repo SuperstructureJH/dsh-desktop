@@ -24,6 +24,37 @@ static std::string engineError(LibreOfficeKit* kit) {
   if (error) kit->pClass->freeError(error);
   return result;
 }
+// CI startup diagnostics use the engine's own stable SAL filesystem API.
+static void probePaths(HMODULE sal, wchar_t** argv) {
+  struct String;
+  using NewString = void (*)(String**, const wchar_t*);
+  using Release = void (*)(String*);
+  using Convert = int (*)(String*, String**);
+  using Absolute = int (*)(String*, String*, String**);
+  using Item = int (*)(String*, void**);
+  using ReleaseItem = int (*)(void*);
+  auto create = reinterpret_cast<NewString>(GetProcAddress(sal, "rtl_uString_newFromStr"));
+  auto release = reinterpret_cast<Release>(GetProcAddress(sal, "rtl_uString_release"));
+  auto toUrl = reinterpret_cast<Convert>(GetProcAddress(sal, "osl_getFileURLFromSystemPath"));
+  auto absolute = reinterpret_cast<Absolute>(GetProcAddress(sal, "osl_getAbsoluteFileURL"));
+  auto item = reinterpret_cast<Item>(GetProcAddress(sal, "osl_getDirectoryItem"));
+  auto releaseItem = reinterpret_cast<ReleaseItem>(GetProcAddress(sal, "osl_releaseDirectoryItem"));
+  if (!create || !release || !toUrl || !absolute || !item || !releaseItem)
+    throw std::runtime_error("SAL filesystem diagnostic API is missing");
+  for (int i = 1; i <= 3; ++i) {
+    String *url = nullptr, *normalized = nullptr;
+    create(&url, argv[i]);
+    if (i == 1) { String* converted = nullptr; int rc = toUrl(url, &converted); release(url); url = converted; std::cerr << "SAL path " << i << " toURL=" << rc << '\n'; }
+    if (!url) continue;
+    int rc = absolute(nullptr, url, &normalized);
+    void* handle = nullptr;
+    int found = item(normalized ? normalized : url, &handle);
+    std::cerr << "SAL path " << i << " absolute=" << rc << " item=" << found << '\n';
+    if (handle) releaseItem(handle);
+    if (normalized) release(normalized);
+    release(url);
+  }
+}
 int wmain(int argc, wchar_t** argv) {
   try {
     if (argc != 6) throw std::runtime_error("Expected program directory, profile URL, input URL, output URL and format");
@@ -41,6 +72,7 @@ int wmain(int argc, wchar_t** argv) {
       if (library) break;
     }
     if (!library) throw std::runtime_error("Load LibreOfficeKit: " + std::to_string(GetLastError()));
+    if (GetEnvironmentVariableW(L"DSH_OFFICE_DIAGNOSTICS", nullptr, 0)) probePaths(GetModuleHandleW(L"sal3.dll"), argv);
     // Keep the module loaded until process exit; LibreOffice owns global objects.
     using Initialize = LibreOfficeKit* (*)(const char*, const char*);
     auto initialize = reinterpret_cast<Initialize>(GetProcAddress(library, "libreofficekit_hook_2"));
