@@ -65,11 +65,6 @@ try {
   $converter = Join-Path $pending 'libreoffice/program/dsh-office-convert.exe'
   & cl.exe /nologo /std:c++17 /O2 /W4 /WX /MT /EHsc /guard:cf /DUNICODE /D_UNICODE "/I$(Join-Path $repo 'native/office-convert/include')" (Join-Path $repo 'native/office-convert/main.cpp') "/Fe:$converter" "/Fo:$(Join-Path $scratch 'office-convert.obj')" /link /DYNAMICBASE /NXCOMPAT
   if ($LASTEXITCODE -ne 0) { throw 'Office LibreOfficeKit worker compilation failed.' }
-  if ($env:CI) {
-    $stacks = Join-Path (Split-Path $OutputRoot -Parent) 'office-thread-stacks.exe'
-    & cl.exe /nologo /std:c++17 /O2 /W4 /WX /MT /EHsc (Join-Path $repo 'scripts/windows-office-stacks.cpp') "/Fe:$stacks" "/Fo:$(Join-Path $scratch 'office-thread-stacks.obj')"
-    if ($LASTEXITCODE -ne 0) { throw 'Office CI stack probe compilation failed.' }
-  }
   # Keep the licensed engines intact, including their bundled notices and DLLs.
   $links = @(Get-ChildItem $pending -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint })
   if ($links.Count) { throw 'Office runtime staging requires regular files and directories.' }

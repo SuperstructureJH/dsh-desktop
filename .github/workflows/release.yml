@@ -338,7 +338,7 @@ jobs:
           "DSH_OFFICE_TEST_OUTPUT=$(Join-Path $env:GITHUB_WORKSPACE 'artifacts/office-windows/native')" >> $env:GITHUB_ENV
           "DSH_OFFICE_REQUIRE_NATIVE=1" >> $env:GITHUB_ENV
       - name: Verify Windows Office engine startup
-        run: node scripts/diagnose-office-windows.mjs
+        run: node scripts/verify-office-windows-startup.mjs
       - name: Verify Windows Office execution and isolation
         run: npm test -- test/office-native-runtime.test.mjs test/office-windows-native.test.mjs test/office-windows.test.mjs
       - run: npm test -- --exclude test/office-native-runtime.test.mjs --exclude test/office-windows-native.test.mjs

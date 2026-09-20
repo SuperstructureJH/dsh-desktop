@@ -7,7 +7,10 @@ enforces filesystem, network, process and timeout policy.
 
 LibreOfficeKit initializes `RequestHandler` with desktop-instance IPC disabled.
 This matches the worker's one-process, one-profile lifecycle and the Windows
-AppContainer named-object namespace.
+AppContainer named-object namespace. Its unipoll event loop owns both Windows
+VCL controls and document calls. A message-only window's one-shot timer performs
+the conversion after Desktop startup has entered message processing, then
+closes the document and engine through normal shutdown.
 
 The unmodified headers in `include/LibreOfficeKit` come from LibreOffice
 `libreoffice-26.2.6.2`, under Mozilla Public License 2.0:

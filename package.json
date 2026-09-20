@@ -409,7 +409,7 @@
         "from": "packages/dsh-office/business-skills/source",
         "to": "app/node_modules/dsh-office/business-skills/source",
         "filter": [
-          "**/.gitignore"
+          "**/*"
         ]
       },
       {

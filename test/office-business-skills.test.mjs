@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, readdir, rm, symlink, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { copyFiles, getFileMatchers } from 'app-builder-lib/out/fileMatcher.js'
 import { afterEach, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { SkillRegistry } from '@deepseek-ai/dsh-skill'
@@ -55,13 +56,24 @@ it('preserves and loads 185 original Skills plus government writing and all 678 
   expect(await businessSkills.get('unknown-skill')).toBeUndefined()
 })
 
-it('copies catalogue resources that electron-builder excludes from its normal application file set', () => {
-  expect(packageManifest.build.extraResources).toContainEqual({
-    from: 'packages/dsh-office/business-skills/source',
-    to: 'app/node_modules/dsh-office/business-skills/source',
-    filter: ['**/.gitignore']
-  })
-  expect(businessSkills.details('humanizer-zh').files.some(file => file.file === '.gitignore')).toBe(true)
+it('packages every hash-bound Skill resource using the actual electron-builder copy rules', async () => {
+  const output = await temp(), root = fileURLToPath(new URL('../', import.meta.url))
+  const source = path.join(root, 'packages/dsh-office/business-skills/source')
+  const matchers = getFileMatchers(packageManifest.build, 'extraResources', output, {
+    defaultSrc: root, globalOutDir: output, customBuildOptions: {}, macroExpander: value => value
+  }).filter(matcher => matcher.from === source)
+  expect(matchers).toHaveLength(1)
+  await copyFiles(matchers)
+  let resources = 0
+  for (const entry of businessSkills.catalog.entries) {
+    for (const [file, expected] of Object.entries(entry.files)) {
+      const bytes = await readFile(path.join(output, 'app/node_modules/dsh-office/business-skills/source', entry.name, file))
+      expect(bytes.length).toBe(expected.bytes)
+      expect(sha256(bytes)).toBe(expected.sha256)
+      resources++
+    }
+  }
+  expect(resources).toBe(678)
 })
 
 it('publishes real session catalogue summaries and loads a selected business Skill through the host skill tool', async () => {

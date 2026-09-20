@@ -56,6 +56,7 @@ Actions 的 `windows-x64-dev` 提供开发安装包，`windows-office-evidence` 
 
 ## 证据状态
 
-- 本地 macOS：全量回归 128 个文件、1129 项测试通过，6 项平台/引擎测试跳过；Windows 路径、命令参数和环境合同定向测试通过；类型检查和应用构建通过。
-- Windows 原生自动化、安装包内 Office 功能：等待本次 Windows CI。
+- 本地 macOS，Desktop 内置 Node `24.9.0`：全量回归 128 个文件、1132 项测试通过，7 项平台/引擎测试跳过；Windows 路径、命令参数、私有 profile 和环境合同定向测试通过；类型检查和应用构建通过。
+- Windows 原生 Word/Excel 创建、局部修改、公式重算、图表、PDF 导出及访问隔离与进程清理：14 项测试通过；全量 Windows 回归、类型检查、构建和三种显示缩放的恢复界面检查通过。[CI 记录](https://github.com/dataelement/dsh-desktop/actions/runs/35490465978)。转换器在同一线程运行 LibreOffice 事件循环与文档操作，解决 Excel 加载时的跨线程窗口死锁。
+- 上述 CI 已构建安装包，并通过移出源码目录后的 Harness 启动、原生 koffi 和 Office/PPT RPC 检查。Office 包内资源检查发现通用依赖裁剪移除了目录声明的 Skill README；本次改为完整复制受版本和哈希约束的资源目录，等待最终安装包验证。
 - 同事 Windows 实机界面、真实模型任务、Word/Excel/WPS 保存重开：`NOT_RUN`。
