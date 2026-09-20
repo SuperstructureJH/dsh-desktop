@@ -56,6 +56,6 @@ Actions 的 `windows-x64-dev` 提供开发安装包，`windows-office-evidence` 
 
 ## 证据状态
 
-- 本地 macOS：Windows 路径、命令参数和环境合同定向测试通过；类型检查和应用构建通过。
+- 本地 macOS：全量回归 128 个文件、1128 项测试通过，6 项平台/引擎测试跳过；Windows 路径、命令参数和环境合同定向测试通过；类型检查和应用构建通过。
 - Windows 原生自动化、安装包内 Office 功能：等待本次 Windows CI。
 - 同事 Windows 实机界面、真实模型任务、Word/Excel/WPS 保存重开：`NOT_RUN`。

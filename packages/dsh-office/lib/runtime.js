@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
@@ -30,7 +30,7 @@ async function executable(candidates, preserveLink = false) {
 export function runProcess(argv, { cwd, env = {}, signal, timeoutMs = 120000, cooperativeCancel = false } = {}) {
   signal?.throwIfAborted()
   return new Promise((resolve, reject) => {
-    let stdout = '', stderr = '', bytes = 0, failure, forceTimer
+    let stdout = '', stderr = '', bytes = 0, failure, forceTimer, stopping = false
     const child = spawn(argv[0], argv.slice(1), {
       cwd, env: { ...runtimeEnvironment(), ...env },
       stdio: [cooperativeCancel ? 'pipe' : 'ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true
@@ -39,6 +39,8 @@ export function runProcess(argv, { cwd, env = {}, signal, timeoutMs = 120000, co
       try { if (process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL') } catch { /* settled */ }
     }
     const stop = () => {
+      if (stopping) return
+      stopping = true
       if (cooperativeCancel && !child.stdin.destroyed) {
         child.stdin.end('cancel\n')
         forceTimer ??= setTimeout(kill, 10000)
@@ -94,6 +96,12 @@ export function confinementArgv(argv, job, readRoots, { platform = process.platf
 
 export async function runIsolated(argv, { job, readRoots = [], signal, timeoutMs = 120000, env = {}, bwrap, windowsSandbox } = {}) {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 600000) throw new Error('Office timeout must be between 1 and 600000 ms')
+  if (process.platform === 'win32') {
+    // Python sys.path includes the stdlib ZIP. Grant its containing runtime
+    // directory once, with nested roots removed before ACL propagation.
+    const directories = [...new Set(await Promise.all(readRoots.map(async p => (await stat(p)).isDirectory() ? p : path.dirname(p))))]
+    readRoots = directories.filter(p => !directories.some(other => other !== p && !path.relative(other, p).startsWith('..') && !path.isAbsolute(path.relative(other, p))))
+  }
   const wrapped = confinementArgv(argv, job, readRoots, { bwrap, windowsSandbox, timeoutMs })
   const result = await runProcess(wrapped, {
     cwd: job, signal, timeoutMs: timeoutMs + (process.platform === 'win32' ? 15000 : 0), cooperativeCancel: process.platform === 'win32',
