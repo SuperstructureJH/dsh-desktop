@@ -83,6 +83,7 @@ export interface EnterprisePublicState {
   usage?: EnterprisePublicUsage
   modelUsage?: Record<string, EnterprisePublicUsage>
   error?: string
+  errorCode?: string
   requestId?: string
   loginExpiresAt?: string
 }
@@ -137,6 +138,7 @@ export class EnterpriseService {
   private usage: EnterprisePublicUsage | undefined
   private modelUsage: Record<string, EnterprisePublicUsage> = {}
   private error: string | undefined
+  private errorCode: string | undefined
   private requestId: string | undefined
   private pendingLogin: PendingLogin | undefined
   private modelsTimer: NodeJS.Timeout | undefined
@@ -172,6 +174,7 @@ export class EnterpriseService {
       ...(this.usage ? { usage: { ...this.usage } } : {}),
       ...(Object.keys(this.modelUsage).length > 0 ? { modelUsage: { ...this.modelUsage } } : {}),
       ...(this.error ? { error: this.error } : {}),
+      ...(this.error && this.errorCode ? { errorCode: this.errorCode } : {}),
       ...(this.requestId ? { requestId: this.requestId } : {}),
       ...(this.pendingLogin?.expiresAt
         ? { loginExpiresAt: new Date(this.pendingLogin.expiresAt).toISOString() }
@@ -199,6 +202,7 @@ export class EnterpriseService {
       this.error = error instanceof EnterpriseVaultError
         ? error.message
         : 'Enterprise credential vault could not be opened.'
+      this.errorCode = undefined
       this.publish()
     }
   }
@@ -406,6 +410,7 @@ export class EnterpriseService {
     if (result.error || !result.identityTicket) {
       this.phase = this.session?.access_token ? 'connected' : 'idle'
       this.error = 'Enterprise login was cancelled.'
+      this.errorCode = undefined
       this.publish()
       this.note('login_cancelled')
       return
@@ -522,6 +527,7 @@ export class EnterpriseService {
       this.modelUsage = {}
       this.phase = 'reauthRequired'
       this.error = 'Enterprise credentials could not be saved. Sign in again.'
+      this.errorCode = undefined
       this.clearModelsTimer()
       this.publish()
       try {
@@ -852,6 +858,7 @@ export class EnterpriseService {
     } catch {
       this.phase = 'error'
       this.error = 'Enterprise credentials could not be cleared.'
+      this.errorCode = undefined
     }
     this.publish()
   }
@@ -912,16 +919,21 @@ export class EnterpriseService {
 
   private clearError(): void {
     this.error = undefined
+    this.errorCode = undefined
     this.requestId = undefined
   }
 
   private rememberRequest(error?: unknown, requestId?: string): void {
     if (error instanceof EnterprisePlatformError) {
       this.error = error.message
+      this.errorCode = typeof error.code === 'string' && error.code.length > 0 ? error.code : undefined
       this.requestId = sanitizeRequestId(error.requestId)
       return
     }
-    if (error instanceof Error) this.error = error.message
+    if (error instanceof Error) {
+      this.error = error.message
+      this.errorCode = undefined
+    }
     if (requestId) this.requestId = sanitizeRequestId(requestId)
   }
 
@@ -963,6 +975,7 @@ function publicStateSignature(state: EnterprisePublicState): string {
     usage: state.usage,
     modelUsage: state.modelUsage,
     error: state.error,
+    errorCode: state.errorCode,
     requestId: state.requestId
   })
 }

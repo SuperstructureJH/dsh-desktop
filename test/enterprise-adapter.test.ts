@@ -2,6 +2,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
 import { apply as applyEnterprise } from '../packages/dsh-desktop-enterprise/index.js'
 import { startEnterpriseCredentialBroker } from '../src/main/enterprise/credential-broker'
 import { createEnterpriseFetch } from '../src/main/enterprise/platform-fetch'
@@ -213,5 +214,37 @@ describe('enterprise adapter with a Broker', () => {
       phase: expect.stringMatching(/refreshing|connected/)
     })
     expect(registered).toContainEqual(['bisheng-enterprise'])
+  })
+})
+
+describe('enterprise chat failure copy', () => {
+  async function loadFormatEnterpriseChatFailure() {
+    const source = await readFile(join(import.meta.dirname, '../packages/dsh-desktop-enterprise/openai.js'), 'utf8')
+    const start = source.indexOf('const LOCAL_CHAT_FAILURES')
+    const end = source.indexOf('\nfunction requestFailure')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(end).toBeGreaterThan(start)
+    return new Function(`${source.slice(start, end)}; return formatEnterpriseChatFailure`)() as (
+      status: number,
+      payload: unknown,
+      language: string
+    ) => string
+  }
+
+  it('localizes the generic status fallback and known local 409 reasons', async () => {
+    const formatEnterpriseChatFailure = await loadFormatEnterpriseChatFailure()
+    expect(formatEnterpriseChatFailure(409, {}, 'zh-CN')).toBe('毕昇模型请求失败（409）。')
+    expect(formatEnterpriseChatFailure(409, {}, 'en-US')).toBe('BiSheng model request failed (409).')
+    expect(formatEnterpriseChatFailure(409, { error: 'Enterprise models are unavailable.' }, 'zh-CN'))
+      .toBe('企业模型暂不可用。')
+    expect(formatEnterpriseChatFailure(409, { error: 'Enterprise session changed.' }, 'en-US'))
+      .toBe('Enterprise session changed.')
+  })
+
+  it('keeps an upstream Chinese message instead of replacing it', async () => {
+    const formatEnterpriseChatFailure = await loadFormatEnterpriseChatFailure()
+    expect(formatEnterpriseChatFailure(429, {
+      error: { message: '账户额度不足，请联系服务商咨询用量限制。', code: 'monthly_token_limit_exceeded' }
+    }, 'en-US')).toBe('账户额度不足，请联系服务商咨询用量限制。')
   })
 })

@@ -14,11 +14,14 @@ describe('DSH Desktop enterprise package', () => {
       path.join(projectRoot, 'packages', 'dsh-desktop-enterprise', 'package.json'),
       'utf8'
     )) as {
-      dsh?: { client?: unknown }
+      dsh?: { client?: { inject?: string[] } }
       exports?: Record<string, unknown>
     }
 
     expect(packageJson.dsh?.client).toBeTruthy()
+    expect(packageJson.dsh?.client).toMatchObject({
+      inject: ['@deepseek-ai/dsh-client-locale', '@deepseek-ai/dsh-client-ui-settings']
+    })
     expect(packageJson.exports?.['./client']).toBe('./client.js')
   })
 
@@ -79,6 +82,11 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain('identityTicket')
     expect(client).toContain("ticket: '一次性登录码'")
     expect(client).toContain("submitTicket: '完成登录'")
+    expect(client).toContain("const inject = ['slots', 'locale']")
+    expect(client).toContain("ctx.locale.register(NS, { zh, en })")
+    expect(client).toContain("const t = ctx.locale.bind(NS)")
+    expect(client).toContain("label: () => t('nav')")
+    expect(client).not.toContain('navigator.language')
     expect(client).not.toContain('copy.manualTitle')
     expect(client).not.toContain('copy.manualHint')
     expect(client).not.toContain('copy.manualToggle')
@@ -98,16 +106,16 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain("className: 'dshEnterpriseModelUsageValue'")
     expect(client).toContain("className: 'dshEnterpriseModelUsagePercent'")
     expect(client).toContain('maximumFractionDigits: 1')
-    const percentageBody = client.match(/function modelUsagePercentage\(usage\) \{([\s\S]*?)\n    \}/)?.[1]
+    const percentageBody = client.match(/function modelUsagePercentage\(usage, language, t\) \{([\s\S]*?)\n    \}/)?.[1]
     expect(percentageBody).toBeDefined()
-    const formatPercentage = new Function('usage', 'zh', 'usageText', percentageBody!)
-    expect(formatPercentage({ used: 10000, limit: 8000 }, true)).toBe('100%')
-    expect(formatPercentage({ used: 4000, limit: 8000 }, true)).toBe('50%')
+    const formatPercentage = new Function('usage', 'language', 't', 'usageText', percentageBody!)
+    expect(formatPercentage({ used: 10000, limit: 8000 }, 'zh-CN')).toBe('100%')
+    expect(formatPercentage({ used: 4000, limit: 8000 }, 'zh-CN')).toBe('50%')
     expect(client).toContain('`${usage.used.toLocaleString()} / ${usage.limit.toLocaleString()}`')
     expect(client).toContain('.dshEnterpriseModelUsage{color:var(--ds-text-secondary,#6d7178)')
     expect(client).toContain("refresh: '刷新'")
     expect(client).toContain("className: 'dshEnterpriseIconButton'")
-    expect(client).toContain("'aria-label': copy.refresh")
+    expect(client).toContain("'aria-label': t('refresh')")
     expect(client).toContain("h('span', { 'aria-hidden': 'true' }, '↻')")
     expect(client).toContain('.dshEnterpriseButton.login{border-color:')
     expect(client).toContain("h('button', { className: 'dshEnterpriseButton login', disabled: busy || !base.trim()")
@@ -116,6 +124,25 @@ describe('DSH Desktop enterprise package', () => {
     expect(client).toContain('confirmInsecurePrivateHttp: true')
     expect(client).toContain("insecureTitle: '确认使用内网 HTTP'")
     expect(client).not.toContain("h('button', { className: 'dshEnterpriseButton primary', disabled: busy || !base.trim()")
+    expect(client).toContain("seatRevoked: '席位已撤销'")
+    expect(client).toContain("seatRevoked: 'Seat revoked'")
+    expect(client).toContain('formatEnterpriseSettingsError(error, undefined, t)')
+    expect(client).toContain('formatEnterpriseSettingsError(state?.error, state?.errorCode, t)')
+    const errorBody = client.match(/function formatEnterpriseSettingsError\(failure, errorCode, t\) \{([\s\S]*?)\n    \}/)?.[1]
+    expect(errorBody).toBeDefined()
+    const formatSettingsError = new Function('failure', 'errorCode', 't', errorBody!) as (
+      failure: unknown,
+      errorCode: unknown,
+      t: (key: string) => string
+    ) => string
+    const zhT = (key: string) => key === 'seatRevoked' ? '席位已撤销' : key
+    const enT = (key: string) => key === 'seatRevoked' ? 'Seat revoked' : key
+    expect(formatSettingsError('seat revoked', undefined, zhT)).toBe('席位已撤销')
+    expect(formatSettingsError('seat revoked.', 'seat_revoked', zhT)).toBe('席位已撤销')
+    expect(formatSettingsError('unknown upstream', 'seat_revoked', zhT)).toBe('席位已撤销')
+    expect(formatSettingsError('账户额度不足，请联系服务商咨询用量限制。', undefined, zhT))
+      .toBe('账户额度不足，请联系服务商咨询用量限制。')
+    expect(formatSettingsError('seat revoked', undefined, enT)).toBe('Seat revoked')
   })
 
   it('waits for connection and llm before applying the Harness adapter', () => {

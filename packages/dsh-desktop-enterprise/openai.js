@@ -144,6 +144,47 @@ export async function* parseSseEvents(body, signal) {
   }
 }
 
+const LOCAL_CHAT_FAILURES = Object.freeze({
+  'Enterprise models are unavailable.': {
+    zh: '企业模型暂不可用。',
+    en: 'Enterprise models are unavailable.'
+  },
+  'Enterprise session changed.': {
+    zh: '企业会话已变更。',
+    en: 'Enterprise session changed.'
+  }
+})
+
+function isChineseLocale(language) {
+  return String(language || '').toLowerCase().startsWith('zh')
+}
+
+function readUiLanguage() {
+  return typeof navigator === 'object' && navigator && typeof navigator.language === 'string'
+    ? navigator.language
+    : 'en'
+}
+
+function formatEnterpriseChatFailure(status, payload, language) {
+  const zh = isChineseLocale(language)
+  const objectError = payload && typeof payload === 'object' && !Array.isArray(payload)
+    && payload.error && typeof payload.error === 'object' && !Array.isArray(payload.error)
+    ? payload.error
+    : null
+  const objectMessage = typeof objectError?.message === 'string' && objectError.message.length > 0
+    ? objectError.message
+    : ''
+  const stringError = payload && typeof payload === 'object' && !Array.isArray(payload)
+    && typeof payload.error === 'string'
+    ? payload.error
+    : ''
+  const raw = objectMessage || stringError
+  const local = LOCAL_CHAT_FAILURES[raw]
+  if (local) return zh ? local.zh : local.en
+  if (raw) return raw
+  return zh ? `毕昇模型请求失败（${status}）。` : `BiSheng model request failed (${status}).`
+}
+
 function requestFailure(status, requestId, payload) {
   const error = payload && typeof payload === 'object' && !Array.isArray(payload) &&
     payload.error && typeof payload.error === 'object' && !Array.isArray(payload.error)
@@ -162,9 +203,7 @@ function requestFailure(status, requestId, payload) {
             ? 'RATE_LIMIT'
             : 'PROVIDER_ERROR'
   return new LlmError(
-    typeof error.message === 'string' && error.message.length > 0
-      ? error.message
-      : `BiSheng model request failed (${status}).`,
+    formatEnterpriseChatFailure(status, payload, readUiLanguage()),
     mapped,
     {
       status,

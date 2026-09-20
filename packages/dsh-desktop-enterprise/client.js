@@ -11,29 +11,34 @@ window.__ModuleLoader__.load({
     const MANUAL_FALLBACK_DELAY_MS = 8_000
     const ENTERPRISE_SECTION_ID = 'enterprise-account'
     const OPEN_SETTINGS_SECTION_EVENT = 'dsh-desktop:open-settings-section'
-    const zh = navigator.language.toLowerCase().startsWith('zh')
-    const copy = zh ? {
+    const NS = 'settings.desktopEnterprise'
+    const zh = {
       nav: '账号与企业', title: '企业账号', platform: '毕昇平台地址',
       login: '在浏览器中登录', loggingIn: '等待浏览器授权…',
       ticket: '一次性登录码', submitTicket: '完成登录',
       refresh: '刷新', logout: '退出登录', models: '可用模型', noModels: '当前账号没有可用模型。',
-      modelsUnavailable: '模型权限读取失败，企业模型已暂停。', usageUnavailable: '用量暂不可用',
+      usageUnavailable: '用量暂不可用',
+      limitZero: '额度为 0，模型调用已停用',
       secureUnavailable: '系统安全存储不可用，企业登录已停用。',
       confirmTitle: '确认毕昇平台', confirmLead: '确认后会停用当前企业模型连接，并在该平台新建一次 PKCE 登录。',
       insecureTitle: '确认使用内网 HTTP',
       insecureLead: '该地址是内网明文 HTTP。登录票据和令牌会在局域网上明文传输，仅在你信任的企业内网继续。',
-      confirm: '确认并登录', insecureConfirm: '我了解风险，继续登录', cancel: '取消', requestId: '请求 ID'
-    } : {
+      confirm: '确认并登录', insecureConfirm: '我了解风险，继续登录', cancel: '取消', requestId: '请求 ID',
+      seatRevoked: '席位已撤销'
+    }
+    const en = {
       nav: 'Account & Enterprise', title: 'Enterprise account', platform: 'BiSheng platform URL',
       login: 'Sign in in browser', loggingIn: 'Waiting for browser authorization…',
       ticket: 'One-time code', submitTicket: 'Complete sign-in',
       refresh: 'Refresh', logout: 'Sign out', models: 'Available models', noModels: 'No models are assigned to this account.',
-      modelsUnavailable: 'Model access could not be verified. Enterprise models are paused.', usageUnavailable: 'Usage unavailable',
+      usageUnavailable: 'Usage unavailable',
+      limitZero: 'Limit is 0; model calls are disabled',
       secureUnavailable: 'Operating-system secure storage is unavailable. Enterprise sign-in is disabled.',
       confirmTitle: 'Confirm BiSheng platform', confirmLead: 'Continuing pauses the current enterprise connection and starts a new PKCE login at this platform.',
       insecureTitle: 'Confirm intranet HTTP',
       insecureLead: 'This address is cleartext HTTP on a private network. Login tickets and tokens will travel unencrypted on the LAN. Continue only on a network you trust.',
-      confirm: 'Confirm and sign in', insecureConfirm: 'I understand, continue', cancel: 'Cancel', requestId: 'Request ID'
+      confirm: 'Confirm and sign in', insecureConfirm: 'I understand, continue', cancel: 'Cancel', requestId: 'Request ID',
+      seatRevoked: 'Seat revoked'
     }
 
     function installStyles() {
@@ -66,10 +71,10 @@ window.__ModuleLoader__.load({
       return payload
     }
 
-    function usageText(usage) {
-      if (!usage || usage.source === 'unavailable' || usage.quota_state === 'unavailable') return copy.usageUnavailable
-      if (usage.limit === 0) return zh ? '额度为 0，模型调用已停用' : 'Limit is 0; model calls are disabled'
-      if (usage.used === null || usage.limit === null) return copy.usageUnavailable
+    function usageText(usage, t) {
+      if (!usage || usage.source === 'unavailable' || usage.quota_state === 'unavailable') return t('usageUnavailable')
+      if (usage.limit === 0) return t('limitZero')
+      if (usage.used === null || usage.limit === null) return t('usageUnavailable')
       return `${usage.used.toLocaleString()} / ${usage.limit.toLocaleString()}`
     }
 
@@ -97,14 +102,30 @@ window.__ModuleLoader__.load({
       window.setTimeout(dispatch, 0)
     }
 
-    function modelUsagePercentage(usage) {
-      if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) return usageText(usage)
+    function formatEnterpriseSettingsError(failure, errorCode, t) {
+      const text = typeof failure === 'string' ? failure.trim() : ''
+      const code = typeof errorCode === 'string' ? errorCode : ''
+      if (code === 'seat_revoked' || /^seat revoked\.?$/i.test(text)) return t('seatRevoked')
+      return text
+    }
+
+    function modelUsagePercentage(usage, language, t) {
+      if (!usage || typeof usage.used !== 'number' || typeof usage.limit !== 'number' || usage.limit <= 0) {
+        return usageText(usage, t)
+      }
+      const zhLocale = String(language || '').toLowerCase().startsWith('zh')
       const percentage = Math.min(100, Math.max(0, usage.used / usage.limit * 100))
-      const formatted = new Intl.NumberFormat(zh ? 'zh-CN' : 'en-US', { maximumFractionDigits: 1 }).format(percentage)
+      const formatted = new Intl.NumberFormat(zhLocale ? 'zh-CN' : 'en-US', { maximumFractionDigits: 1 }).format(percentage)
       return `${formatted}%`
     }
 
-    function EnterpriseSection() {
+    function readUiLanguage() {
+      return typeof document === 'object' && document.documentElement?.lang
+        ? document.documentElement.lang
+        : 'en'
+    }
+
+    function EnterpriseSection({ t }) {
       const [state, setState] = useState(null)
       const [base, setBase] = useState(readLastBase)
       const [ticket, setTicket] = useState('')
@@ -170,6 +191,7 @@ window.__ModuleLoader__.load({
       const connected = state?.connected === true
       const models = Array.isArray(state?.models) ? state.models : []
       const userLabel = state?.user?.display_name || state?.user?.username || state?.user?.id || '—'
+      const language = readUiLanguage()
 
       const status = connected ? h('div', { className: 'dshEnterpriseIdentity' },
         h('span', { className: 'dshEnterpriseDot', 'aria-hidden': 'true' }),
@@ -178,12 +200,12 @@ window.__ModuleLoader__.load({
       const accountContent = connected
         ? h(React.Fragment, null,
           h('div', { className: 'dshEnterpriseSectionHeader' },
-            h('h3', null, copy.models),
+            h('h3', null, t('models')),
             h('button', {
               className: 'dshEnterpriseIconButton',
               type: 'button',
-              title: copy.refresh,
-              'aria-label': copy.refresh,
+              title: t('refresh'),
+              'aria-label': t('refresh'),
               disabled: busy,
               onClick: () => run(async () => setState(await api('/api/enterprise.refresh', {})))
             }, h('span', { 'aria-hidden': 'true' }, '↻'))),
@@ -191,22 +213,22 @@ window.__ModuleLoader__.load({
             ? h('ul', { className: `dshEnterpriseModels${state.modelsAvailable ? '' : ' paused'}` },
               ...models.map((model) => {
                 const usage = state.modelUsage?.[model.id]
-                const value = usageText(usage)
-                const percentage = modelUsagePercentage(usage)
+                const value = usageText(usage, t)
+                const percentage = modelUsagePercentage(usage, language, t)
                 return h('li', { key: model.id, title: `${value} · ${percentage}` },
                   h('span', null, model.display_name),
                   h('span', { className: 'dshEnterpriseModelUsage' },
                     h('span', { className: 'dshEnterpriseModelUsageValue' }, value),
                     h('span', { className: 'dshEnterpriseModelUsagePercent', 'aria-hidden': 'true' }, percentage)))
               }))
-            : h('p', { className: 'dshEnterpriseHint' }, copy.noModels),
+            : h('p', { className: 'dshEnterpriseHint' }, t('noModels')),
           h('div', { className: 'dshEnterpriseActions' },
-            h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.logout', {}))) }, copy.logout)))
+            h('button', { className: 'dshEnterpriseButton danger', disabled: busy, onClick: () => run(async () => setState(await api('/api/enterprise.logout', {}))) }, t('logout'))))
         : h(React.Fragment, null,
-          h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, copy.platform,
+          h('label', { className: 'dshEnterpriseLabel', style: { marginTop: 16 } }, t('platform'),
             h('input', { className: 'dshEnterpriseInput', type: 'url', inputMode: 'url', autoComplete: 'url', placeholder: 'https://bisheng.example.com', value: base, onChange: (event) => { setBase(event.target.value); rememberBase(event.target.value) } })),
           state?.secureStorageAvailable === false
-            ? h('p', { className: 'dshEnterpriseError' }, copy.secureUnavailable)
+            ? h('p', { className: 'dshEnterpriseError' }, t('secureUnavailable'))
             : h('div', { className: 'dshEnterpriseActions' },
               h('button', { className: 'dshEnterpriseButton login', disabled: busy || !base.trim(), onClick: () => run(async () => {
                 rememberBase(base)
@@ -218,29 +240,31 @@ window.__ModuleLoader__.load({
                 const result = await api('/api/enterprise.login.start', { base: inspected.base })
                 openAuthorization(result)
                 await refreshState()
-              }) }, state?.phase === 'authorizing' ? copy.loggingIn : copy.login)))
+              }) }, state?.phase === 'authorizing' ? t('loggingIn') : t('login'))))
 
       const manualFallback = !connected && manualFallbackReady
         ? h('div', { className: 'dshEnterpriseManual' },
-          h('label', { className: 'dshEnterpriseLabel' }, copy.ticket,
+          h('label', { className: 'dshEnterpriseLabel' }, t('ticket'),
             h('input', { className: 'dshEnterpriseInput', type: 'text', autoComplete: 'one-time-code', value: ticket, onChange: (event) => setTicket(event.target.value) })),
           h('div', { className: 'dshEnterpriseActions' },
             h('button', { className: 'dshEnterpriseButton', type: 'button', disabled: busy || !ticket.trim(), onClick: () => run(async () => {
               setState(await api('/api/enterprise.login.manual', { identityTicket: ticket.trim() }))
               setTicket('')
-            }) }, copy.submitTicket)))
+            }) }, t('submitTicket'))))
         : null
 
-      const failure = error || state?.error
+      const failure = error
+        ? formatEnterpriseSettingsError(error, undefined, t)
+        : formatEnterpriseSettingsError(state?.error, state?.errorCode, t)
       const errorPanel = failure
         ? h('p', { className: 'dshEnterpriseError', role: 'alert' }, failure,
-          state?.requestId ? h('span', null, ` · ${copy.requestId}: ${state.requestId}`) : null)
+          state?.requestId ? h('span', null, ` · ${t('requestId')}: ${state.requestId}`) : null)
         : null
 
       const confirmationPanel = confirmation
         ? h('div', { className: 'dshEnterpriseConfirm', role: 'dialog', 'aria-modal': 'true' },
-          h('h3', null, confirmation.insecurePrivateHttp ? copy.insecureTitle : copy.confirmTitle),
-          h('p', { className: 'dshEnterpriseHint' }, confirmation.insecurePrivateHttp ? copy.insecureLead : copy.confirmLead),
+          h('h3', null, confirmation.insecurePrivateHttp ? t('insecureTitle') : t('confirmTitle')),
+          h('p', { className: 'dshEnterpriseHint' }, confirmation.insecurePrivateHttp ? t('insecureLead') : t('confirmLead')),
           h('strong', null, confirmation.base),
           h('div', { className: 'dshEnterpriseActions' },
             h('button', { className: 'dshEnterpriseButton primary', disabled: busy, onClick: () => run(async () => {
@@ -254,12 +278,12 @@ window.__ModuleLoader__.load({
               rememberBase(result.base)
               openAuthorization(result)
               await refreshState()
-            }) }, confirmation.insecurePrivateHttp ? copy.insecureConfirm : copy.confirm),
-            h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => setConfirmation(null) }, copy.cancel)))
+            }) }, confirmation.insecurePrivateHttp ? t('insecureConfirm') : t('confirm')),
+            h('button', { className: 'dshEnterpriseButton', disabled: busy, onClick: () => setConfirmation(null) }, t('cancel'))))
         : null
 
       return h('section', { className: 'dshEnterprise' },
-        h('h2', null, copy.title),
+        h('h2', null, t('title')),
         status,
         accountContent,
         manualFallback,
@@ -267,16 +291,25 @@ window.__ModuleLoader__.load({
         confirmationPanel)
     }
 
-    const inject = ['slots']
+    const inject = ['slots', 'locale']
     function apply(ctx) {
       installStyles()
+      ctx.effect(
+        () => ctx.locale.register(NS, { zh, en }),
+        'dsh-desktop-enterprise: copy dictionaries'
+      )
+      const t = ctx.locale.bind(NS)
       ctx.effect(() => {
         const bridge = window.dshDesktopEnterprise
         if (!bridge?.onLoginLink) return undefined
         return bridge.onLoginLink(() => openEnterpriseSettingsSection())
       }, 'dsh-desktop-enterprise: open settings on login link')
       ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section', id: ENTERPRISE_SECTION_ID, order: 15, label: () => copy.nav
+        name: 'settings.section',
+        id: ENTERPRISE_SECTION_ID,
+        order: 15,
+        label: () => t('nav'),
+        inject: () => ({ t })
       }, EnterpriseSection))
     }
     exports.apply = apply

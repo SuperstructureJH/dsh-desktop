@@ -165,6 +165,36 @@ describe('enterprise service login loop', () => {
     expect(cleared.models).toEqual([])
   })
 
+  it('publishes platform error codes on login failure', async () => {
+    const platform = createMockEnterpriseServer({ port: 0 })
+    const origin = await platform.listen()
+    cleanups.push(async () => platform.close())
+    const fetchImpl: EnterpriseFetch = async (input, init) => {
+      if (String(input).includes('/api/dsh/token') && String(init?.body).includes('identity_ticket')) {
+        return new Response(JSON.stringify({
+          error: { message: 'seat revoked', code: 'seat_revoked' },
+          request_id: 'req-seat-1'
+        }), {
+          status: 403,
+          headers: { 'content-type': 'application/json', 'x-request-id': 'req-seat-1' }
+        })
+      }
+      return globalThis.fetch(input, init)
+    }
+    const { service } = await createService(createEnterpriseFetch(fetchImpl))
+    const started = await service.startLogin(origin)
+    await completeBrowserLogin(origin, started.authorizationUrl)
+    await waitFor(() => {
+      const snapshot = service.snapshot()
+      return snapshot.phase === 'idle' && snapshot.error === 'seat revoked'
+    })
+    expect(service.snapshot()).toMatchObject({
+      error: 'seat revoked',
+      errorCode: 'seat_revoked',
+      requestId: 'req-seat-1'
+    })
+  })
+
   it('still logs out locally when remote revoke fails', async () => {
     const platform = createMockEnterpriseServer({ port: 0 })
     const origin = await platform.listen()
