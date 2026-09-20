@@ -18,3 +18,9 @@ The unmodified headers in `include/LibreOfficeKit` come from LibreOffice
 
 The staged LibreOffice distribution includes its license notices. Build with
 `scripts/stage-office-runtime-windows.ps1` using Visual Studio C++ x64 tools.
+
+Windows engine discovery requires the dedicated `resources/office-runtime` bundle.
+The LPAC receives read/execute access to this bundle, so LibreOffice bootstrap can
+query its `libreoffice` installation directory with `FindFirstFileW`. All engine
+files and notices remain inside that boundary. Each job receives its own writable
+profile, seeded from the bundled presets before startup.

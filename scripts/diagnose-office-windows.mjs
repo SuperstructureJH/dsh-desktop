@@ -4,19 +4,20 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { prepareLibreOfficeProfile, runIsolated, runProcess, withJob } from '../packages/dsh-office/lib/runtime.js'
+import { authorScript, prepareLibreOfficeProfile, runIsolated, runProcess, withJob } from '../packages/dsh-office/lib/runtime.js'
 const root = process.env.DSH_OFFICE_BUNDLE_ROOT
 if (process.platform !== 'win32' || !root) throw new Error('Windows bundled runtime required')
 const program = path.join(root, 'libreoffice/program')
 const converter = path.join(program, 'dsh-office-convert.exe')
 const stacks = path.join(path.dirname(root), 'office-thread-stacks.exe')
 let isolatedReady = false
-for (const mode of ['trusted-fixture', 'isolated']) {
+for (const mode of ['trusted-fixture', 'isolated-default', 'isolated']) {
   await withJob(async job => {
-    const profile = path.join(job, 'profile'), input = path.join(job, 'input.txt'), output = path.join(job, 'output.pdf')
-    await prepareLibreOfficeProfile(profile, { libreOffice: path.join(program, 'soffice.com') }); await writeFile(input, 'Office conversion diagnostic fixture')
-    const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'pdf']
-    const env = { DSH_OFFICE_DIAGNOSTICS: '1', SAL_LOG: '+WARN+INFO.lok', SAL_DISABLE_OPENCL: '1', SAL_DISABLESKIA: '1', ...(mode.endsWith('unipoll') ? { SAL_LOK_OPTIONS: 'unipoll' } : {}) }
+    const profile = path.join(job, 'profile'), input = path.join(job, 'input.xlsx'), output = path.join(job, 'output.xlsx')
+    await prepareLibreOfficeProfile(profile, { libreOffice: path.join(program, 'soffice.com') })
+    await authorScript({ language: 'python', source: "from openpyxl import Workbook\nwb=Workbook()\nws=wb.active\nws['A1']=4\nws['B1']=120\nws['C1']='=A1*B1'\nwb.save(office['output'])", inputs: [], outputName: 'input.xlsx', job, config: { runtimeRoot: root } })
+    const argv = [converter, program, pathToFileURL(profile).href, pathToFileURL(input).href, pathToFileURL(output).href, 'xlsx']
+    const env = { DSH_OFFICE_DIAGNOSTICS: '1', SAL_LOG: '+WARN+INFO.lok', ...(mode === 'isolated' ? { SAL_DISABLE_OPENCL: '1' } : {}) }
     console.log(`Office probe: ${mode}`)
     const timer = setTimeout(() => {
       try {
