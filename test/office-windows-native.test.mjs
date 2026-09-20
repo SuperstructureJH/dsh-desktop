@@ -43,6 +43,12 @@ socket.on('error',e=>{if(!['EPERM','EACCES'].includes(e.code))throw e;fs.writeFi
       await expect(access(path.join(job, 'escaped-child.txt'))).rejects.toThrow()
     })
   }, 30000)
+  it('keeps simultaneous workspace grants independent through cleanup', async () => {
+    await Promise.all([600, 900, 1200].map(delay => withJob(async job => {
+      await invoke(job, `const fs=require('fs');const timer=setInterval(()=>fs.readFileSync(process.execPath),50);setTimeout(()=>{clearInterval(timer);fs.writeFileSync('parallel.txt','PASS')},${delay})`)
+      expect(await readFile(path.join(job, 'parallel.txt'), 'utf8')).toBe('PASS')
+    })))
+  }, 30000)
   it('settles cancellation and timeout before job cleanup', async () => {
     await withJob(async job => {
       await expect(invoke(job, 'setInterval(()=>{},1000)', { timeoutMs: 200 })).rejects.toThrow('time limit')

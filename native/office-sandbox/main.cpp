@@ -27,6 +27,17 @@ struct Handle {
   Handle() = default;
   Handle(const Handle&) = delete;
 };
+struct AclLock {
+  Handle mutex;
+  AclLock() {
+    mutex.value = CreateMutexW(nullptr, FALSE, L"Local\\DSH.Office.RuntimeAcl");
+    check(mutex.value != nullptr, "create Office ACL lock");
+    DWORD result = WaitForSingleObject(mutex.value, 30000);
+    if (result != WAIT_OBJECT_0 && result != WAIT_ABANDONED)
+      throw std::runtime_error("Office ACL lock timed out or failed");
+  }
+  ~AclLock() { ReleaseMutex(mutex.value); }
+};
 // Windows command-line quoting, including empty arguments and trailing slashes.
 static std::wstring quote(const std::wstring& value) {
   std::wstring result = L"\"";
@@ -40,6 +51,9 @@ static std::wstring quote(const std::wstring& value) {
   return result + L'"';
 }
 static void grant(const std::wstring& name, PSID sid, DWORD rights, ACCESS_MODE mode) {
+  // Concurrent workspaces share runtime directories. Serialize ACL read/modify/
+  // write so each job's unique SID survives another job's grant or revocation.
+  AclLock lock;
   PACL previous = nullptr, updated = nullptr;
   PSECURITY_DESCRIPTOR descriptor = nullptr;
   status(GetNamedSecurityInfoW(name.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,

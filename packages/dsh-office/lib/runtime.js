@@ -235,7 +235,7 @@ export async function convertWithLibreOffice({ bytes, extension, format, config,
   if (!runtime.libreOffice) throw new Error('OFFICE_ENGINE_UNAVAILABLE: configure LibreOffice for calculation and preview')
   return withJob(async job => {
     const input = path.join(job, `input.${extension}`), outputDir = path.join(job, 'converted'), profile = path.join(job, 'profile')
-    await mkdir(outputDir); await mkdir(profile)
+    await mkdir(outputDir); await mkdir(path.join(profile, 'user'), { recursive: true })
     const defaultFonts = process.platform === 'darwin' ? ['/System/Library/Fonts', '/System/Library/Fonts/Supplemental', '/Library/Fonts', path.join(homedir(), 'Library', 'Fonts')] : process.platform === 'win32' ? [path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts')] : ['/usr/share/fonts', '/usr/local/share/fonts']
     const fontRoots = (await Promise.all((config.fontDirectories ?? defaultFonts).map(p => path.isAbsolute(p) ? realpath(p).catch(() => null) : null))).filter(Boolean)
     const grantedFonts = process.platform === 'win32' ? fontRoots.filter(p => path.relative(path.join(process.env.SystemRoot || 'C:\\Windows', 'Fonts'), p) !== '') : fontRoots
@@ -243,7 +243,7 @@ export async function convertWithLibreOffice({ bytes, extension, format, config,
     const escapeXml = value => value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;')
     await writeFile(fontConfig, `<?xml version="1.0"?><fontconfig>${fontRoots.map(p => `<dir>${escapeXml(p)}</dir>`).join('')}<cachedir>${escapeXml(path.join(job, 'font-cache'))}</cachedir></fontconfig>`)
     // A failed force-recalculation profile write propagates before engine execution.
-    await writeFile(path.join(profile, 'registrymodifications.xcu'), '<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>')
+    await writeFile(path.join(profile, 'user', 'registrymodifications.xcu'), '<?xml version="1.0"?><oor:items xmlns:oor="http://openoffice.org/2001/registry"><item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>0</value></prop></item></oor:items>')
     await writeFile(input, bytes)
     const execution = await runIsolated(libreOfficeConversionArgv(runtime, { profile, input, outputDir, format }), { job, readRoots: [...runtime.loReadRoots, ...grantedFonts], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal, env: { FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: job } })
     const output = await boundedRead(path.join(outputDir, `input.${format.split(':')[0]}`), format === 'pdf' ? 64 * 1024 * 1024 : 16 * 1024 * 1024)
