@@ -38,6 +38,21 @@ try {
   $engines = @(Get-ChildItem $extracted -Filter 'soffice.com' -Recurse -File)
   if ($engines.Count -ne 1) { throw 'Expected one LibreOffice console executable.' }
   Copy-Item -LiteralPath (Split-Path (Split-Path $engines[0].FullName -Parent) -Parent) -Destination (Join-Path $pending 'libreoffice') -Recurse
+  # MSI merge modules normally install the CRT in System32. Preserve the x64
+  # DLLs from this same verified MSI next to soffice so a clean PC can run it.
+  $crt = @(Get-ChildItem $extracted -Filter '*.dll' -Recurse -File | Where-Object {
+    $_.Name -match '^(concrt140|msvcp140.*|vccorlib140|vcruntime140.*)\.dll$'
+  })
+  foreach ($dll in $crt) {
+    $bytes = [IO.File]::ReadAllBytes($dll.FullName)
+    $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+    if ([BitConverter]::ToUInt16($bytes, $pe + 4) -eq 0x8664) {
+      Copy-Item -LiteralPath $dll.FullName -Destination (Join-Path $pending "libreoffice/program/$($dll.Name)") -Force
+    }
+  }
+  foreach ($required in @('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll')) {
+    if (!(Test-Path (Join-Path $pending "libreoffice/program/$required"))) { throw "LibreOffice MSI is missing its x64 runtime dependency: $required" }
+  }
   $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
   $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
   if (!$vs) { throw 'Visual Studio C++ x64 tools are required to build the Office sandbox.' }

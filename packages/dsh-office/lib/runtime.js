@@ -94,13 +94,27 @@ export function confinementArgv(argv, job, readRoots, { platform = process.platf
   throw new Error('OFFICE_SANDBOX_UNAVAILABLE: configure the packaged Windows AppContainer runner, macOS Seatbelt, or Linux bubblewrap')
 }
 
+export async function readGrantDirectories(readRoots) {
+  const directories = new Map()
+  for (const root of readRoots) {
+    const canonical = await realpath(root)
+    const directory = (await stat(canonical)).isDirectory() ? canonical : path.dirname(canonical)
+    directories.set(process.platform === 'win32' ? directory.toLowerCase() : directory, directory)
+  }
+  const roots = [...directories.values()]
+  return roots.filter(root => !roots.some(parent => {
+    if (parent === root) return false
+    const relative = path.relative(parent, root)
+    return relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative)
+  }))
+}
+
 export async function runIsolated(argv, { job, readRoots = [], signal, timeoutMs = 120000, env = {}, bwrap, windowsSandbox } = {}) {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 600000) throw new Error('Office timeout must be between 1 and 600000 ms')
   if (process.platform === 'win32') {
     // Python sys.path includes the stdlib ZIP. Grant its containing runtime
     // directory once, with nested roots removed before ACL propagation.
-    const directories = [...new Set(await Promise.all(readRoots.map(async p => (await stat(p)).isDirectory() ? p : path.dirname(p))))]
-    readRoots = directories.filter(p => !directories.some(other => other !== p && !path.relative(other, p).startsWith('..') && !path.isAbsolute(path.relative(other, p))))
+    readRoots = await readGrantDirectories(readRoots)
   }
   const wrapped = confinementArgv(argv, job, readRoots, { bwrap, windowsSandbox, timeoutMs })
   const result = await runProcess(wrapped, {

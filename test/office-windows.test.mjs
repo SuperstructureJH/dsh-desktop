@@ -26,3 +26,18 @@ it('constructs the Windows loader environment from a small allowlist', () => {
   expect(env).toEqual({ SystemRoot: 'D:\\Windows', WINDIR: 'D:\\Windows', PATH: 'D:\\Windows\\System32', LANG: 'en_US.UTF-8' })
   expect(env).not.toHaveProperty('USERPROFILE')
 })
+
+it('normalizes Python stdlib ZIP, nested and duplicate paths into directory grants', async () => {
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const os = await import('node:os')
+  const { readGrantDirectories } = await import('../packages/dsh-office/lib/runtime.js')
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-grants-'))
+  try {
+    const python = path.join(root, 'python'), site = path.join(python, 'Lib', 'site-packages')
+    const sibling = path.join(root, 'python-tools')
+    await fs.mkdir(site, { recursive: true }); await fs.mkdir(sibling)
+    const zip = path.join(python, 'python313.zip'); await fs.writeFile(zip, 'stdlib fixture')
+    expect(await readGrantDirectories([zip, python, site, python, sibling])).toEqual([await fs.realpath(python), await fs.realpath(sibling)])
+  } finally { await fs.rm(root, { recursive: true, force: true }) }
+})
