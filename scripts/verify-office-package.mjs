@@ -11,11 +11,12 @@ import { parseArgs } from 'node:util'
 
 const { values } = parseArgs({ options: { app: { type: 'string' }, output: { type: 'string' }, worker: { type: 'boolean' } } })
 for (const name of ['app', 'output']) assert.ok(values[name] && path.isAbsolute(values[name]), `--${name} requires an absolute path`)
-const resources = path.join(values.app, 'Contents/Resources')
-const node = path.join(resources, 'app/node_modules/node/bin/node')
+const windows = process.platform === 'win32'
+const resources = path.join(values.app, windows ? 'resources' : 'Contents/Resources')
+const node = path.join(resources, 'app/node_modules/node/bin', windows ? 'node.exe' : 'node')
 if (!values.worker) {
   execFileSync(node, [fileURLToPath(import.meta.url), '--worker', '--app', values.app, '--output', values.output], {
-    stdio: 'inherit', timeout: 600000, env: { PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8' }
+    stdio: 'inherit', timeout: 600000, env: windows ? { SystemRoot: process.env.SystemRoot, WINDIR: process.env.SystemRoot, PATH: path.join(process.env.SystemRoot, 'System32'), LANG: 'en_US.UTF-8' } : { PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8' }
   })
 } else {
   const packageRoot = path.join(resources, 'app/node_modules/dsh-office')
@@ -56,7 +57,7 @@ if (!values.worker) {
     effect(run) { run(); return () => {} },
     inject(names, activate) { if (names.includes('webServer')) return activate(pptHost) },
     webServer,
-    get() {}, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
+    get(name) { return this[name] }, on() {}, systemPrompt: { section() {} }, skills: { registerProvider() {} }, tools: { register() {} }, connection
   }
   await ppt.apply(pptHost, { root: path.join(values.output, 'composer-state') })
   const officeHost = { tools: { register(tool) { tools.set(tool.name, tool); toolContext.tools.register(tool) } }, skills: { registerProvider(factory) { provider = factory() } },

@@ -7,6 +7,7 @@ import { parseZip } from '../packages/dsh-office/lib/zip.js'
 import { sha256 } from '../packages/dsh-office/lib/workspace.js'
 
 const enabled = Boolean(process.env.DSH_OFFICE_TEST_PYTHON && process.env.DSH_OFFICE_TEST_LIBREOFFICE)
+if (process.env.DSH_OFFICE_REQUIRE_NATIVE === '1' && !enabled) throw new Error('Office native gate requires bundled Python and LibreOffice')
 describe.skipIf(!enabled)('Office real isolated authoring and calculation', () => {
   let root, call
   beforeAll(async () => {
@@ -14,7 +15,7 @@ describe.skipIf(!enabled)('Office real isolated authoring and calculation', () =
     await mkdir(base, { recursive: true }); root = await mkdtemp(path.join(base, 'verified-'))
     const tools = new Map()
     registerOfficeTools({ tools: { register(tool) { tools.set(tool.name, tool) } }, get: () => ({ resolve: () => ({ mode: 'workspace-write', workspaceRoot: root }) }) }, {
-      root: path.join(root, 'audit'), python: process.env.DSH_OFFICE_TEST_PYTHON, libreOffice: process.env.DSH_OFFICE_TEST_LIBREOFFICE
+      root: path.join(root, 'audit'), python: process.env.DSH_OFFICE_TEST_PYTHON, libreOffice: process.env.DSH_OFFICE_TEST_LIBREOFFICE, runtimeRoot: process.env.DSH_OFFICE_BUNDLE_ROOT
     })
     call = (name, args) => tools.get(name).execute(args, { name, callId: `real-${name}`, signal: new AbortController().signal, agent: { id: 'office-native-test', session: { id: 'test', header: { cwd: root } } } })
   })
@@ -83,7 +84,7 @@ fs.writeFileSync(office.output,await docx.Packer.toBuffer(new docx.Document({sec
       expect(result.confinement.network).toBe('denied')
       expect(sha256(await readFile(outside))).toBe(sha256(Buffer.from('private fixture')))
       await expect(call('office_build', { ...args, inputs: [{ file_path: declared.path, expected_revision: 'stale' }] })).rejects.toThrow('Revision conflict')
-      await expect(call('office_build', { language: 'javascript', source: `import fs from 'node:fs';fs.symlinkSync(${JSON.stringify(outside)},office.output);`, output_file: 'symlink.docx' })).rejects.toThrow('regular')
+      await expect(call('office_build', { language: 'javascript', source: `import fs from 'node:fs';fs.symlinkSync(${JSON.stringify(outside)},office.output);`, output_file: 'symlink.docx' })).rejects.toThrow(process.platform === 'win32' ? /regular|EPERM|permission denied|operation not permitted/i : /regular/)
     } finally { delete process.env.OFFICE_TEST_SECRET }
     await writeFile(path.join(root, 'verification-location.json'), JSON.stringify({ root }))
   }, 30000)

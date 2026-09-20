@@ -51,7 +51,7 @@ export function registerWorkflowTools(register, config) {
     const runtime = await resolveRuntime(config, exec.signal)
     let execution = 'BLOCKED', reason
     try {
-      await withJob(job => runIsolated([runtime.node, '-e', 'process.stdout.write("ready")'], { job, readRoots: runtime.nodeReadRoots ?? [], bwrap: runtime.bwrap, signal: exec.signal, env: { ELECTRON_RUN_AS_NODE: '1' }, timeoutMs: 10000 }))
+      await withJob(job => runIsolated([runtime.node, '-e', 'process.stdout.write("ready")'], { job, readRoots: runtime.nodeReadRoots ?? [], bwrap: runtime.bwrap, windowsSandbox: runtime.windowsSandbox, signal: exec.signal, env: { ELECTRON_RUN_AS_NODE: '1' }, timeoutMs: 10000 }))
       execution = 'PASS'
     } catch (error) { reason = error.message }
     return { status: execution === 'PASS' ? runtime.openpyxl && runtime.libreOffice ? 'ready' : 'partial' : 'blocked', isolation: execution, isolationDetail: reason ?? null, backend: runtime.sandbox,

@@ -6,7 +6,9 @@ import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { rebuildBundledTemplateManifest } from './build-bundled-ppt-projects.mjs';
 const run = promisify(execFile);
+await rebuildBundledTemplateManifest();
 const root = path.resolve('packages/ppt-runtime');
 const dest = path.resolve('packages/ppt-bundles');
 const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-ppt-build-'));
@@ -52,6 +54,8 @@ try {
         await fs.cp(root + '/' + kind, stage, { recursive: true, filter: p => !path.basename(p).startsWith('._') && path.basename(p) !== '.DS_Store' });
         await fs.cp(root + '/upstream', stage + '/licenses', { recursive: true });
         let client = await fs.readFile(stage + '/lib/client.js', 'utf8');
+        if (!client.includes('/* PERSONAL_TEMPLATE_MANAGER */')) throw Error('Missing personal template client marker');
+        client = client.replace('/* PERSONAL_TEMPLATE_MANAGER */', await fs.readFile(root + '/client/personal-template-manager.js', 'utf8'));
         if (!client.includes('/* GENERATED_PPT_PREVIEWS */ {}'))
             throw Error('Missing preview insertion marker');
         client = client.replace('/* GENERATED_PPT_PREVIEWS */ {}', JSON.stringify(previews));

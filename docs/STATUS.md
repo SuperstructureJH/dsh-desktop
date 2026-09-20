@@ -1,6 +1,15 @@
 # Office 功能实施与验证状态
 
-更新日期：2026-09-14。当前开发分支基于上游 `main@4115a96`，包含最新的初始灰度发布配置与 Harness 会话头传递。原 `v0.9.0` 迁移基线为 `032dd37`，远端已删除该版本分支。
+更新日期：2026-09-20。PR #424 已在开发目录对齐 `V0.9.1@9b2d2cf17e8f25f3c3cc1af297a25760cb0731f0`，Harness 为 `0.1.5-rc.2`。Windows 补充实现和验收说明见 [交接文档](office-acceptance/windows-handoff.md)。
+
+## 本次 Windows 补充
+
+- Windows x64 使用 AppContainer/LPAC 执行 Office 作者脚本和 LibreOffice；运行时只读、任务目录可写、网络能力关闭，采用 Job 对象管理子进程、取消、超时、内存与进程数。
+- 固定版本 Python/openpyxl、LibreOffice 和原生执行器随开发包与正式包提供。构建验证下载及引擎 SHA-256，运行时按安装位置定位，支持应用移动。
+- Windows CI 强制运行真实 DOCX/XLSX 生成、局部修改、公式重算、PDF 预览和隔离测试；打包后在源码目录之外再次运行完整 Office 检查并上传证据。
+- 本地定向测试、类型检查、应用构建已通过；版本合并后的测试夹具已按当前 Host 服务合同适配。Windows 原生自动化等待 CI；同事实机与真实模型验收为 `NOT_RUN`。
+
+以下保留 2026-09-14 原提交的历史验证范围。
 
 ## 已实施
 
@@ -36,4 +45,4 @@
 
 ## 独立验收边界
 
-本轮交付范围为 macOS 开发链路。Windows 作者代码隔离、Linux 实机、生产资源配额、目标模型自主完成、原生 Word/Excel/WPS 编辑保存重开、Developer ID 签名及 Apple 公证均需各自的验收证据。包内工具验证与 Desktop 界面验证分别记录。
+2026-09-14 的历史交付范围为 macOS 开发链路。本次 Windows 实现以新 CI 和交接文档为准。Linux 实机、完整生产资源配额、目标模型自主完成、原生 Word/Excel/WPS 编辑保存重开、Developer ID 签名及 Apple 公证均使用各自的验收证据。包内工具验证与 Desktop 界面验证分别记录。
