@@ -45,7 +45,7 @@ window.__ModuleLoader__.load({
     }
 
     const en = {
-      nav: 'Enterprise account',
+      nav: 'Enterprise',
       title: 'Enterprise account',
       platform: 'Enterprise service URL',
       login: 'Sign in in browser',
