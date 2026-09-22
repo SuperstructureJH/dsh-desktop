@@ -20,7 +20,7 @@ describe('DSH Desktop enterprise package', () => {
 
     expect(packageJson.dsh?.client).toBeTruthy()
     expect(packageJson.dsh?.client).toMatchObject({
-      inject: ['@deepseek-ai/dsh-client-locale', '@deepseek-ai/dsh-client-ui-settings']
+      inject: ['@deepseek-ai/dsh-client-locale', '@deepseek-ai/dsh-client-ui-settings', '@deepseek-ai/dsh-client-ui-settings-plugins']
     })
     expect(packageJson.exports?.['./client']).toBe('./client.js')
   })

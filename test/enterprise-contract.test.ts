@@ -94,6 +94,9 @@ describe('BiSheng compatible client API mock', () => {
     applyEnterprise(ctx as never)
 
     expect(routes.map(route => route.path)).toEqual([
+      '/api/enterprise.market.state',
+      '/api/enterprise.market.catalog',
+      '/api/enterprise.market.action',
       '/api/enterprise.state',
       '/api/enterprise.base.inspect',
       '/api/enterprise.login.start',

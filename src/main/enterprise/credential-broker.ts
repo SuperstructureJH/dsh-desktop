@@ -16,7 +16,8 @@ const JSON_ROUTES = new Map<string, 'GET' | 'POST'>([
   ['/v1/login/manual', 'POST'],
   ['/v1/refresh', 'POST'],
   ['/v1/logout', 'POST'],
-  ['/v1/chat', 'POST']
+  ['/v1/chat', 'POST'],
+  ['/v1/market', 'POST']
 ])
 
 export interface EnterpriseCredentialBroker {
@@ -107,6 +108,12 @@ export async function startEnterpriseCredentialBroker(
         return
       }
       const body = await readJsonBody(request, ENTERPRISE_BROKER_JSON_LIMIT)
+      if (path === '/v1/market') {
+        const result = await service.marketRequest(body)
+        response.writeHead(200, { 'content-type': result.binary ? 'application/octet-stream' : 'application/json', 'cache-control': 'no-store' })
+        response.end(result.bytes)
+        return
+      }
       if (path === '/v1/login/start') {
         if (!loginLimit.allow()) {
           sendJson(response, 429, { error: 'Too many login attempts.' })

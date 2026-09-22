@@ -1,3 +1,6 @@
+import { parseMarketRequest } from './enterprise-market'
+import { createEnterpriseFetch } from './platform-fetch'
+import { resolveEnterpriseEndpoint } from './enterprise-request'
 import type { ServerResponse } from 'node:http'
 import {
   CHAT_HEADER_TIMEOUT_MS,
@@ -85,6 +88,9 @@ export interface EnterprisePublicState {
   error?: string
   errorCode?: string
   requestId?: string
+  desktopVersion?: string
+  connectionKey?: string
+  sessionExpiresAt?: string
   loginExpiresAt?: string
 }
 
@@ -164,6 +170,9 @@ export class EnterpriseService {
       secureStorageAvailable: this.options.vault.available,
       phase: this.phase,
       revision: this.revision,
+      desktopVersion: this.options.desktopVersion,
+      ...(this.session?.access_token ? { connectionKey: this.connectionKey() } : {}),
+      ...(this.session?.session_expires_at ? { sessionExpiresAt: this.session.session_expires_at } : {}),
       models: this.models.map((model) => ({
         id: model.id,
         display_name: model.display_name,
@@ -693,6 +702,58 @@ export class EnterpriseService {
     if (this.epoch === epoch) void this.syncUsage(epoch, parsed.model)
   }
 
+  private connectionKey(): string {
+    return hashEnterpriseOrigin(JSON.stringify([this.session?.base, this.session?.tenant?.id, this.session?.user?.id]))
+  }
+
+  async marketRequest(input: unknown): Promise<{ bytes: Buffer, binary: boolean }> {
+    const request = parseMarketRequest(input)
+    const epoch = this.epoch
+    const assertConnection = () => {
+      if (!this.session?.base || !this.snapshot().connected || (this.session.session_expires_at !== undefined && !(Date.parse(this.session.session_expires_at) > this.now())) ||
+          this.epoch !== epoch || this.connectionKey() !== request.connectionKey) {
+        throw Object.assign(new Error('Enterprise account changed. Refresh the plugin list.'), { status: 409 })
+      }
+    }
+    assertConnection()
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const accessToken = await this.ensureAccess(epoch)
+      assertConnection()
+      const base = this.session?.base
+      if (!base) throw Object.assign(new Error('Enterprise account changed.'), { status: 409 })
+      const { endpoint } = await resolveEnterpriseEndpoint(base, request.path,
+        this.options.allowInsecureLoopback, this.platformRequestOptions().allowInsecurePrivateHttp)
+      const response = await createEnterpriseFetch(this.options.fetchImpl)(endpoint.toString(), {
+        method: request.body === undefined ? 'GET' : 'POST',
+        signal: AbortSignal.timeout(request.binary ? 120_000 : 15_000),
+        headers: { authorization: `Bearer ${accessToken}`, ...(request.body === undefined ? {} : { 'content-type': 'application/json' }) },
+        ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) })
+      })
+      assertConnection()
+      if (response.status === 401 && attempt === 0) {
+        await response.body?.cancel()
+        await this.refresh()
+        continue
+      }
+      if (!response.ok) {
+        await response.body?.cancel()
+        throw Object.assign(new Error(`Enterprise market request failed (${response.status}).`), { status: response.status })
+      }
+      const limit = request.binary ? 256 * 1024 * 1024 : 16 * 1024 * 1024
+      const chunks: Uint8Array[] = []
+      let length = 0
+      if (response.body) for await (const chunk of response.body) {
+        assertConnection()
+        length += chunk.length
+        if (length > limit) throw Object.assign(new Error('Market response exceeds the allowed size.'), { status: 413 })
+        chunks.push(chunk)
+      }
+      assertConnection()
+      return { bytes: Buffer.concat(chunks), binary: request.binary }
+    }
+    throw Object.assign(new Error('Enterprise login required.'), { status: 401 })
+  }
+
   private async ensureAccess(epoch: number): Promise<string> {
     if (!this.session?.base || !this.session.access_token) {
       throw Object.assign(new Error('Enterprise models are unavailable.'), { status: 409 })
@@ -983,6 +1044,9 @@ function publicStateSignature(state: EnterprisePublicState): string {
     tenant: state.tenant,
     usage: state.usage,
     modelUsage: state.modelUsage,
+    desktopVersion: state.desktopVersion,
+    connectionKey: state.connectionKey,
+    sessionExpiresAt: state.sessionExpiresAt,
     error: state.error,
     errorCode: state.errorCode,
     requestId: state.requestId

@@ -24,6 +24,10 @@ type RegisteredRoute = {
 function createPluginContext(llm?: { registerAdapter: (...args: never[]) => unknown }) {
   const routes: RegisteredRoute[] = []
   applyEnterprise({
+    effect(callback: () => (() => unknown) | undefined) {
+      const dispose = callback()
+      if (dispose) adapterCleanups.push(async () => { await dispose() })
+    },
     connection: {
       fetch: {
         register(route: RegisteredRoute) {

@@ -86,6 +86,7 @@ describe('enterprise service login loop', () => {
     }
     const activateDesktop = vi.fn(() => {
       expect(service.snapshot().phase).toBe('connected')
+    expect(service.snapshot().desktopVersion).toBe('0.1.1-beta.2+build.7')
       if (failActivation) throw new Error('window unavailable')
     })
     const { service, notes } = await createService(createEnterpriseFetch(fetchImpl), {
@@ -379,5 +380,54 @@ describe('enterprise service login loop', () => {
     expect(connected.modelUsage?.['bisheng:42']?.limit).toBeGreaterThan(0)
     expect(connected.loginExpiresAt).toBeUndefined()
     expect(JSON.stringify(connected)).not.toMatch(/access_token|refresh_token|identity_ticket|ticket_/u)
+  })
+})
+
+describe('enterprise market credential boundary', () => {
+  it('serves catalog and artifact through the broker with refreshed host credentials and rejects stale account requests', async () => {
+    const platform = createMockEnterpriseServer({ port: 0 })
+    const origin = await platform.listen()
+    cleanups.push(async () => platform.close())
+    const requests: Array<{ path: string, authorization: string | null, body?: unknown }> = []
+    let rejectFirst = true
+    const { service } = await createService(async (url, init) => {
+      const path = new URL(url).pathname
+      if (path.startsWith('/api/v1/dsh/market/')) {
+        requests.push({ path, authorization: new Headers(init?.headers).get('authorization'), body: init?.body && JSON.parse(String(init.body)) })
+        if (rejectFirst) { rejectFirst = false; return new Response('', { status: 401 }) }
+        return path.endsWith('/artifact') ? new Response(new Uint8Array([80, 75, 3, 4]))
+          : Response.json({ status_code: 200, data: { total: 1 } })
+      }
+      return fetch(url, init)
+    })
+    const started = await service.startLogin(origin)
+    await completeBrowserLogin(origin, started.authorizationUrl)
+    await waitFor(() => service.snapshot().modelsAvailable)
+    const { startEnterpriseCredentialBroker } = await import('../src/main/enterprise/credential-broker')
+    const broker = await startEnterpriseCredentialBroker(service, { allowInsecureLoopback: true })
+    cleanups.push(async () => broker.stop())
+    const connectionKey = service.snapshot().connectionKey
+    const call = (body: unknown) => fetch(`${broker.url}/v1/market`, { method: 'POST',
+      headers: { authorization: `Bearer ${broker.capability}`, 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const catalog = await call({ path: '/api/v1/dsh/market/catalog?page=1&size=100', connectionKey })
+    expect(catalog.status).toBe(200)
+    expect(await catalog.json()).toEqual({ status_code: 200, data: { total: 1 } })
+    expect(requests).toHaveLength(2)
+    expect(requests[0]!.authorization).toMatch(/^Bearer /)
+    expect(requests[1]!.authorization).not.toBe(requests[0]!.authorization)
+    const artifact = await call({ path: `/api/v1/dsh/market/plugins/${'a'.repeat(32)}/versions/${'b'.repeat(32)}/artifact`, connectionKey })
+    expect(artifact.status).toBe(200)
+    expect([...new Uint8Array(await artifact.arrayBuffer())]).toEqual([80, 75, 3, 4])
+    const syncBody = { device_id: 'test-device', plugins: [] }
+    expect((await call({ path: '/api/v1/dsh/market/sync', connectionKey, body: syncBody })).status).toBe(200)
+    expect(requests.at(-1)?.body).toEqual(syncBody)
+    const before = requests.length
+    for (const path of ['https://other.example/api/v1/dsh/market/catalog', '/api/v1/dsh/market/admin/plugins', '/api/v1/dsh/market/catalog?token=secret', '/api/v1/dsh/market/sync']) {
+      expect((await call({ path, connectionKey })).status).toBe(400)
+    }
+    expect(requests).toHaveLength(before)
+    await service.logout()
+    expect((await call({ path: '/api/v1/dsh/market/catalog', connectionKey })).status).toBe(409)
+    expect(requests).toHaveLength(before)
   })
 })
