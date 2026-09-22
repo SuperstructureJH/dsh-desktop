@@ -1,3 +1,4 @@
+import { applyEnterpriseMarket } from './market.js'
 import {
   isInsecurePrivateHttpOrigin,
   normalizeEnterpriseServerUrl,
@@ -167,12 +168,35 @@ async function brokerJson(path, body) {
 
 export function apply(ctx) {
   const connection = Reflect.get(ctx, 'connection')
+  let market
+  let account = disabledState()
   let ingestEnterpriseState = () => undefined
   const readBrokerState = async () => {
     const state = brokerConfig() ? await brokerJson('/v1/state') : disabledState()
+    if (account.connectionKey !== state.connectionKey) await market?.stop()
+    account = state
     ingestEnterpriseState(state)
     return state
   }
+  market = applyEnterpriseMarket(ctx, {
+    state: () => account,
+    refreshState: readBrokerState,
+    refreshProfile: readBrokerState,
+    async marketRequest(path, body, binary = false) {
+      const broker = brokerConfig()
+      if (!broker) unavailable()
+      const response = await fetch(new URL('/v1/market', broker.origin), {
+        method: 'POST', redirect: 'error',
+        headers: { authorization: `Bearer ${broker.capability}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ path, connectionKey: account.connectionKey, ...(body === undefined ? {} : { body }) })
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.error || `Enterprise market request failed (${response.status}).`)
+      }
+      return binary ? Buffer.from(await response.arrayBuffer()) : response.json()
+    }
+  })
   registerJsonRoute(connection, LOCAL_PATHS.state, ['GET'], async () => readBrokerState())
   registerJsonRoute(connection, LOCAL_PATHS.inspectBase, ['POST'], async (request) => {
     const body = await readJson(request)
@@ -214,6 +238,8 @@ export function apply(ctx) {
     await readJson(request)
     if (!brokerConfig()) return disabledState()
     const state = await brokerJson('/v1/logout', {})
+    await market.stop()
+    account = state
     ingestEnterpriseState(state)
     return state
   })

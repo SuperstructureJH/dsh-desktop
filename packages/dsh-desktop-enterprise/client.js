@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
-    const { createElement: h, useCallback, useEffect, useState } = React
+    const { createElement: h, useCallback, useEffect, useRef, useState } = React
     const LAST_BASE_KEY = 'dshDesktopEnterprise.lastBase'
     const MANUAL_FALLBACK_DELAY_MS = 8_000
     const ENTERPRISE_SECTION_ID = 'enterprise-account'
@@ -377,10 +377,177 @@ window.__ModuleLoader__.load({
       `
     }
 
-    async function api(path, body) {
+    const ACCOUNT_CHANGED_EVENT = 'dsh-desktop:enterprise-account-changed'
+
+    const marketZh = {
+      tab: '来自企业', intro: '安装企业提供的插件，供当前企业账号使用。', refresh: '刷新',
+      loading: '正在读取企业插件…', empty: '企业暂未提供插件，请联系管理员导入。',
+      failed: '暂时无法读取企业插件，请重试或联系管理员。', install: '安装', update: '更新',
+      installed: '已安装', uninstall: '卸载', enable: '启用', disable: '停用', disabled: '已停用',
+      version: '版本', incompatible: '当前系统或版本暂不支持',
+      installing: '安装中…', updating: '更新中…', enabling: '启用中…', disabling: '停用中…', uninstalling: '卸载中…', unsupported: '暂不支持', setup: '企业市场暂未就绪，可联系管理员完成配置。'
+    }
+    const marketEn = {
+      tab: 'From enterprise', intro: 'Install plugins provided for your current enterprise account.', refresh: 'Refresh',
+      loading: 'Loading enterprise plugins…', empty: 'Your enterprise has no plugins yet. Contact your administrator.',
+      failed: 'Enterprise plugins are unavailable. Try again or contact your administrator.', install: 'Install', update: 'Update',
+      installed: 'Installed', uninstall: 'Uninstall', enable: 'Enable', disable: 'Disable', disabled: 'Disabled',
+      version: 'Version', incompatible: 'Unsupported system or Desktop version',
+      installing: 'Installing…', updating: 'Updating…', enabling: 'Enabling…', disabling: 'Disabling…', uninstalling: 'Uninstalling…', unsupported: 'Unavailable', setup: 'The enterprise market is not ready. Contact your administrator.'
+    }
+
+    let marketTranslate
+    function marketLabels() { return Object.fromEntries(Object.keys(marketEn).map(key => [key, marketTranslate(key)])) }
+
+    function installMarketStyles() {
+      if (document.getElementById('dsh-enterprise-market-style')) return
+      const style = document.createElement('style')
+      style.id = 'dsh-enterprise-market-style'
+      style.textContent = `
+        .dshEnterpriseMarket{color:var(--dsw-alias-label-primary);display:grid;gap:18px;min-width:0;container-type:inline-size}
+        .dshEnterpriseMarketHead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.dshEnterpriseMarketHead strong{font-size:15px;overflow-wrap:anywhere}.dshEnterpriseMarket p{margin:0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.6}.dshEnterpriseMarketHead p{margin-top:5px}.dshEnterpriseMarketHead button{flex-shrink:0}
+        .dshEnterpriseMarketList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}.dshEnterpriseMarketCard{box-sizing:border-box;min-width:0;min-height:180px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;padding:16px;background:var(--dsw-alias-bg-layer-3);display:flex;flex-direction:column;gap:12px}.dshEnterpriseMarketCardHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.dshEnterpriseMarketCardTitle{min-width:0;flex:1}.dshEnterpriseMarketCard h3{margin:2px 0 4px;font-size:15px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dshEnterpriseMarketPublisher{font-size:12px;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dshEnterpriseMarketCardControls{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:6px}.dshEnterpriseMarketCardControls>.primary{min-width:62px;text-align:center}.dshEnterpriseMarketDescription{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;min-height:42px}.dshEnterpriseMarketCardFooter{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}.dshEnterpriseMarketVersion{font-size:11px;color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:4px;padding:2px 6px}.dshEnterpriseMarketInstalled{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+        .dshEnterpriseMarketActions{display:flex;align-items:center;gap:6px}.dshEnterpriseMarket button{font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;padding:7px 12px;background:transparent;color:inherit}.dshEnterpriseMarket button.primary{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-color:transparent}.dshEnterpriseMarket button:disabled{opacity:.5;cursor:default}.dshEnterpriseMarket button:focus-visible{outline:2px solid var(--dsw-alias-border-l3);outline-offset:2px}.dshEnterpriseMarket .dshEnterpriseMarketError{color:var(--dsw-alias-state-error-primary);font-size:12px;overflow-wrap:anywhere}.dshEnterpriseMarketActions button{padding:4px 8px;white-space:nowrap}
+        @container(max-width:480px){.dshEnterpriseMarketList{grid-template-columns:minmax(0,1fr)}}
+      `
+      document.head.appendChild(style)
+    }
+
+    function EnterpriseMarketTab({ account }) {
+      const marketCopy = marketLabels()
+      const [catalog, setCatalog] = useState(null)
+      const [loading, setLoading] = useState(true)
+      const [operations, setOperations] = useState({})
+      const pendingPlugins = React.useRef(new Set())
+      const [error, setError] = useState('')
+      const request = React.useRef(null)
+      const mounted = React.useRef(true)
+      const identity = `${account.base}|${account.tenant.id}|${account.user.id}`
+      const refresh = useCallback(async () => {
+        request.current?.abort()
+        const controller = new AbortController(); request.current = controller
+        setLoading(true); setError('')
+        try {
+          let page = 1, all = [], next
+          do {
+            next = await api(`/api/enterprise.market.catalog?page=${page}`, undefined, controller.signal)
+            if (!next.connected || `${next.base}|${next.tenant?.id}|${next.user?.id}` !== identity) throw new Error(marketCopy.failed)
+            all.push(...next.data); page += 1
+          } while (all.length < next.total && next.data.length)
+          if (mounted.current && !controller.signal.aborted) setCatalog({ ...next, data: all })
+        } catch (cause) {
+          if (mounted.current && !controller.signal.aborted) { setCatalog(null); setError(marketCopy.failed) }
+        } finally { if (mounted.current && !controller.signal.aborted) setLoading(false) }
+      }, [identity])
+      useEffect(() => {
+        mounted.current = true; void refresh()
+        return () => { mounted.current = false; request.current?.abort() }
+      }, [refresh])
+      async function operate(action, plugin, version) {
+        if (pendingPlugins.current.has(plugin.id)) return
+        pendingPlugins.current.add(plugin.id)
+        setOperations(current => ({ ...current, [plugin.id]: { action } }))
+        try {
+          const result = await api('/api/enterprise.market.action', { action, plugin_id: plugin.id, ...(version ? { version_id: version.id } : {}) })
+          if (!result.connected || `${result.base}|${result.tenant?.id}|${result.user?.id}` !== identity) throw new Error(marketCopy.failed)
+          if (mounted.current) {
+            // A completed operation supersedes catalog requests started earlier.
+            request.current?.abort(); setLoading(false)
+            const local = result.installed.find(item => item.plugin_id === plugin.id)
+            setCatalog(current => current && ({ ...current, tenant: result.tenant, user: result.user,
+              installed: [...current.installed.filter(item => item.plugin_id !== plugin.id), ...(local ? [local] : [])] }))
+          }
+        } catch (cause) {
+          if (mounted.current) setOperations(current => ({ ...current, [plugin.id]: { error: cause.message || marketCopy.failed } }))
+        } finally {
+          pendingPlugins.current.delete(plugin.id)
+          if (mounted.current) setOperations(current => {
+            if (current[plugin.id]?.error) return current
+            const next = { ...current }; delete next[plugin.id]; return next
+          })
+        }
+      }
+      const installed = new Map((catalog?.installed || []).map(item => [item.plugin_id, item]))
+      const available = new Set((catalog?.data || []).map(item => item.id))
+      const rows = [...(catalog?.data || []), ...(catalog?.installed || []).filter(item => !available.has(item.plugin_id)).map(item => ({ id: item.plugin_id, display_name: item.display_name, description: item.description, versions: [], installedOnly: true }))]
+      return h('section', { className: 'dshEnterpriseMarket' },
+        h('div', { className: 'dshEnterpriseMarketHead' },
+          h('div', null, h('strong', null, catalog?.tenant?.name || account.tenant.name), h('p', null, marketCopy.intro)),
+          h('button', { type: 'button', disabled: loading, onClick: refresh }, marketCopy.refresh)),
+        loading ? h('p', { role: 'status' }, marketCopy.loading) : null,
+        error ? h('div', { role: 'alert', className: 'dshEnterpriseMarketError' }, error) : null,
+        catalog && !catalog.installReady ? h('p', null, marketCopy.setup) : null,
+        !loading && catalog && !rows.length ? h('p', null, marketCopy.empty) : null,
+        h('div', { className: 'dshEnterpriseMarketList' }, rows.map(plugin => {
+          const current = plugin.versions.find(version => version.id === plugin.current_version_id)
+          const local = installed.get(plugin.id)
+          const metadata = current?.manifest?.plugin
+          const required = metadata?.desktop_min?.split('.').map(Number) || []
+          const actual = catalog.desktopVersion?.split('.').map(Number) || []
+          const firstDifference = actual.findIndex((part, index) => part !== required[index])
+          const supported = Boolean(current?.manifest?.targets?.[catalog.target]) && (firstDifference < 0 || actual[firstDifference] >= required[firstDifference])
+          const update = local && current && local.version_id !== current.id
+          const operation = operations[plugin.id]
+          const activeAction = operation?.action
+          const busy = Boolean(activeAction)
+          return h('article', { key: plugin.id, className: 'dshEnterpriseMarketCard' },
+            h('div', { className: 'dshEnterpriseMarketCardHead' },
+              h('div', { className: 'dshEnterpriseMarketCardTitle' },
+                h('h3', { title: plugin.display_name }, plugin.display_name),
+                metadata?.publisher ? h('div', { className: 'dshEnterpriseMarketPublisher', title: metadata.publisher }, metadata.publisher) : null),
+              h('div', { className: 'dshEnterpriseMarketCardControls' },
+                (!local || update) && current ? h('button', { type: 'button', className: 'primary', title: supported ? undefined : marketCopy.incompatible, disabled: busy || !supported || !catalog.installReady, 'aria-busy': activeAction === 'install', onClick: () => operate('install', plugin, current) }, activeAction === 'install' ? (update ? marketCopy.updating : marketCopy.installing) : supported ? (update ? marketCopy.update : marketCopy.install) : marketCopy.unsupported) : null,
+                local ? h('div', { className: 'dshEnterpriseMarketActions' },
+                  h('button', { type: 'button', disabled: busy || (!local.enabled && !catalog.installReady), 'aria-busy': activeAction === 'enable' || activeAction === 'disable', onClick: () => operate(local.enabled ? 'disable' : 'enable', plugin) }, activeAction === 'enable' ? marketCopy.enabling : activeAction === 'disable' ? marketCopy.disabling : local.enabled ? marketCopy.disable : marketCopy.enable),
+                  h('button', { type: 'button', disabled: busy, 'aria-busy': activeAction === 'uninstall', onClick: () => operate('uninstall', plugin) }, activeAction === 'uninstall' ? marketCopy.uninstalling : marketCopy.uninstall)) : null)),
+            h('p', { className: 'dshEnterpriseMarketDescription', title: plugin.description }, plugin.description),
+            (operation?.error || local?.error) ? h('p', { role: 'alert', className: 'dshEnterpriseMarketError' }, operation?.error || local.error) : null,
+            h('div', { className: 'dshEnterpriseMarketCardFooter' },
+              h('span', { className: 'dshEnterpriseMarketVersion' }, `${marketCopy.version} ${current?.version || local?.version || '—'}`),
+              local ? h('span', { className: 'dshEnterpriseMarketInstalled' }, local.enabled ? marketCopy.installed : marketCopy.disabled) : null))
+
+        })))
+    }
+
+    function bindEnterpriseMarketTab(ctx) {
+      let disposeTab, identity, currentAccount, disposed = false, revision = 0
+      const sync = async () => {
+        const currentRevision = ++revision
+        try {
+          const response = await fetch('/api/enterprise.state', { credentials: 'same-origin', cache: 'no-store' })
+          if (!response.ok) throw new Error('Enterprise state unavailable')
+          const account = await response.json()
+          if (disposed || currentRevision !== revision) return
+          const next = account.connected && Date.parse(account.sessionExpiresAt) > Date.now() ? `${account.base}|${account.tenant.id}|${account.user.id}` : null
+          currentAccount = account
+          if (identity === next) return
+          disposeTab?.(); disposeTab = undefined; identity = next
+          if (next) disposeTab = ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
+            name: 'settings.plugins.tab', id: 'enterprise-market', order: 20, label: () => marketLabels().tab
+          }, () => h(EnterpriseMarketTab, { key: next, account: currentAccount })))
+        } catch {
+          if (!disposed && currentRevision === revision) { disposeTab?.(); disposeTab = undefined; identity = null }
+        }
+      }
+      const focus = () => { if (document.visibilityState === 'visible') void sync() }
+      const timer = window.setInterval(focus, 5000)
+      window.addEventListener(ACCOUNT_CHANGED_EVENT, sync)
+      window.addEventListener('focus', focus)
+      document.addEventListener('visibilitychange', focus)
+      void sync()
+      return () => {
+        disposed = true; revision += 1; disposeTab?.(); window.clearInterval(timer)
+        window.removeEventListener(ACCOUNT_CHANGED_EVENT, sync)
+        window.removeEventListener('focus', focus)
+        document.removeEventListener('visibilitychange', focus)
+      }
+    }
+
+    async function api(path, body, signal) {
       const response = await fetch(path, {
         method: body === undefined ? 'GET' : 'POST',
         credentials: 'same-origin',
+        signal,
         headers: body === undefined ? {} : { 'content-type': 'application/json' },
         ...(body === undefined ? {} : { body: JSON.stringify(body) })
       })
@@ -388,6 +555,7 @@ window.__ModuleLoader__.load({
       if (!response.ok || payload.ok === false) {
         throw new Error(payload.error || `Request failed (${response.status})`)
       }
+      if (!path.startsWith('/api/enterprise.market.')) window.dispatchEvent(new CustomEvent(ACCOUNT_CHANGED_EVENT))
       return payload
     }
 
@@ -752,11 +920,15 @@ window.__ModuleLoader__.load({
 
     function apply(ctx) {
       installStyles()
+      installMarketStyles()
       ctx.effect(
         () => ctx.locale.register(NS, { zh, en }),
         'dsh-desktop-enterprise: copy dictionaries'
       )
       const t = ctx.locale.bind(NS)
+      ctx.effect(() => ctx.locale.register('settings.enterpriseMarket', { zh: marketZh, en: marketEn }), 'enterprise-market: translations')
+      marketTranslate = ctx.locale.bind('settings.enterpriseMarket')
+      ctx.effect(() => bindEnterpriseMarketTab(ctx), 'enterprise-market: account-bound plugins tab')
       ctx.effect(() => {
         const bridge = window.dshDesktopEnterprise
         if (!bridge?.onLoginLink) return undefined
