@@ -430,7 +430,9 @@ window.__ModuleLoader__.load({
         try {
           let page = 1, all = [], next
           do {
+            if (page > 100) throw new Error('Enterprise catalog page limit exceeded.')
             next = await api(`/api/enterprise.market.catalog?page=${page}`, undefined, controller.signal)
+            if (!Array.isArray(next.data) || !Number.isSafeInteger(next.total) || next.total < 0 || next.total > 10000) throw new Error('Invalid enterprise catalog pagination.')
             if (!next.connected || `${next.base}|${next.tenant?.id}|${next.user?.id}` !== identity) throw new Error(marketCopy.failed)
             all.push(...next.data); page += 1
           } while (all.length < next.total && next.data.length)
@@ -482,10 +484,7 @@ window.__ModuleLoader__.load({
           const current = plugin.versions.find(version => version.id === plugin.current_version_id)
           const local = installed.get(plugin.id)
           const metadata = current?.manifest?.plugin
-          const required = metadata?.desktop_min?.split('.').map(Number) || []
-          const actual = catalog.desktopVersion?.split('.').map(Number) || []
-          const firstDifference = actual.findIndex((part, index) => part !== required[index])
-          const supported = Boolean(current?.manifest?.targets?.[catalog.target]) && (firstDifference < 0 || actual[firstDifference] >= required[firstDifference])
+          const supported = current?.compatible === true
           const update = local && current && local.version_id !== current.id
           const operation = operations[plugin.id]
           const activeAction = operation?.action

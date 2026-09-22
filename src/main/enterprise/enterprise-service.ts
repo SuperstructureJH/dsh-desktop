@@ -88,6 +88,7 @@ export interface EnterprisePublicState {
   error?: string
   errorCode?: string
   requestId?: string
+  desktopVersion?: string
   connectionKey?: string
   sessionExpiresAt?: string
   loginExpiresAt?: string
@@ -169,6 +170,7 @@ export class EnterpriseService {
       secureStorageAvailable: this.options.vault.available,
       phase: this.phase,
       revision: this.revision,
+      desktopVersion: this.options.desktopVersion,
       ...(this.session?.access_token ? { connectionKey: this.connectionKey() } : {}),
       ...(this.session?.session_expires_at ? { sessionExpiresAt: this.session.session_expires_at } : {}),
       models: this.models.map((model) => ({
@@ -1042,6 +1044,7 @@ function publicStateSignature(state: EnterprisePublicState): string {
     tenant: state.tenant,
     usage: state.usage,
     modelUsage: state.modelUsage,
+    desktopVersion: state.desktopVersion,
     connectionKey: state.connectionKey,
     sessionExpiresAt: state.sessionExpiresAt,
     error: state.error,

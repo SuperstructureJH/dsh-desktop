@@ -1,3 +1,4 @@
+import semver from 'semver'
 import { createPublicKey, randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -6,10 +7,26 @@ import { installOfflineBundle, sha256, verifyInstalledBundle } from './offline-b
 import { createMarketRuntime } from './market-runtime.js'
 
 const PREFIX = '/api/v1/dsh/market'
-const compare = (a, b) => {
-  const left = a.split('.').map(Number), right = b.split('.').map(Number)
-  for (let i = 0; i < 3; i++) if (left[i] !== right[i]) return left[i] - right[i]
-  return 0
+const MAX_CATALOG_PAGES = 100
+const MAX_CATALOG_SIZE = MAX_CATALOG_PAGES * 100
+
+/** Both the UI and installer consume this host-owned compatibility verdict. */
+export function isMarketVersionCompatible(version, minimum) {
+  return Boolean(semver.valid(version) && semver.valid(minimum) && semver.gte(version, minimum))
+}
+
+function validatedCatalog(value) {
+  if (!value || !Array.isArray(value.data) || value.data.length > 100 ||
+      !Number.isSafeInteger(value.total) || value.total < 0 || value.total > MAX_CATALOG_SIZE) {
+    throw new Error('Invalid enterprise catalog pagination.')
+  }
+  return value
+}
+
+function canonicalPublicKey(value) {
+  const key = createPublicKey(typeof value === 'string' ? value.replace(/\\n/gu, '\n') : value)
+  if (key.asymmetricKeyType !== 'ed25519') throw new Error('Unsupported marketplace signing key.')
+  return key.export({ type: 'spki', format: 'pem' }).toString()
 }
 
 export function createMarketController(ctx, accountController, options = {}) {
@@ -17,19 +34,29 @@ export function createMarketController(ctx, accountController, options = {}) {
   const target = options.target ?? `${process.platform}-${process.arch}`
   const pinnedPublicKey = options.publicKey ?? process.env.DSH_DESKTOP_MARKET_PUBLIC_KEY
   let publicKey = pinnedPublicKey
-  const desktopVersion = options.desktopVersion ?? process.env.DSH_DESKTOP_VERSION ?? '0.1.1'
+  const desktopVersion = () => options.desktopVersion ?? accountController.state().desktopVersion ?? ''
   const load = options.load ?? createMarketRuntime(ctx)
   let key, document = { device_id: randomUUID(), installed: [], lease: null }
   let account, capability, policy, lastError, queue = Promise.resolve(), epoch = 0
-  let online = false, expiryTimer
+  let online = false, expiryTimer, cancellation = 0, operationGeneration = 0, cleaning = false
   const running = new Map()
   const directory = home ? join(home, 'enterprise-market') : null
-  const serialized = task => {
-    const next = queue.then(task)
+  const serialized = (task, cleanup = false) => {
+    const generation = cancellation
+    const next = queue.then(async () => {
+      if (!cleanup && generation !== cancellation) throw new Error('Enterprise account changed.')
+      operationGeneration = generation
+      cleaning = cleanup
+      try { return await task() } finally { cleaning = false }
+    })
     queue = next.catch(error => { lastError = error.message })
     return next
   }
+  const assertCurrentOperation = () => {
+    if (!cleaning && operationGeneration !== cancellation) throw new Error('Enterprise account changed.')
+  }
   const save = async () => {
+    assertCurrentOperation()
     if (!directory || !key) return
     await mkdir(directory, { recursive: true })
     const path = join(directory, `${key}.json`), temporary = `${path}.${randomUUID()}.tmp`
@@ -38,6 +65,7 @@ export function createMarketController(ctx, accountController, options = {}) {
   }
   const identityKey = value => value?.connected ? sha256(`${value.base}|${value.tenant.id}|${value.user.id}`) : null
   const request = async (path, body) => {
+    assertCurrentOperation()
     const startedEpoch = epoch, startedIdentity = identityKey(accountController.state())
     const data = await accountController.marketRequest(PREFIX + path, body)
     if (startedEpoch !== epoch || startedIdentity !== identityKey(accountController.state())) throw new Error('Enterprise account changed.')
@@ -52,7 +80,7 @@ export function createMarketController(ctx, accountController, options = {}) {
     if (account?.sessionExpiresAt && Date.parse(account.sessionExpiresAt) <= Date.now()) throw new Error('Enterprise session expired.')
     policy = verifyMarketLease(document.lease, account, document.device_id, publicKey)
     clearTimeout(expiryTimer)
-    expiryTimer = setTimeout(() => { epoch += 1; online = false; void enforce().catch(error => { lastError = error.message }) },
+    expiryTimer = setTimeout(() => { epoch += 1; cancellation += 1; void serialized(async () => { online = false; await enforce() }, true).catch(error => { lastError = error.message }) },
       Math.max(1, Math.min(policy.expires_at * 1000, account.sessionExpiresAt ? Date.parse(account.sessionExpiresAt) : Infinity) - Date.now()))
     expiryTimer.unref?.()
     return policy
@@ -63,6 +91,7 @@ export function createMarketController(ctx, accountController, options = {}) {
     record.status = 'disabled'
   }
   const startRecord = async (record, startedEpoch) => {
+    assertCurrentOperation()
     checkLease()
     if (!/^[a-z0-9+_.-]+$/iu.test(record.generation_id) || record.directory !== join(home, 'profiles', '.enterprise-generations', record.generation_id)) throw new Error('Invalid enterprise generation path.')
     if (!authorized(record) || startedEpoch !== epoch) throw new Error('Plugin usage authorization changed.')
@@ -98,6 +127,7 @@ export function createMarketController(ctx, accountController, options = {}) {
       if (error.code !== 'ENOENT') throw error
       document = { device_id: randomUUID(), installed: [], lease: null }
     }
+    assertCurrentOperation()
     publicKey = pinnedPublicKey ?? document.public_key
     for (const record of document.installed) record.status = 'disabled'
   }
@@ -109,19 +139,22 @@ export function createMarketController(ctx, accountController, options = {}) {
       capability = await request('/capabilities')
       if (capability.contract_version !== 1 || !capability.enabled) throw new Error('Enterprise plugin market is not configured on this server.')
       if (capability.tenant_id !== account.tenant.id) throw new Error('Enterprise market tenant mismatch.')
-      if (!pinnedPublicKey && capability.public_key) {
-        const advertised = createPublicKey(capability.public_key)
-        if (advertised.asymmetricKeyType !== 'ed25519') throw new Error('Unsupported marketplace signing key.')
-        publicKey = capability.public_key
-        document.public_key = publicKey
+      // First use trusts the confirmed enterprise origin. Later synchronizations
+      // retain that key; administrators can supply an independent deployment pin.
+      const advertised = canonicalPublicKey(capability.public_key)
+      if (publicKey && canonicalPublicKey(publicKey) !== advertised) {
+        throw new Error('Enterprise signing key changed. Administrator verification is required.')
       }
+      publicKey ??= advertised
+      document.public_key = publicKey
+      await save()
       const receipt = await request('/sync', { device_id: document.device_id, plugins: [...document.installed.map(record => ({
         plugin_id: record.plugin_id, version_id: record.version_id, status: record.status, revision: record.revision
       })), ...(document.installed.length < 500 ? (document.tombstones ?? []).slice(-(500 - document.installed.length)) : [])] })
       policy = verifyMarketLease(receipt, account, document.device_id, publicKey)
       document.lease = receipt; online = true; lastError = null
     } catch (error) {
-      if (bindingEpoch !== epoch || identityKey(accountController.state()) !== key) throw error
+      if (operationGeneration !== cancellation || bindingEpoch !== epoch || identityKey(accountController.state()) !== key) throw error
       lastError = error.message
     }
     await enforce()
@@ -138,7 +171,7 @@ export function createMarketController(ctx, accountController, options = {}) {
     const current = accountController.state()
     const sameAccount = current.connected && account?.base === current.base && account?.user.id === current.user.id && account?.tenant.id === current.tenant.id
     return { configured: Boolean(current.connected), base: current.base,
-      connected: Boolean(current.connected), online: Boolean(sameAccount && online), target, desktopVersion,
+      connected: Boolean(current.connected), online: Boolean(sameAccount && online), target, desktopVersion: desktopVersion(),
       tenant: current.tenant, user: current.user, installed: sameAccount ? document.installed.map(({ directory: _directory, config: _config, ...record }) => record) : [],
       accountKey: current.connected ? sha256(`${current.base}|${current.tenant.id}|${current.user.id}`) : null,
       error: lastError, expiresAt: sameAccount ? policy?.expires_at : undefined }
@@ -157,11 +190,14 @@ export function createMarketController(ctx, accountController, options = {}) {
       if (!accountController.state().connected) return { ...state(), data: [], total: 0 }
       await synchronize()
       if (capability && capability.tenant_id !== account?.tenant.id) throw new Error('Enterprise market tenant mismatch.')
-      if (!Number.isSafeInteger(page) || page < 1) throw new Error('Invalid catalog page.')
+      if (!Number.isSafeInteger(page) || page < 1 || page > MAX_CATALOG_PAGES) throw new Error('Invalid catalog page.')
       const startedEpoch = epoch
-      const catalog = await request(`/catalog?q=${encodeURIComponent(query.trim().slice(0, 200))}&page=${page}&size=100`)
+      const catalog = validatedCatalog(await request(`/catalog?q=${encodeURIComponent(query.trim().slice(0, 200))}&page=${page}&size=100`))
       if (startedEpoch !== epoch) throw new Error('Enterprise account changed.')
-      return { ...state(), ...catalog, installReady: online }
+      const data = catalog.data.map(plugin => ({ ...plugin, versions: plugin.versions.map(version => ({
+        ...version, compatible: Boolean(version.manifest?.targets?.[target]) && isMarketVersionCompatible(desktopVersion(), version.manifest?.plugin?.desktop_min)
+      })) }))
+      return { ...state(), data, total: catalog.total, installReady: online }
     }),
     act: input => serialized(async () => {
       if (!['install', 'enable', 'disable', 'uninstall', 'configure'].includes(input.action)) throw new Error('Unknown plugin operation.')
@@ -196,7 +232,7 @@ export function createMarketController(ctx, accountController, options = {}) {
         } catch (error) {
           await stopRecord(previous)
           Object.assign(previous, saved)
-          if (saved.enabled) await startRecord(previous, epoch)
+          if (saved.enabled && startedEpoch === epoch) await startRecord(previous, startedEpoch)
           throw error
         }
         return state()
@@ -208,16 +244,17 @@ export function createMarketController(ctx, accountController, options = {}) {
       }
       if (!previous && document.installed.length >= 500) throw new Error('This device has reached the 500 plugin limit.')
       let selected
-      for (let page = 1; ; page++) {
-        const result = await request(`/catalog?page=${page}&size=100`)
+      for (let page = 1; page <= MAX_CATALOG_PAGES; page++) {
+        const result = validatedCatalog(await request(`/catalog?page=${page}&size=100`))
         selected = result.data.find(p => p.id === input.plugin_id)
-        if (selected || page * 100 >= result.total) break
+        if (selected || result.data.length === 0 || page * 100 >= result.total) break
       }
       const version = selected?.versions.find(v => v.id === selected.current_version_id)
       if (!version || (input.version_id && version.id !== input.version_id)) throw new Error('Published version changed. Refresh the market.')
       const metadata = version.manifest.plugin
-      if (!version.manifest.targets[target] || compare(desktopVersion, metadata.desktop_min) < 0) throw new Error('Plugin is incompatible with this Desktop or platform.')
-      if (previous && compare(previous.version, version.version) > 0) throw new Error('The enterprise version is older. Uninstall before choosing a lower version.')
+      if (!version.manifest.targets[target] || !isMarketVersionCompatible(desktopVersion(), metadata.desktop_min)) throw new Error('Plugin is incompatible with this Desktop or platform.')
+      if (!semver.valid(version.version)) throw new Error('Invalid plugin version.')
+      if (previous && (!semver.valid(previous.version) || semver.gt(previous.version, version.version))) throw new Error('The enterprise version is older. Uninstall before choosing a lower version.')
       const bytes = await accountController.marketRequest(`${PREFIX}/plugins/${selected.id}/versions/${version.id}/artifact`, undefined, true)
       if (startedEpoch !== epoch || identityKey(accountController.state()) !== key) throw new Error('Enterprise account changed.')
       const expected = { name: selected.name, version: version.version, digest: version.digest }
@@ -238,20 +275,24 @@ export function createMarketController(ctx, accountController, options = {}) {
       catch (error) {
         await stopRecord(record)
         document.installed = previousRecords
-        if (previous?.enabled && authorized(previous)) await startRecord(previous, startedEpoch)
+        if (startedEpoch === epoch && previous?.enabled && authorized(previous)) await startRecord(previous, startedEpoch)
         throw error
       }
       return state()
       } catch (error) { operationResult = 'failed'; throw error }
       finally { await audit(input, operationResult) }
     }),
-    async stop(clearLease = true) {
-      epoch += 1; online = false
+    stop(clearLease = true) {
+      // Invalidate in-flight work immediately; every document/fiber mutation is queued.
+      epoch += 1; cancellation += 1
+      return serialized(async () => {
+      online = false
       clearTimeout(expiryTimer)
       for (const record of document.installed) await stopRecord(record)
       if (clearLease) document.lease = null
       await save(); account = null; key = null; policy = null
       document = { device_id: randomUUID(), installed: [], lease: null }
+      }, true)
     },
     tick: () => serialized(async () => {
       if (!accountController.state().connected) {

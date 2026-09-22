@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { isolatePackage } from './helpers/isolated-package-tree.mjs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { generateKeyPairSync, sign } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
@@ -7,7 +10,7 @@ import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import { Loader } from '@deepseek-ai/cordis-plugin-loader'
 import { createMarketRuntime } from '../packages/dsh-desktop-enterprise/market-runtime.js'
-import { createMarketController } from '../packages/dsh-desktop-enterprise/market.js'
+import { createMarketController, isMarketVersionCompatible } from '../packages/dsh-desktop-enterprise/market.js'
 import { installOfflineBundle, readBundleZip, sha256, validateOfflineBundle, verifyInstalledBundle } from '../packages/dsh-desktop-enterprise/offline-bundle.js'
 import { verifyMarketLease } from '../packages/dsh-desktop-enterprise/market-policy.js'
 import { sweepRegistry } from 'dsh-desktop-market-installer/generations/registry'
@@ -16,13 +19,13 @@ import { zipEntries } from '../scripts/pack-enterprise-plugin.mjs'
 const paths: string[] = [], controllers: Array<{ stop: () => Promise<void> }> = []
 afterEach(async () => { for (const controller of controllers.splice(0)) await controller.stop(); for (const path of paths.splice(0)) await rm(path, { recursive: true, force: true }); vi.useRealTimers() })
 const pluginId = 'a'.repeat(32), versionId = 'b'.repeat(32), target = `${process.platform}-${process.arch}`
-const account = { connected: true, base: 'https://enterprise.example/bisheng', user: { id: '20' }, tenant: { id: '2', name: 'Company' }, sessionExpiresAt: new Date(Date.now() + 86400000).toISOString() }
+const account = { connected: true, desktopVersion: '0.9.2', base: 'https://enterprise.example/bisheng', user: { id: '20' }, tenant: { id: '2', name: 'Company' }, sessionExpiresAt: new Date(Date.now() + 86400000).toISOString() }
 const { privateKey, publicKey } = generateKeyPairSync('ed25519')
 const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
 function receipt(payload: object) { const bytes = Buffer.from(JSON.stringify(payload)); return { payload: bytes.toString('base64url'), signature: sign(null, bytes, privateKey).toString('base64url') } }
 function bundle(version = '1.0.0', source = 'export function apply(ctx) { ctx.effect(() => () => {}, "test plugin") }') {
   const files = { 'node_modules/company-demo/package.json': Buffer.from(JSON.stringify({ name: 'company-demo', version, type: 'module', main: 'index.js' })), 'node_modules/company-demo/index.js': Buffer.from(source) }
-  const manifest = { schema_version: 1, plugin: { name: 'company-demo', version, display_name: 'Company Demo', description: 'Internal reporting', publisher: 'Company', license: 'MIT', desktop_min: '0.1.1', permissions: [], services: [] }, targets: { [target]: Object.fromEntries(Object.entries(files).map(([path, value]) => [path, sha256(value)])) } }
+  const manifest = { schema_version: 1, plugin: { name: 'company-demo', version, display_name: 'Company Demo', description: 'Internal reporting', publisher: 'Company', license: 'MIT', desktop_min: '0.9.2', permissions: [], services: [] }, targets: { [target]: Object.fromEntries(Object.entries(files).map(([path, value]) => [path, sha256(value)])) } }
   const bytes = zipEntries({ 'manifest.json': Buffer.from(JSON.stringify(manifest)), ...Object.fromEntries(Object.entries(files).map(([path, value]) => [`bundles/${target}/${path}`, value])) })
   return { bytes, manifest, expected: { name: 'company-demo', version, digest: sha256(bytes) } }
 }
@@ -129,7 +132,7 @@ async function fixture(pinned = true) {
       return { dispose: async () => { active.delete(record.version); await fiber.dispose() } }
     } })
   controllers.push(market)
-  return { root, market, request, active, swap: () => { identity = { ...account, user: { id: '21' } } }, disconnect: () => { connected = false }, offline: () => { online = false }, disable: () => { disabled = true; revision++ }, update: (source?: string) => {
+  return { root, market, request, active, setDesktopVersion: (value: string) => { identity = { ...identity, desktopVersion: value } }, swap: () => { identity = { ...account, user: { id: '21' } } }, disconnect: () => { connected = false }, offline: () => { online = false }, disable: () => { disabled = true; revision++ }, update: (source?: string) => {
     current = bundle('1.1.0', source); currentId = 'c'.repeat(32); approved.set(currentId, current.expected.digest); revision++
   } }
 }
@@ -220,3 +223,88 @@ describe('account-bound lifecycle', () => {
     expect(active.size).toBe(0)
   })
 })
+
+describe('review regressions', () => {
+  it('uses actual release and prerelease versions, and rejects missing version metadata', () => {
+    expect(isMarketVersionCompatible('0.9.2', '0.9.2')).toBe(true)
+    expect(isMarketVersionCompatible('0.9.2-beta.1', '0.9.2')).toBe(false)
+    expect(isMarketVersionCompatible('0.9.2', '0.9.2-beta.1')).toBe(true)
+    expect(isMarketVersionCompatible('', '0.9.2')).toBe(false)
+    expect(isMarketVersionCompatible('0.9.2', 'invalid')).toBe(false)
+  })
+
+  it('pins first-use keys across synchronization and restart', async () => {
+    const { market, request, root } = await fixture(false)
+    await market.synchronize()
+    const other = generateKeyPairSync('ed25519').publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    await market.stop(false)
+    request.mockImplementationOnce(async () => ({ status_code: 200, data: { enabled: true, contract_version: 1, tenant_id: '2', public_key: other } }))
+    await market.synchronize()
+    expect(market.state()).toMatchObject({ online: false, error: expect.stringContaining('signing key changed') })
+    const saved = JSON.parse(await readFile(join(root, 'enterprise-market', `${sha256(`${account.base}|2|20`)}.json`), 'utf8'))
+    expect(saved.public_key).toBe(pem)
+  })
+
+  it('cancels an in-flight install before serialized logout clears the account', async () => {
+    const { market, request, active } = await fixture()
+    const original = request.getMockImplementation()!
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    let downloading = false
+    request.mockImplementation(async (path, body) => {
+      if (path.endsWith('/artifact')) { downloading = true; await gate }
+      return original(path, body)
+    })
+    const installing = market.act({ action: 'install', plugin_id: pluginId })
+    const rejected = expect(installing).rejects.toThrow(/account changed/)
+    await vi.waitFor(() => expect(downloading).toBe(true))
+    const queued = market.act({ action: 'enable', plugin_id: pluginId })
+    const queuedRejected = expect(queued).rejects.toThrow(/account changed/)
+    const stopped = market.stop()
+    release()
+    await Promise.all([rejected, queuedRejected, stopped])
+    expect(active.size).toBe(0)
+    expect(market.state().installed).toEqual([])
+  })
+
+  it('rejects malformed catalog pagination and releases the queue for the next request', async () => {
+    const { market, request } = await fixture()
+    const original = request.getMockImplementation()!
+    request.mockImplementation(async (path, body) => path.includes('/catalog')
+      ? { status_code: 200, data: { data: [] } } : original(path, body))
+    await expect(market.act({ action: 'install', plugin_id: pluginId })).rejects.toThrow(/pagination/)
+    request.mockImplementation(original)
+    const catalog = await market.catalog()
+    expect(catalog).toMatchObject({ desktopVersion: '0.9.2', installReady: true })
+    expect(catalog.data[0]).toMatchObject({ versions: [{ compatible: true }] })
+  })
+})
+
+ it('loads its declared closure from a physical isolated Profile and exercises the real Loader lifecycle', async () => {
+   const root = await home()
+   const isolated = await isolatePackage(join(process.cwd(), 'packages/dsh-desktop-enterprise'), join(root, 'installation'))
+   const good = bundle(), bad = bundle('1.1.0', 'export function apply() { throw new Error("smoke bad update") }')
+   const fixtureFile = join(root, 'fixtures.json')
+   const shape = (value: ReturnType<typeof bundle>, id: string) => ({ ...value.expected, id, bytes: value.bytes.toString('base64'), manifest: value.manifest })
+   await writeFile(fixtureFile, JSON.stringify({ pluginId, good: shape(good, versionId), bad: shape(bad, 'c'.repeat(32)) }))
+   const { stdout } = await promisify(execFile)(process.execPath, [join(process.cwd(), 'test/helpers/enterprise-profile-smoke.mjs'), isolated.entry, root, fixtureFile], {
+     cwd: root, env: { ...process.env, NODE_PATH: '', NODE_OPTIONS: '' }, timeout: 30000
+   })
+   expect(JSON.parse(stdout)).toMatchObject({ isolatedImport: 'PASS', install: 'PASS', disableEnable: 'PASS', failedUpdateRollback: 'PASS', stop: 'PASS' })
+ })
+
+ it('blocks installs below the actual Desktop minimum and exposes the same verdict to the list', async () => {
+   const { market, setDesktopVersion } = await fixture()
+   setDesktopVersion('0.9.1')
+   expect((await market.catalog()).data[0]).toMatchObject({ versions: [{ compatible: false }] })
+   await expect(market.act({ action: 'install', plugin_id: pluginId })).rejects.toThrow(/incompatible/)
+   setDesktopVersion('0.9.2')
+   await expect(market.act({ action: 'install', plugin_id: pluginId })).resolves.toMatchObject({ installed: [{ status: 'enabled' }] })
+   await Promise.all([market.stop(), market.stop()])
+ })
+
+ it('rejects Windows device names, drive paths, alternate streams and trailing-dot aliases', () => {
+   for (const name of ['C:/escape', 'node_modules/demo/CON.txt', 'node_modules/demo/COM1', 'node_modules/demo/file:stream', 'node_modules/demo/alias.', 'node_modules/demo/alias ']) {
+     expect(() => readBundleZip(zipEntries({ [name]: Buffer.from('unsafe') })), name).toThrow(/Unsafe/)
+   }
+ })

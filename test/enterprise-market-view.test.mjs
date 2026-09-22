@@ -15,7 +15,7 @@ async function mountMarket({ action, update = false, holdRefresh = false } = {})
   vi.stubGlobal('document', dom.window.document)
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const account = { connected: true, base: 'https://company.example', tenant: { id: '1', name: 'Old company' }, user: { id: '20' }, sessionExpiresAt: new Date(Date.now() + 60000).toISOString() }
-  const plugin = { id: 'a'.repeat(32), display_name: 'JSON 格式化', description: '校验并格式化 JSON。', current_version_id: 'b'.repeat(32), versions: [{ id: 'b'.repeat(32), version: '1.0.0', manifest: { plugin: { publisher: '企业管理员', license: 'MIT', desktop_min: '0.1.1', permissions: [], changelog: '初始版本' }, targets: { 'darwin-arm64': {} } } }] }
+  const plugin = { id: 'a'.repeat(32), display_name: 'JSON 格式化', description: '校验并格式化 JSON。', current_version_id: 'b'.repeat(32), versions: [{ id: 'b'.repeat(32), compatible: true, version: '1.0.0', manifest: { plugin: { publisher: '企业管理员', license: 'MIT', desktop_min: '0.1.1', permissions: [], changelog: '初始版本' }, targets: { 'darwin-arm64': {} } } }] }
   const other = { ...structuredClone(plugin), id: 'c'.repeat(32), display_name: 'URL 编码' }
   let company = 'Current company', installed = Boolean(action && action !== 'install') || update, enabled = action !== 'enable', definition
   const pendingActions = new Map()

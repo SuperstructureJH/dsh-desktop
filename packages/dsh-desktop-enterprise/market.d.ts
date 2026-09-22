@@ -5,7 +5,7 @@ export interface InstalledMarketPlugin {
   version_id: string; revision: number; enabled: boolean; status: string; display_name: string; error?: string; config?: Record<string, unknown>; description?: string
 }
 export interface MarketAccount {
-  connected: boolean; base?: string; user?: { id: string }; tenant?: { id: string; name?: string }; sessionExpiresAt?: string
+  connected: boolean; desktopVersion?: string; base?: string; user?: { id: string }; tenant?: { id: string; name?: string }; sessionExpiresAt?: string
 }
 export interface MarketState extends MarketAccount { configured: boolean; target: string; desktopVersion: string; accountKey: string | null; connected: boolean; online: boolean; installed: Omit<InstalledMarketPlugin, 'directory' | 'config'>[]; error?: string; expiresAt?: number }
 export interface MarketController {
@@ -28,3 +28,5 @@ export declare function applyEnterpriseMarket(ctx: Context, account: {
   refreshProfile?(): Promise<unknown>
   marketRequest(path: string, body?: unknown, binary?: boolean): Promise<unknown>
 }): MarketController
+
+export declare function isMarketVersionCompatible(version: string, minimum: string): boolean

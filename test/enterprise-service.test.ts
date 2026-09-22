@@ -86,6 +86,7 @@ describe('enterprise service login loop', () => {
     }
     const activateDesktop = vi.fn(() => {
       expect(service.snapshot().phase).toBe('connected')
+    expect(service.snapshot().desktopVersion).toBe('0.1.1-beta.2+build.7')
       if (failActivation) throw new Error('window unavailable')
     })
     const { service, notes } = await createService(createEnterpriseFetch(fetchImpl), {
