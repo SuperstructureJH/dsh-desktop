@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     const zh = {
       nav: '企业账号',
       title: '企业账号',
-      accountId: '账号 ID',
+      accountLabel: '当前账号',
       platform: '企业服务地址',
       login: '在浏览器中登录',
       loggingIn: '等待浏览器授权…',
@@ -49,7 +49,7 @@ window.__ModuleLoader__.load({
     const en = {
       nav: 'Enterprise',
       title: 'Enterprise account',
-      accountId: 'Account ID',
+      accountLabel: 'Current account',
       platform: 'Enterprise service URL',
       login: 'Sign in in browser',
       loggingIn: 'Waiting for browser authorization…',
@@ -811,7 +811,7 @@ window.__ModuleLoader__.load({
         ? h('div', { className: 'dshEnterpriseIdentity' },
           h('span', { className: 'dshEnterpriseAvatar', 'aria-hidden': 'true' }, createAccountIcon()),
           h('div', { className: 'dshEnterpriseAccount' },
-            h('span', { className: 'dshEnterpriseAccountLabel' }, t('accountId')),
+            h('span', { className: 'dshEnterpriseAccountLabel' }, t('accountLabel')),
             h('span', null, userLabel)),
           h('button', {
             className: 'dshEnterpriseLogout',

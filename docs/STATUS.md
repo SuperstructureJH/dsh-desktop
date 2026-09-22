@@ -1,3 +1,8 @@
+## Enterprise account label — 2026-09-22
+
+- The identity label now reads “当前账号 / Current account”, matching the existing display-name, username, and ID fallback order.
+- PR #527 review follow-up; account selection and authentication behavior stay as implemented. Full regression: 149 files / 1,249 tests PASS; diff-check PASS. New package: NOT_RUN.
+
 ## Enterprise account layout — 2026-09-22
 
 - Based on `V0.9.2@dfeb83b31b9755aeccd119cc3c813d67ecd2f7dc`, with installed Harness `0.1.5-rc.2`.
