@@ -25,7 +25,7 @@ const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString()
 function receipt(payload: object) { const bytes = Buffer.from(JSON.stringify(payload)); return { payload: bytes.toString('base64url'), signature: sign(null, bytes, privateKey).toString('base64url') } }
 function bundle(version = '1.0.0', source = 'export function apply(ctx) { ctx.effect(() => () => {}, "test plugin") }') {
   const files = { 'node_modules/company-demo/package.json': Buffer.from(JSON.stringify({ name: 'company-demo', version, type: 'module', main: 'index.js' })), 'node_modules/company-demo/index.js': Buffer.from(source) }
-  const manifest = { schema_version: 1, plugin: { name: 'company-demo', version, display_name: 'Company Demo', description: 'Internal reporting', publisher: 'Company', license: 'MIT', desktop_min: '0.9.2', permissions: [], services: [] }, targets: { [target]: Object.fromEntries(Object.entries(files).map(([path, value]) => [path, sha256(value)])) } }
+  const manifest = { schema_version: 1, plugin: { name: 'company-demo', version, display_name: 'Company Demo', description: 'Internal reporting', publisher: 'Company', license: 'MIT', desktop_min: '0.9.1', permissions: [], services: [] }, targets: { [target]: Object.fromEntries(Object.entries(files).map(([path, value]) => [path, sha256(value)])) } }
   const bytes = zipEntries({ 'manifest.json': Buffer.from(JSON.stringify(manifest)), ...Object.fromEntries(Object.entries(files).map(([path, value]) => [`bundles/${target}/${path}`, value])) })
   return { bytes, manifest, expected: { name: 'company-demo', version, digest: sha256(bytes) } }
 }
@@ -227,6 +227,8 @@ describe('account-bound lifecycle', () => {
 describe('review regressions', () => {
   it('uses actual release and prerelease versions, and rejects missing version metadata', () => {
     expect(isMarketVersionCompatible('0.9.2', '0.9.2')).toBe(true)
+    expect(isMarketVersionCompatible('0.9.2-test.1', '0.9.1')).toBe(true)
+    expect(isMarketVersionCompatible('0.9.2-test.1', '0.9.2')).toBe(false)
     expect(isMarketVersionCompatible('0.9.2-beta.1', '0.9.2')).toBe(false)
     expect(isMarketVersionCompatible('0.9.2', '0.9.2-beta.1')).toBe(true)
     expect(isMarketVersionCompatible('', '0.9.2')).toBe(false)
@@ -295,10 +297,11 @@ describe('review regressions', () => {
 
  it('blocks installs below the actual Desktop minimum and exposes the same verdict to the list', async () => {
    const { market, setDesktopVersion } = await fixture()
-   setDesktopVersion('0.9.1')
+   setDesktopVersion('0.9.0')
    expect((await market.catalog()).data[0]).toMatchObject({ versions: [{ compatible: false }] })
    await expect(market.act({ action: 'install', plugin_id: pluginId })).rejects.toThrow(/incompatible/)
-   setDesktopVersion('0.9.2')
+   setDesktopVersion('0.9.2-test.1')
+   expect((await market.catalog()).data[0]).toMatchObject({ versions: [{ compatible: true }] })
    await expect(market.act({ action: 'install', plugin_id: pluginId })).resolves.toMatchObject({ installed: [{ status: 'enabled' }] })
    await Promise.all([market.stop(), market.stop()])
  })

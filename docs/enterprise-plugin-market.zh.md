@@ -17,6 +17,8 @@
 node scripts/pack-enterprise-plugin.mjs release.json plugin.zip
 ```
 
+本次企业市场提测插件的制包配置使用 `plugin.desktop_min: "0.9.1"`，使 `0.9.2-test.1` 等签名测试包通过版本检查。该字段随插件包发布，后台目录应使用重新制包后的 manifest；桌面继续按标准 SemVer 比较。最低版本声明需要与插件实际依赖的宿主能力一致。
+
 脚本读取已准备的依赖树，输出带文件摘要的离线包。详细接收合同由 `offline-bundle.js` 校验。管理员将 ZIP 导入企业后台后，客户端可从“来自企业”安装。
 
 ## 本次迁移
