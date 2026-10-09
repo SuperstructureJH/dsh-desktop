@@ -77,6 +77,28 @@ it('completes the current catalogue load when the connection resets during the f
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
 })
 
+it('selects a card directly and keeps the eye preview independent of selection', async () => {
+  const f = await fixture(); await f.click('Word')
+  await f.click('查看案例 通用会议纪要')
+  expect(f.calls.some(call => call.endpoint === 'select')).toBe(false)
+  await f.click('关闭预览'); await f.click('选用案例 通用会议纪要')
+  expect(container.querySelector('dialog')).toBeNull()
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
+  await f.click('查看案例 公文写作 · 通知')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  await f.click('做同款')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('government-notice')
+})
+
+it('locks direct card choices while the host is saving a selection', async () => {
+  const f = await fixture(); await f.click('Word'); const release = f.hold('select')
+  await f.click('选用案例 通用会议纪要')
+  expect([...container.querySelectorAll('.dso-card button')].every(button => button.disabled)).toBe(true)
+  await release()
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+})
+
 it('exposes common Word cases and selects the previewed revision after paging', async () => {
   const f = await fixture(); await f.click('Word')
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)

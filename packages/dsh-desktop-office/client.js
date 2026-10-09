@@ -2,10 +2,10 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   const React = require('react'), h = React.createElement
   const NS = 'desktop-office', EVENT = 'dsh-office-mode-change', staged = '@staged'
   const zh = { templates: '选择案例', preview: '查看案例', use: '做同款', close: '关闭预览', previous: '上一页', next: '下一页',
-    loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例', all: '全部',
+    select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例', all: '全部',
     page: '第 {page} 页，共 {total} 页', expired: '案例已更新，请重新选择', common: '常用办公', other: '专业案例', empty: '该分类下暂无案例', zoom: '放大阅读', fit: '适合页面' }
   const en = { templates: 'Choose an example', preview: 'Preview example', use: 'Use this example', close: 'Close preview', previous: 'Previous page', next: 'Next page',
-    loading: 'Loading…', retry: 'Retry', remove: 'Remove example', selected: 'Selected example', all: 'All',
+    select: 'Select example', loading: 'Loading…', retry: 'Retry', remove: 'Remove example', selected: 'Selected example', all: 'All',
     page: 'Page {page} of {total}', expired: 'This example was updated. Choose it again.', common: 'Everyday work', other: 'Specialist examples', empty: 'No examples in this category', zoom: 'Zoom to read', fit: 'Fit page' }
   const empty = Object.freeze({ templates: [], mode: null, selectedTemplateId: null, loaded: false, loading: false, busy: false, error: '' })
   const keyOf = id => id || staged
@@ -84,6 +84,40 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
       h('img', { src: item.thumbnail, alt: '', loading: 'lazy', draggable: false }))
   }
 
+  function TemplateCard({ item, selected, busy, t, choose, preview }) {
+    return h('article', { className: 'dso-card', 'data-office-template': item.id, 'data-selected': selected },
+      h('button', { type: 'button', className: 'dso-card-select', disabled: busy, 'aria-pressed': selected,
+        'aria-label': `${t('select')} ${titleOf(item, t)}`, onClick: () => choose(item) },
+        h('span', { className: 'dso-cover', 'data-mode': item.mode }, h(Thumbnail, { item })),
+        h('strong', null, titleOf(item, t)), h('small', null, item.category === '常用办公' ? t('common') : t('other'))),
+      h('button', { type: 'button', className: 'dso-card-preview', disabled: busy, 'aria-label': `${t('preview')} ${titleOf(item, t)}`, onClick: () => preview(item) },
+        h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true },
+          h('path', { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z' }), h('circle', { cx: 12, cy: 12, r: 3 }))))
+  }
+
+  // Share the existing Composer seat geometry used by the PPT chooser.
+  function useDockGeometry(root, panel, visible) {
+    React.useLayoutEffect(() => {
+      if (!visible || !root.current || !panel.current) return
+      const element = root.current, body = element.closest('[data-conversation-scroll]')
+      const card = element.closest('[data-composer-seat]')?.querySelector('[data-composer-card]')
+      if (!body || !card) return
+      const sync = () => {
+        const bodyRect = body.getBoundingClientRect(), cardRect = card.getBoundingClientRect()
+        element.style.setProperty('--dso-dock-width', `${Math.min(cardRect.width, bodyRect.width)}px`)
+        element.style.setProperty('--dso-dock-height', `${Math.max(200, Math.floor(bodyRect.bottom - panel.current.getBoundingClientRect().top - 12))}px`)
+      }
+      const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null
+      observer?.observe(body); observer?.observe(card)
+      window.addEventListener('resize', sync)
+      const frame = window.requestAnimationFrame(sync)
+      return () => {
+        window.cancelAnimationFrame(frame); observer?.disconnect(); window.removeEventListener('resize', sync)
+        element.style.removeProperty('--dso-dock-width'); element.style.removeProperty('--dso-dock-height')
+      }
+    }, [root, panel, visible])
+  }
+
   function Preview({ item, store, sessionId, t, choose, close, busy, actionError }) {
     const dialog = React.useRef(), stage = React.useRef(), opener = React.useRef(document.activeElement), active = React.useRef(true)
     const [page, setPage] = React.useState(1), [preview, setPreview] = React.useState(null), [error, setError] = React.useState(''), [retry, setRetry] = React.useState(0)
@@ -121,20 +155,22 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   }
   function Dock({ store, sessionId, session, t }) {
     const state = useOffice(store, sessionId), [opened, setOpened] = React.useState(null), [category, setCategory] = React.useState('all')
+    const root = React.useRef(), panel = React.useRef(), visible = !!state.mode && (session == null || session.blank === true)
+    useDockGeometry(root, panel, visible)
     React.useEffect(() => { setOpened(null); setCategory('all') }, [sessionId, state.mode])
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
-    if (!state.mode || (session != null && session.blank !== true)) return null
+    if (!visible) return null
     const items = state.templates.filter(item => item.mode === state.mode && (category === 'all' || (item.category === '常用办公') === (category === 'common')))
-    return h('section', { className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
+    return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
       h('div', { className: 'dso-toolbar' }, h('strong', null, t('templates')), h('nav', null, ['all', 'common', 'other'].map(value => h('button', { key: value, type: 'button', 'aria-pressed': category === value, onClick: () => setCategory(value) }, t(value))))),
+      h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,
       state.loading ? h('p', { role: 'status' }, t('loading')) : !items.length ? h('p', { role: 'status' }, t('empty')) : null,
-      h('div', { className: 'dso-grid' }, items.map(item => h('button', { key: item.id, type: 'button', className: 'dso-card', 'data-office-template': item.id,
-        'aria-pressed': state.selectedTemplateId === item.id, 'aria-label': `${t('preview')} ${titleOf(item, t)}`, onClick: () => setOpened(item) },
-        h(Thumbnail, { item }), h('strong', null, titleOf(item, t)), h('small', null, item.category === '常用办公' ? t('common') : t('other'))))),
+      h('div', { className: 'dso-grid' }, items.map(item => h(TemplateCard, { key: item.id, item, t, selected: state.selectedTemplateId === item.id,
+        busy: state.busy || state.loading, preview: setOpened, choose: item => store.mutate(sessionId, 'select', { templateId: item.id, revision: item.revision }) })))),
       opened ? h(Preview, { key: `${sessionId}:${opened.id}`, item: opened, store, sessionId, t, close: () => setOpened(null), busy: state.busy, actionError: state.error,
-        choose: item => store.mutate(sessionId, 'select', { templateId: item.id, revision: item.revision }) }) : null)
+        choose: item => store.mutate(sessionId, 'select', { templateId: item.id, revision: item.revision }) }) : null))
   }
   function Accessory({ store, sessionId, t }) {
     const state = useOffice(store, sessionId), [opened, setOpened] = React.useState(false)
@@ -149,10 +185,11 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   const css = `
 .dso-preview-actions{display:flex;gap:8px;align-items:center}.dso-page[data-zoom=true]{display:block;overflow:auto}.dso-page[data-zoom=true]>img{display:block;width:100%;height:auto;min-height:auto}
 .dso-actions{display:flex;gap:8px;align-items:center}.dso-actions>button{font:inherit;font-size:12px;border-radius:999px;padding:7px 13px;background:transparent;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);color:var(--dsw-alias-label-secondary);cursor:pointer}.dso-actions>button[aria-pressed=true]{color:var(--dsw-alias-state-business-primary);border-color:currentColor;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 12%,transparent)}
-.dso-dock{box-sizing:border-box;position:relative;width:100%;max-height:min(420px,calc(100dvh - 220px));overflow:auto;padding:8px 4px 12px;color:var(--dsw-alias-label-primary);font-size:12px}.dso-toolbar,.dso-sheets{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}.dso-toolbar nav,.dso-sheets{display:flex;overflow:auto;gap:4px}.dso-toolbar button,.dso-sheets button{font:inherit;border:0;border-radius:999px;padding:5px 10px;color:var(--dsw-alias-label-secondary);background:transparent;cursor:pointer}.dso-toolbar button[aria-pressed=true],.dso-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.dso-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}.dso-card{font:inherit;display:flex;flex-direction:column;gap:5px;padding:0;min-width:0;border:0;text-align:left;background:transparent;color:inherit;cursor:pointer}.dso-thumbnail{display:block;width:100%;border:2px solid transparent;border-radius:9px;overflow:hidden;background:var(--dsw-alias-bg-layer-2)}.dso-thumbnail img{display:block;width:100%;height:auto}.dso-card[aria-pressed=true] .dso-thumbnail{border-color:var(--dsw-alias-state-business-primary)}.dso-card strong{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.dso-card small{font-size:10px;color:var(--dsw-alias-label-tertiary)}
+.dso-dock-root{box-sizing:border-box;position:relative;width:100%;height:0;padding:0 var(--dsh-composer-side-clearance);overflow:visible}.dso-dock{box-sizing:border-box;position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;width:var(--dso-dock-width,var(--dsh-composer-card-max-width,100%));max-width:calc(100vw - 32px);height:var(--dso-dock-height,calc(100dvh - 178px));margin-top:8px;color:var(--dsw-alias-label-primary);font-size:12px}.dso-viewport{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 4px 12px;scrollbar-width:none}.dso-viewport::-webkit-scrollbar{display:none}.dso-toolbar,.dso-sheets{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;flex:none}.dso-toolbar{min-height:38px;padding-inline:4px}.dso-toolbar nav,.dso-sheets{display:flex;overflow:auto;gap:4px}.dso-toolbar button,.dso-sheets button{font:inherit;border:0;border-radius:999px;padding:5px 10px;color:var(--dsw-alias-label-secondary);background:transparent;cursor:pointer}.dso-toolbar button[aria-pressed=true],.dso-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.dso-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}.dso-card{min-width:0;position:relative}.dso-card-select{font:inherit;display:flex;flex-direction:column;gap:5px;width:100%;padding:0;min-width:0;border:0;text-align:left;background:transparent;color:inherit;cursor:pointer}.dso-card-select:disabled{cursor:default;opacity:.65}.dso-cover{box-sizing:border-box;display:block;position:relative;width:100%;aspect-ratio:16/9;border:2px solid transparent;border-radius:12px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 10%,var(--dsw-alias-bg-layer-1))}.dso-cover[data-mode=excel]{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 14%,var(--dsw-alias-bg-layer-1))}.dso-thumbnail{display:block;width:100%;border-radius:8px;overflow:hidden}.dso-thumbnail img{display:block;width:100%;height:auto}.dso-cover>.dso-thumbnail{position:absolute;left:13%;top:14%;width:74%;box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent);transform-origin:center top;transition:transform 180ms cubic-bezier(.23,1,.32,1)}.dso-cover[data-mode=excel]>.dso-thumbnail{left:8%;width:84%}.dso-card[data-selected=true] .dso-cover{border-color:var(--dsw-alias-state-business-primary)}.dso-card strong{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.dso-card small{font-size:10px;color:var(--dsw-alias-label-tertiary)}.dso-card-preview{position:absolute;right:10px;top:10px;z-index:1;display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:999px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;transition:opacity 120ms ease}.dso-card:hover .dso-card-preview,.dso-card:focus-within .dso-card-preview{opacity:1}.dso-card-preview:disabled{cursor:default}.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:scale(.98)}
+@media(hover:hover) and (pointer:fine){.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail{transform:translateY(-3px) scale(1.045)}}@media(hover:none){.dso-card-preview{opacity:1}}@media(prefers-reduced-motion:reduce){.dso-cover>.dso-thumbnail,.dso-card-preview{transition:none}.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail,.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:none}}
 .dso-modal{box-sizing:border-box;width:min(1100px,94vw);height:min(860px,92dvh);max-width:94vw;max-height:92dvh;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:16px;padding:16px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.dso-modal[open]{display:flex;flex-direction:column;gap:12px}.dso-modal::backdrop{background:color-mix(in srgb,var(--dsw-alias-label-primary) 35%,transparent)}.dso-modal header,.dso-modal footer{display:flex;align-items:center;gap:12px;flex:none}.dso-modal header{justify-content:space-between}.dso-modal button{font:inherit;font-size:12px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:8px;padding:6px 12px;background:var(--dsw-alias-interactive-bg-hover);color:inherit;cursor:pointer}.dso-modal button:disabled{opacity:.45;cursor:default}.dso-page{display:flex;justify-content:center;align-items:center;flex:1;min-height:0;min-width:0;overflow:hidden;background:var(--dsw-alias-bg-layer-2);border-radius:8px}.dso-page>img{width:100%;height:100%;object-fit:contain;min-height:0}.dso-modal .dso-use{margin-left:auto;background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary-foreground)}
-.dso-selected{display:flex;gap:4px;align-items:flex-start;font-size:12px}.dso-selected button{font:inherit;color:var(--dsw-alias-label-secondary);background:transparent;border:0;cursor:pointer}.dso-selected-preview{display:block;padding:0}.dso-selected .dso-thumbnail{width:112px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:6px}.dso-actions button:focus-visible,.dso-card:focus-visible,.dso-modal button:focus-visible,.dso-selected button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}@media(max-width:540px){.dso-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dso-modal{padding:10px}.dso-modal footer{gap:6px}.dso-toolbar{flex-wrap:wrap}}`
+.dso-selected{display:flex;gap:4px;align-items:flex-start;font-size:12px}.dso-selected button{font:inherit;color:var(--dsw-alias-label-secondary);background:transparent;border:0;cursor:pointer}.dso-selected-preview{display:block;padding:0}.dso-selected .dso-thumbnail{width:112px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:6px}.dso-actions button:focus-visible,.dso-card-select:focus-visible,.dso-card-preview:focus-visible,.dso-modal button:focus-visible,.dso-selected button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}@media(max-width:540px){.dso-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dso-modal{padding:10px}.dso-modal footer{gap:6px}.dso-toolbar{flex-wrap:wrap}}`
   function apply(ctx) {
     const store = new OfficeStore(ctx.get('connection'))
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'Office dictionaries')
