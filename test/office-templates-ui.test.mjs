@@ -11,9 +11,9 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
 const source = await readFile(resolve('packages/dsh-desktop-office/client.js'), 'utf8')
 const image = 'data:image/png;base64,iVBORw0KGgo='
 const templates = [
-  { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '常用办公', pages: 4, revision: 'a'.repeat(24), thumbnail: image },
-  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '常用办公', pages: 2, revision: 'b'.repeat(24), thumbnail: image },
-  { id: 'budget-expenses', title: '预算与费用', titleEn: 'Budget and expenses', mode: 'excel', category: '常用办公', pages: 2, revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '费用总览', pages: [1] }, { name: '费用明细', pages: [2] }] }
+  { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '常用办公', pages: 4, pageAspectRatios: Array(4).fill(0.707), revision: 'a'.repeat(24), thumbnail: image },
+  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '常用办公', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
+  { id: 'budget-expenses', title: '预算与费用', titleEn: 'Budget and expenses', mode: 'excel', category: '常用办公', pages: 2, pageAspectRatios: [1.6, 1.6], revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '费用总览', pages: [1] }, { name: '费用明细', pages: [2] }] }
 ]
 let root, container, cleanup = []
 afterEach(async () => { if (root) await act(async () => root.unmount()); for (const dispose of cleanup.splice(0)) dispose?.(); container?.remove(); root = null; delete window.__ModuleLoader__ })
@@ -89,12 +89,19 @@ it('exposes common Word cases and selects the previewed revision after paging', 
   await f.click('做同款')
   expect(container.querySelector('dialog')).toBeNull()
   expect(container.querySelector('[data-office-selected]')?.dataset.officeSelected).toBe('meeting-minutes')
+  const accessory = container.querySelector('[data-office-selected]')
+  expect(accessory.textContent).toBe('×')
+  expect(accessory.querySelector('.dso-selected-preview').getAttribute('aria-label')).toBe('查看案例 通用会议纪要')
+  expect(parseFloat(accessory.querySelector('.dso-thumbnail').style.aspectRatio)).toBe(1.414)
+  expect(parseFloat(container.querySelector('[data-office-template=meeting-minutes] .dso-thumbnail').style.aspectRatio)).toBe(1.414)
   expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'meeting-minutes', revision: 'b'.repeat(24) })
   await f.click('取消选择案例'); expect(container.querySelector('[data-office-selected]')).toBeNull()
 })
 
 it('uses Excel worksheet navigation and localized controls', async () => {
-  const f = await fixture({ english: true }); await f.click('Excel'); await f.click('Preview example Budget and expenses')
+  const f = await fixture({ english: true }); await f.click('Excel')
+  expect(parseFloat(container.querySelector('[data-office-template=budget-expenses] .dso-thumbnail').style.aspectRatio)).toBe(1.6)
+  await f.click('Preview example Budget and expenses')
   await f.click('费用明细'); expect(container.textContent).toContain('Page 2 of 2')
   await act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true })))
   expect(container.textContent).toContain('Page 1 of 2')
