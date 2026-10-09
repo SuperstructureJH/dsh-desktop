@@ -17,6 +17,7 @@ EXPECTED = {
 
 def check(root, sources):
     catalog = json.loads((root / 'catalog.json').read_text())
+    assert {entry.name for entry in root.iterdir()} == {'catalog.json', *(item['id'] for item in catalog)}, 'catalogue resource root'
     numeric_checks, previews = 0, 0
     for item in catalog:
         directory = root / item['id']

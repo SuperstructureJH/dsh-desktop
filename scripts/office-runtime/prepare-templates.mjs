@@ -73,7 +73,14 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
           for (const font of result.missingFonts ?? []) missingFonts.add(font)
           return result.images
         }
-        if (item.mode === 'word') images.push(...await render())
+        if (item.mode === 'word') {
+          // Export the printable page: Writer tiles include editing boundaries.
+          const pdf = join(staging, `.print-${item.id}.pdf`)
+          const exported = await cli(['convert', '--input', sample, '--output', pdf])
+          for (const font of exported.missingFonts ?? []) missingFonts.add(font)
+          const printed = await cli(['render', '--input', pdf, '--output-dir', join(staging, `.render-${item.id}-print`), '--dpi', '100'])
+          images.push(...printed.images)
+        }
         else for (const page of previewPages) {
           console.log(`Office preview: ${item.id}, ${page.sheet} ${page.range}`)
           let sheet = sheets.find(x => x.name === page.sheet)
@@ -91,7 +98,9 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
           ...(sheets.length ? { sheets } : {}), missingFonts: [...missingFonts], revision: hash(Buffer.from(JSON.stringify(revisions))).slice(0, 24), files: revisions })
         console.log(`Office example: ${item.id}, ${images.length} pages`)
       }
-      for (const entry of await readdir(staging)) if (entry.startsWith('.render-')) await rm(join(staging, entry), { recursive: true, force: true })
+      for (const entry of await readdir(staging)) {
+        if (entry.startsWith('.render-') || entry.startsWith('.print-')) await rm(join(staging, entry), { recursive: true, force: true })
+      }
       await writeFile(join(staging, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n')
       await rename(staging, saved)
     } finally { await rm(staging, { recursive: true, force: true }) }

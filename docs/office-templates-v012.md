@@ -10,6 +10,16 @@
 - 官方 Office / 离线 Python 已由 #649 进入 V0.12.0；本次复用现有安装级运行时和 `@deepseek-ai/libreoffice-kit@0.1.3`。Python 3.12.14、python-docx、openpyxl 等依赖继续使用仓库锁定版本。
 - 工作树：`.worktrees/dsh-desktop-v012-office-templates`。相邻 PPT 验收和旧 Office 工作树保持原状态。
 
+## r5 预览与会议纪要
+
+Word 预览统一使用官方 Kit 导出的 PDF 页面。公文红色抬头旁的细灰框来自 Writer 编辑视图中的图片边界；PDF 页面保持原文内容和正式版式，原始 DOCX 逐字节保留。
+
+会议纪要案例重做为两页：第 1 页呈现会议信息、已定事项和议题记录，第 2 页呈现行动项、待决事项与跟进方式。正文 11pt、主标题 23pt、一级标题 14pt，页边距约 2cm；表格使用浅色表头、细灰边框和自动行高。
+
+`meeting-recap` 沿用原用户归档的 MIT 许可，本版正文与校验器按 DSH 当前需求重写。归档此前被称为“Kimi 185”，现有记录能确认归档与 PR 迁入链路，官方作者身份待核实；公文 Skill 来自 WorkBuddy。详情见 [来源记录](office-template-sources.md)。
+
+验证状态记录在 [STATUS](STATUS.md)。真实模型摘要质量由用户在 DSH 使用会议原文验证。
+
 ## 外显案例
 
 | 格式 | 常用办公 | 专业案例 |
@@ -21,7 +31,7 @@
 
 Word 沿用 PPT 的模板选用流程：点击案例卡片直接选用，小眼睛打开完整预览，预览内支持翻页和「做同款」。提供适合页面 / 放大阅读，支持键盘翻页和 Esc 关闭。Excel 使用同一交互，并按工作表切换预览。模板选择随会话保存；Word、Excel、PPT 共用已有 Host 状态和审计层，切换输出格式时清理前一格式的模板选择。
 
-最新 r4 以当前 V0.12.0 已改版的 PPT chooser / input accessory / opening preview 为样式基准：分类靠左、12px 单行居中标题、9px 卡片圆角、单色 18px 模式图标；预览采用 760px 最大宽度、20px 内边距、16px 标题、28px 关闭按钮和居中 32px 翻页按钮。Word / Excel 保留浅色文档底板及内容层缩放，沿用自身独立插件和公开主题 token。
+r4 以当前 V0.12.0 已改版的 PPT chooser / input accessory / opening preview 为样式基准：分类靠左、12px 单行居中标题、9px 卡片圆角、单色 18px 模式图标；预览采用 760px 最大宽度、20px 内边距、16px 标题、28px 关闭按钮和居中 32px 翻页按钮。Word / Excel 保留浅色文档底板及内容层缩放，沿用自身独立插件和公开主题 token。
 
 卡片选用与查看分别作为两个按钮：点击卡片直接加入输入框，小眼睛打开完整预览，预览内继续支持「做同款」。模板区使用已有 Composer seat / scroll 标记读取与 PPT 相同的宽度和可用高度，以零高度根节点承载下方独立面板；打开模板区时输入框保持原位。ResizeObserver、resize 监听和待执行帧均随组件清理。
 

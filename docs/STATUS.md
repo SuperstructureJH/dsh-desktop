@@ -2,6 +2,8 @@
 
 ## Word / Excel 案例 — 2026-10-09
 
+- r5 实现：Word 使用 Kit PDF 导出页面预览，解决 Writer 图片编辑边界造成的公文灰框；会议纪要 DOCX、design.md、Skill 与结构校验器已重写。来源链路已核实为此前称作“Kimi 185”的用户归档，公文 Skill 来自 WorkBuddy。会议案例两页及公文四页目视 PASS；184 文件 / 1652 项全量测试、类型检查、实际 Harness 公文查看 / 会议纪要两页与做同款 PASS；开发包构建、包内原生 Office 制作 / PDF 转换、8 个插件源文件与会议 Skill / 校验器 / 许可一致、12 案例 / 64 页哈希及严格签名 PASS。真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。
+
 - r4 样式：依据改版 PPT 的 chooser / input accessory / opening preview 统一分类栏、卡片标题和圆角、模式图标、选中图及预览标题 / 关闭 / 翻页；Word / Excel 保留浅色底板及文档 hover。远端 V0.12.0 SHA 与安装 Harness 0.2.0-rc.2 已重新核实。183 文件 / 1646 测试、类型检查、实际 Harness 几何与选用 / 查看 / 翻页 / 做同款、520px 窄窗口、官方主题静态深色 fixture PASS。r4 构建、包内 Office 制作 / PDF 转换、8 文件源码一致及严格签名 PASS。
 
 - r3 交互：模板区采用与 PPT 相同的 Composer seat 几何，输入框位置稳定；点击卡片直接选用，小眼睛独立查看。Word 浅蓝 / Excel 浅绿背景与圆角文档分层，悬停仅放大前景 4.5%。实际 Harness 面板位置比对、选用 / 查看、Excel 工作表和 520px 窄窗口 PASS；独立深色主题 / 减少动画样式 fixture PASS；183 文件 / 1646 测试、类型检查及构建 PASS。开发包原生 Office 制作 / PDF 转换、8 文件源码一致与严格签名 PASS。
