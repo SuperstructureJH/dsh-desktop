@@ -2,6 +2,8 @@
 
 ## Word / Excel 案例 — 2026-10-09
 
+- r6 实现：Word 多页预览采用双页并排、逐页编号与范围页码；按钮和方向键每次切换两页，奇数末页同尺度居中，翻页保持焦点并复位滚动。两页预览原子加载，失败可重新加载，旧请求随翻页取消。实际 Harness 默认窗口、520px 窄窗口、520px 高窗口、末页居中、放大、键盘及做同款 PASS；Excel 工作表切换 PASS。184 文件 / 1656 项最终回归与类型检查 PASS；最终开发包构建、包内 Office 制作 / PDF 转换、8 个插件源文件与业务资源一致、12 案例 / 64 页哈希、严格签名 PASS；真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。
+
 - r5 实现：Word 使用 Kit PDF 导出页面预览，解决 Writer 图片编辑边界造成的公文灰框；会议纪要 DOCX、design.md、Skill 与结构校验器已重写。来源链路已核实为此前称作“Kimi 185”的用户归档，公文 Skill 来自 WorkBuddy。会议案例两页及公文四页目视 PASS；184 文件 / 1652 项全量测试、类型检查、实际 Harness 公文查看 / 会议纪要两页与做同款 PASS；开发包构建、包内原生 Office 制作 / PDF 转换、8 个插件源文件与会议 Skill / 校验器 / 许可一致、12 案例 / 64 页哈希及严格签名 PASS。真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。
 
 - r4 样式：依据改版 PPT 的 chooser / input accessory / opening preview 统一分类栏、卡片标题和圆角、模式图标、选中图及预览标题 / 关闭 / 翻页；Word / Excel 保留浅色底板及文档 hover。远端 V0.12.0 SHA 与安装 Harness 0.2.0-rc.2 已重新核实。183 文件 / 1646 测试、类型检查、实际 Harness 几何与选用 / 查看 / 翻页 / 做同款、520px 窄窗口、官方主题静态深色 fixture PASS。r4 构建、包内 Office 制作 / PDF 转换、8 文件源码一致及严格签名 PASS。

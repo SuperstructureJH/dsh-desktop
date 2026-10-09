@@ -18,7 +18,7 @@ const templates = [
 let root, container, cleanup = []
 afterEach(async () => { if (root) await act(async () => root.unmount()); for (const dispose of cleanup.splice(0)) dispose?.(); container?.remove(); root = null; delete window.__ModuleLoader__ })
 
-async function fixture({ bound = true, remote = {}, english = false, deferState = false } = {}) {
+async function fixture({ bound = true, remote = {}, english = false, deferState = false, examples = templates } = {}) {
   let plugin, dictionaries, store, sessionId = bound ? 'session-a' : undefined
   const seats = new Map(), calls = [], held = new Map(), failures = new Map(), states = new Map([['session-a', { mode: null, ...remote }]])
   const hooks = new Map()
@@ -28,16 +28,19 @@ async function fixture({ bound = true, remote = {}, english = false, deferState 
   new Function(source)()
   const connection = { rpc: { async call(channel, endpoint, payload, signal) {
     expect(channel).toBe('/api'); expect(endpoint).toBe('office-templates'); endpoint = payload.endpoint; const { endpoint: operation, ...args } = payload; payload = args; calls.push({ endpoint, payload, signal })
-    if (held.has(endpoint)) await held.get(endpoint)
+    const requestKey = endpoint === 'preview' ? `preview:${payload.page}` : endpoint
+    if (held.has(requestKey)) await held.get(requestKey)
+    else if (held.has(endpoint)) await held.get(endpoint)
     signal.throwIfAborted()
-    if (failures.has(endpoint)) { const message = failures.get(endpoint); failures.delete(endpoint); return { ok: false, error: { message } } }
-    if (endpoint === 'preview') return { ok: true, value: { page: payload.page, image, pages: templates.find(item => item.id === payload.templateId).pages } }
+    const failureKey = failures.has(requestKey) ? requestKey : endpoint
+    if (failures.has(failureKey)) { const message = failures.get(failureKey); failures.delete(failureKey); return { ok: false, error: { message } } }
+    if (endpoint === 'preview') return { ok: true, value: { page: payload.page, image, pages: examples.find(item => item.id === payload.templateId).pages } }
     let state = states.get(payload.sessionId) ?? { mode: null }
     if (endpoint === 'mode') state = { mode: payload.mode, selectedTemplateId: null }
     if (endpoint === 'select') state = { ...state, selectedTemplateId: payload.templateId }
     if (endpoint === 'deselect') state = { ...state, selectedTemplateId: null }
     states.set(payload.sessionId, state)
-    return { ok: true, value: { ...state, templates } }
+    return { ok: true, value: { ...state, templates: examples } }
   } } }
   const ctx = { get: () => connection, effect(run) { cleanup.push(run()) }, on(name, hook) { hooks.set(name, hook) }, locale: { register(_ns, value) { dictionaries = value; return () => {} } },
     slots: { inject(_seat, run) { run() }, register(meta, component) { store = meta.inject().store; seats.set(meta.name, component) } } }
@@ -99,15 +102,16 @@ it('locks direct card choices while the host is saving a selection', async () =>
   expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
 })
 
-it('exposes common Word cases and selects the previewed revision after paging', async () => {
+it('exposes common Word cases and selects the revision shown as a complete spread', async () => {
   const f = await fixture(); await f.click('Word')
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
   await f.click('查看案例 通用会议纪要')
   expect(container.querySelector('dialog[open]')).not.toBeNull()
-  expect(container.textContent).toContain('第 1 页，共 2 页')
+  expect(container.textContent).toContain('第 1–2 页，共 2 页')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(2)
   await f.click('放大阅读'); expect(container.querySelector('.dso-page').dataset.zoom).toBe('true')
   await f.click('适合页面'); expect(container.querySelector('.dso-page').dataset.zoom).toBe('false')
-  await f.click('下一页'); expect(container.textContent).toContain('第 2 页，共 2 页')
+  expect(container.querySelector('[aria-label=下一组]').disabled).toBe(true)
   await f.click('做同款')
   expect(container.querySelector('dialog')).toBeNull()
   expect(container.querySelector('[data-office-selected]')?.dataset.officeSelected).toBe('meeting-minutes')
@@ -170,4 +174,56 @@ it('preserves modal page fit in both dimensions and owns its styles through the 
   const css = document.querySelector('style[data-plugin="desktop-office"]').textContent
   expect(css).toContain('object-fit:contain'); expect(css).toContain('height:100%'); expect(css).toContain('min-height:0')
   expect(css).not.toMatch(/#[a-f0-9]{3,8}\b/i)
+})
+
+
+it('pages Word spreads by two with keyboard navigation and bounded requests', async () => {
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 公文写作 · 通知')
+  const label = () => container.querySelector('dialog [role=status]').textContent
+  const key = async value => act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true })))
+  expect(label()).toBe('第 1–2 页，共 4 页')
+  expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['第 1 页', '第 2 页'])
+  await f.click('下一组'); expect(label()).toBe('第 3–4 页，共 4 页')
+  expect(document.activeElement).toBe(container.querySelector('dialog'))
+  expect(container.querySelector('[aria-label=下一组]').disabled).toBe(true)
+  await key('ArrowLeft'); expect(label()).toBe('第 1–2 页，共 4 页')
+  await key('ArrowRight'); expect(label()).toBe('第 3–4 页，共 4 页')
+  await key('Home'); expect(label()).toBe('第 1–2 页，共 4 页')
+  await key('End'); expect(label()).toBe('第 3–4 页，共 4 页')
+  expect(f.calls.filter(call => call.endpoint === 'preview').map(call => call.payload.page)).toEqual([1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4])
+})
+
+it('shows an odd final Word page and localizes the spread controls', async () => {
+  const examples = [{ ...templates[0], pages: 5, pageAspectRatios: Array(5).fill(0.707) }]
+  const f = await fixture({ english: true, examples }); await f.click('Word'); await f.click('Preview example Official notice')
+  expect(container.textContent).toContain('Pages 1–2 of 5')
+  await act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })))
+  expect(container.textContent).toContain('Page 5 of 5')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(1)
+  expect(container.querySelector('figcaption').textContent).toBe('Page 5')
+  expect(container.querySelector('[aria-label="Next spread"]').disabled).toBe(true)
+  await f.click('Previous spread'); expect(container.textContent).toContain('Pages 3–4 of 5')
+  expect(f.calls.filter(call => call.endpoint === 'preview').map(call => call.payload.page)).toEqual([1, 2, 5, 3, 4])
+})
+
+it('retries a failed right page as a complete Word spread', async () => {
+  const f = await fixture(); await f.click('Word'); f.fail('preview:2', '第二页加载失败'); await f.click('查看案例 通用会议纪要')
+  expect(container.querySelector('dialog [role=alert]').textContent).toContain('第二页加载失败')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(0)
+  expect(container.querySelector('.dso-use').disabled).toBe(true)
+  await f.click('重新加载')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(2)
+  expect(container.querySelector('.dso-use').disabled).toBe(false)
+  expect(f.calls.filter(call => call.endpoint === 'preview').map(call => call.payload.page)).toEqual([1, 2, 1, 2])
+})
+
+it('cancels both old Word page requests when a newer spread opens', async () => {
+  const f = await fixture(); await f.click('Word'); const release = f.hold('preview:2'); await f.click('查看案例 公文写作 · 通知')
+  const oldRequests = f.calls.filter(call => call.endpoint === 'preview')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(0)
+  await f.click('下一组')
+  expect(oldRequests.every(call => call.signal.aborted)).toBe(true)
+  expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['第 3 页', '第 4 页'])
+  await release()
+  expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['第 3 页', '第 4 页'])
 })
