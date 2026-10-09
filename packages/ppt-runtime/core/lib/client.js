@@ -234,7 +234,7 @@ window.__ModuleLoader__.load({
 				this.update(sessionId, () => ({ ...staged, loading: true, error: "" }));
 				try {
 					const remote = await client.call("state");
-					const occupied = remote?.presentationMode === "ppt" || typeof remote?.selectedTemplateId === "string";
+					const occupied = remote?.presentationMode === "ppt" || remote?.documentMode === "word" || remote?.documentMode === "excel" || typeof remote?.selectedTemplateId === "string";
 					if (occupied) {
 						this.clearStaged();
 						this.update(sessionId, (current) => ({

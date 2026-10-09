@@ -1,0 +1,70 @@
+"""Independent native-file checks for the generated example catalogue."""
+import argparse
+import hashlib
+import json
+import math
+import zipfile
+from pathlib import Path
+from openpyxl import load_workbook
+from docx import Document
+
+EXPECTED = {
+    'budget-expenses': {'费用总览': {'C2': 7500, 'C7': 51500, 'B7': 110000}},
+    'project-tracker': {'项目总览': {'B2': 4, 'B3': 3, 'B4': 3, 'B5': 10, 'B6': .45}},
+    'sales-report': {'销售总览': {'B2': 16600, 'C2': 10300, 'D2': 6300, 'B8': 135600, 'C8': 79800, 'D8': 55800}},
+}
+
+
+def check(root, sources):
+    catalog = json.loads((root / 'catalog.json').read_text())
+    numeric_checks, previews = 0, 0
+    for item in catalog:
+        directory = root / item['id']
+        for name, digest in item['files'].items():
+            assert hashlib.sha256((directory / name).read_bytes()).hexdigest() == digest, (item['id'], name)
+        previews += item['pages']
+        sample = directory / item['sampleFile']
+        with zipfile.ZipFile(sample) as archive:
+            assert archive.testzip() is None
+            assert all('\\' not in name and not name.startswith('/') for name in archive.namelist())
+            if item['mode'] == 'excel':
+                assert all(entry.date_time == (2026, 9, 1, 0, 0, 0) for entry in archive.infolist()), item['id']
+                assert b'2026-09-01T00:00:00Z' in archive.read('docProps/core.xml'), item['id']
+        if item['mode'] == 'word':
+            assert Document(sample).paragraphs, item['id']
+            continue
+        values, editable = load_workbook(sample, data_only=True), load_workbook(sample, data_only=False)
+        for sheet in values:
+            for row in sheet:
+                for cell in row:
+                    assert cell.data_type != 'e', (item['id'], sheet.title, cell.coordinate, cell.value)
+        assert sum(len(sheet._charts) for sheet in editable) > 0, item['id']
+        legacy = sources / 'legacy' / item['id'] / item['sampleFile']
+        if legacy.exists():
+            original = load_workbook(legacy, data_only=False)
+            assert editable.sheetnames == original.sheetnames
+            for sheet in editable:
+                assert sheet.freeze_panes == original[sheet.title].freeze_panes
+                assert len(sheet._charts) == len(original[sheet.title]._charts)
+        else:
+            assert all(sheet.freeze_panes == 'A2' for sheet in editable)
+        for sheet, cells in EXPECTED.get(item['id'], {}).items():
+            for cell, expected in cells.items():
+                assert math.isclose(values[sheet][cell].value, expected, abs_tol=1e-6), (item['id'], sheet, cell)
+                numeric_checks += 1
+        if (directory / 'checks.json').exists():
+            for row in json.loads((directory / 'checks.json').read_text()):
+                actual = values[row['sheet']][row['cell']].value
+                assert math.isclose(actual, row['expected'], abs_tol=row.get('tolerance', 1e-6)), (item['id'], row, actual)
+                numeric_checks += 1
+    return {'templates': len(catalog), 'preview_pages': previews, 'numeric_checks': numeric_checks,
+            'resource_hashes': 'PASS', 'native_zip_crc': 'PASS', 'excel_error_cells': 0,
+            'native_charts': 'PASS', 'frozen_panes': 'PASS'}
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('root', type=Path)
+    parser.add_argument('sources', type=Path)
+    args = parser.parse_args()
+    print(json.dumps(check(args.root, args.sources)))

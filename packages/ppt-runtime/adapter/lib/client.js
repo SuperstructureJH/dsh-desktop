@@ -246,7 +246,7 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 				this.update(sessionId, () => ({ ...staged, loading: true, error: "" }));
 				try {
 					const remote = await client.call("state");
-					const occupied = remote?.presentationMode === "ppt" || typeof remote?.selectedTemplateId === "string";
+					const occupied = remote?.presentationMode === "ppt" || remote?.documentMode === "word" || remote?.documentMode === "excel" || typeof remote?.selectedTemplateId === "string";
 					if (occupied) {
 						this.clearStaged();
 						this.update(sessionId, (current) => ({
@@ -542,7 +542,7 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 		}
 		function selectPresentationMode(client, mode, sessionId, activeMode) {
 			mode.setMode(sessionId, activeMode);
-			if (!client.bound) return;
+			if (!client.bound) { announcePptMode(sessionId); return; }
 			client.call("presentation/mode", { mode: activeMode }).catch((reason) => {
 				mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
 			});
@@ -856,6 +856,7 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 			const select = (template, activeMode = state.activeMode ?? "ppt") => {
 				if (!client.bound) {
 					mode.select(sessionId, template, activeMode);
+                    announcePptMode(sessionId);
 					return;
 				}
 				mode.setLoading(sessionId, true);
@@ -1247,6 +1248,9 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 		* @param sessionId - Active conversation session.
 		* @returns Session-bound Office PPT client.
 		*/
+        function announcePptMode(sessionId) {
+            window.dispatchEvent(new CustomEvent('dsh-office-mode-change', { detail: { sessionId, origin: 'ppt' } }));
+        }
 		function createOfficePptClient(rpc, sessionId) {
 			const bound = typeof sessionId === "string" && sessionId.trim().length > 0;
 			return { bound, async call(endpoint, payload = {}, signal) {
@@ -1259,6 +1263,7 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 				const inner = raw;
 				if (inner.status === "error") throw new Error(inner.error.message);
 				if (!bound && endpoint === "state") return { templates: inner.data?.templates ?? [], selectedTemplateId: null, presentationMode: null };
+                if (["template/select", "presentation/mode"].includes(endpoint) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('dsh-office-mode-change', { detail: { sessionId, origin: 'ppt' } }));
 				return inner.data;
 			} };
 		}
@@ -1278,6 +1283,17 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 			}), "dsh-ppt: dictionaries");
 			const connection = ctx.get("connection");
 			const mode = new OfficePptHeroStore();
+            ctx.effect(() => {
+                const listener = event => {
+                    const detail = event.detail;
+                    if (detail?.origin !== 'office') return;
+                    mode.bump(detail.sessionId);
+                    mode.update(detail.sessionId, current => ({ ...current, activeMode: null, selectedId: null, engaged: false, loading: false, error: '' }));
+                    if (!detail.sessionId) mode.clearStaged();
+                };
+                window.addEventListener('dsh-office-mode-change', listener);
+                return () => window.removeEventListener('dsh-office-mode-change', listener);
+            }, 'PPT / Office mode synchronization');
 			return (sessionId) => ({
 				client: createOfficePptClient(connection.rpc, sessionId),
 				mode

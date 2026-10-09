@@ -763,6 +763,7 @@ var PptService = class {
 				state: {
 					...state,
 					selectedTemplateId: template.id,
+                    documentMode: undefined, selectedDocumentTemplate: undefined,
                     templateMigration: undefined,
 					presentationMode: "ppt"
 				},
@@ -781,7 +782,7 @@ var PptService = class {
 			return {
 				state: active ? {
 					...rest,
-					presentationMode: "ppt"
+					presentationMode: "ppt", documentMode: undefined, selectedDocumentTemplate: undefined
 				} : rest,
 				value: true,
 				summary: active ? "已进入 PPT 模式" : "已退出 PPT 模式",
@@ -789,6 +790,29 @@ var PptService = class {
 			};
 		});
 	}
+	selectDocumentMode(sessionId, mode, actor) {
+        if (![null, 'word', 'excel'].includes(mode)) throw new PptError('invalid-request', 'Choose Word, Excel or ordinary conversation');
+        return this.mutate(sessionId, 'select-document-mode', actor, state => {
+            const { presentationMode, selectedTemplateId, templateMigration, documentMode, selectedDocumentTemplate, ...rest } = state;
+            return { state: mode === null ? rest : { ...rest, documentMode: mode }, value: true,
+                summary: mode === null ? '已进入普通对话' : `已进入 ${mode} 模式`, facts: { mode } };
+        });
+    }
+    selectDocumentTemplate(sessionId, template, actor) {
+        if (!template || !['word', 'excel'].includes(template.mode) || typeof template.id !== 'string' || !/^[a-z0-9-]{1,96}$/.test(template.id)
+            || typeof template.revision !== 'string' || !/^[a-zA-Z0-9.-]{1,96}$/.test(template.revision)) throw new PptError('invalid-request', 'Choose a versioned Office template');
+        return this.mutate(sessionId, 'select-document-template', actor, state => {
+            if (state.documentMode !== template.mode) throw new PptError('conflict', 'Choose the matching document format');
+            return { state: { ...state, selectedDocumentTemplate: { id: template.id, mode: template.mode, revision: template.revision } }, value: true,
+                summary: `已选择 Office 案例 ${template.id}`, facts: { ...template } };
+        });
+    }
+    deselectDocumentTemplate(sessionId, actor) {
+        return this.mutate(sessionId, 'deselect-document-template', actor, state => {
+            const { selectedDocumentTemplate, ...rest } = state;
+            return { state: rest, value: true, summary: '已移除 Office 案例参考', facts: {} };
+        });
+    }
 	deselectTemplate(sessionId, actor) {
 		return this.mutate(sessionId, "deselect-template", actor, (state) => {
 			const { selectedTemplateId: _selectedTemplateId, templateMigration: _migration, ...next } = state;
@@ -1307,7 +1331,11 @@ function persistedState(value, sessionId, personalTemplates = []) {
   // Preserve historical decks and generated files; they are user-owned records.
   decks: Array.isArray(record.decks) ? record.decks : [],
   activities: Array.isArray(record.activities) ? record.activities : [],
-  ...(record.presentationMode === "ppt" ? { presentationMode: "ppt" } : {}),
+  ...(['word', 'excel'].includes(record.documentMode) ? { documentMode: record.documentMode } :
+      record.presentationMode === "ppt" ? { presentationMode: "ppt" } : {}),
+  ...(['word', 'excel'].includes(record.documentMode) && record.selectedDocumentTemplate?.mode === record.documentMode
+      && /^[a-z0-9-]{1,96}$/.test(record.selectedDocumentTemplate?.id ?? '') && /^[a-zA-Z0-9.-]{1,96}$/.test(record.selectedDocumentTemplate?.revision ?? '')
+      ? { selectedDocumentTemplate: { id: record.selectedDocumentTemplate.id, mode: record.documentMode, revision: record.selectedDocumentTemplate.revision } } : {}),
   ...(selectedTemplateId === undefined ? {} : { selectedTemplateId }),
   ...(missingPersonal ? { templateMigration: { reason: "personal-template-deleted" } } : retired ? { templateMigration: { reason: "template-retired", replacementId: fallback.id } } :
      record.templateMigration?.reason === "template-retired" ? { templateMigration: record.templateMigration } : {})
@@ -3171,6 +3199,13 @@ async function apply(ctx, config) {
 		maxDecksPerSession: config.maxDecksPerSession ?? 50,
 		maxActivities: config.maxActivities ?? 200
 	}), { maxSlides: config.maxSlides ?? 40 });
+    ctx.provide('officeModes', {
+        state: sessionId => service.state(sessionId),
+        select: (sessionId, mode) => service.selectDocumentMode(sessionId, mode, { kind: 'user' }),
+        selectTemplate: (sessionId, template) => service.selectDocumentTemplate(sessionId, template, { kind: 'user' }),
+        deselectTemplate: sessionId => service.deselectDocumentTemplate(sessionId, { kind: 'user' }),
+        record: (sessionId, operation, facts) => service.mutate(sessionId, operation, { kind: 'agent' }, state => ({ state, value: true, summary: operation, facts }))
+    });
 	service.store.personalTemplates = new PersonalTemplateLibrary(service.store, convertPptxToPptd, writePptdProjectSource, config.maxSlides ?? 40);
 	const rpcHandler = pptRpc(service);
 	ctx.inject(["webServer"], (webCtx) => {

@@ -1,0 +1,144 @@
+// @vitest-environment jsdom
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { afterEach, expect, it } from 'vitest'
+import React, { act } from 'react'
+import { createRoot } from 'react-dom/client'
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
+const source = await readFile(resolve('packages/dsh-desktop-office/client.js'), 'utf8')
+const image = 'data:image/png;base64,iVBORw0KGgo='
+const templates = [
+  { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '常用办公', pages: 4, revision: 'a'.repeat(24), thumbnail: image },
+  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '常用办公', pages: 2, revision: 'b'.repeat(24), thumbnail: image },
+  { id: 'budget-expenses', title: '预算与费用', titleEn: 'Budget and expenses', mode: 'excel', category: '常用办公', pages: 2, revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '费用总览', pages: [1] }, { name: '费用明细', pages: [2] }] }
+]
+let root, container, cleanup = []
+afterEach(async () => { if (root) await act(async () => root.unmount()); for (const dispose of cleanup.splice(0)) dispose?.(); container?.remove(); root = null; delete window.__ModuleLoader__ })
+
+async function fixture({ bound = true, remote = {}, english = false, deferState = false } = {}) {
+  let plugin, dictionaries, store, sessionId = bound ? 'session-a' : undefined
+  const seats = new Map(), calls = [], held = new Map(), failures = new Map(), states = new Map([['session-a', { mode: null, ...remote }]])
+  const hooks = new Map()
+  let releaseInitial
+  if (deferState) held.set('state', new Promise(resolve => { releaseInitial = resolve }))
+  window.__ModuleLoader__ = { load({ factory }) { plugin = factory(name => { if (name === 'react') return React; throw new Error(name) }) } }
+  new Function(source)()
+  const connection = { rpc: { async call(channel, endpoint, payload, signal) {
+    expect(channel).toBe('/api'); expect(endpoint).toBe('office-templates'); endpoint = payload.endpoint; const { endpoint: operation, ...args } = payload; payload = args; calls.push({ endpoint, payload, signal })
+    if (held.has(endpoint)) await held.get(endpoint)
+    signal.throwIfAborted()
+    if (failures.has(endpoint)) { const message = failures.get(endpoint); failures.delete(endpoint); return { ok: false, error: { message } } }
+    if (endpoint === 'preview') return { ok: true, value: { page: payload.page, image, pages: templates.find(item => item.id === payload.templateId).pages } }
+    let state = states.get(payload.sessionId) ?? { mode: null }
+    if (endpoint === 'mode') state = { mode: payload.mode, selectedTemplateId: null }
+    if (endpoint === 'select') state = { ...state, selectedTemplateId: payload.templateId }
+    if (endpoint === 'deselect') state = { ...state, selectedTemplateId: null }
+    states.set(payload.sessionId, state)
+    return { ok: true, value: { ...state, templates } }
+  } } }
+  const ctx = { get: () => connection, effect(run) { cleanup.push(run()) }, on(name, hook) { hooks.set(name, hook) }, locale: { register(_ns, value) { dictionaries = value; return () => {} } },
+    slots: { inject(_seat, run) { run() }, register(meta, component) { store = meta.inject().store; seats.set(meta.name, component) } } }
+  plugin.apply(ctx)
+  container = document.createElement('div'); document.body.append(container); root = createRoot(container)
+  const t = key => dictionaries[english ? 'en' : 'zh'][key] ?? key
+  function render() { root.render(React.createElement(React.Fragment, null, ...['conversation.hero.modeActions', 'conversation.input.accessory', 'conversation.hero.dock'].map(seat => React.createElement(seats.get(seat), { key: seat, sessionId, session: { blank: true }, store, t })))) }
+  await act(async () => render())
+  async function click(label) {
+    const scope = container.querySelector('dialog[open]') ?? container
+    const button = [...scope.querySelectorAll('button')].find(element => element.textContent === label || element.getAttribute('aria-label') === label)
+    expect(button, label).toBeDefined(); await act(async () => button.click())
+  }
+  return { calls, store, click, states, async reset() { await act(async () => hooks.get('connection/reset')()) },
+    async releaseInitial() { await act(async () => { held.delete('state'); releaseInitial?.() }) }, fail(endpoint, message) { failures.set(endpoint, message) },
+    hold(endpoint) { let release; held.set(endpoint, new Promise(resolve => release = resolve)); return async () => { await act(async () => { held.delete(endpoint); release() }) } },
+    async switchSession(id) { sessionId = id; await act(async () => render()) } }
+}
+
+it('refreshes the unbound catalogue after a connection reset while preserving the chosen format', async () => {
+  const f = await fixture({ bound: false }); await f.click('Word')
+  await f.reset()
+  expect(f.calls.filter(call => call.endpoint === 'state')).toHaveLength(2)
+  expect(f.store.snapshot().loaded).toBe(true)
+  expect(f.store.snapshot().mode).toBe('word')
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
+})
+
+it('completes the current catalogue load when the connection resets during the first request', async () => {
+  const f = await fixture({ bound: false, deferState: true })
+  expect(f.store.snapshot().loading).toBe(true)
+  await f.reset(); await f.releaseInitial()
+  expect(f.calls.filter(call => call.endpoint === 'state')).toHaveLength(2)
+  expect(f.store.snapshot().loaded).toBe(true)
+  expect(f.store.snapshot().templates).toHaveLength(3)
+  await f.click('Word')
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
+})
+
+it('exposes common Word cases and selects the previewed revision after paging', async () => {
+  const f = await fixture(); await f.click('Word')
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
+  await f.click('查看案例 通用会议纪要')
+  expect(container.querySelector('dialog[open]')).not.toBeNull()
+  expect(container.textContent).toContain('第 1 页，共 2 页')
+  await f.click('放大阅读'); expect(container.querySelector('.dso-page').dataset.zoom).toBe('true')
+  await f.click('适合页面'); expect(container.querySelector('.dso-page').dataset.zoom).toBe('false')
+  await f.click('下一页'); expect(container.textContent).toContain('第 2 页，共 2 页')
+  await f.click('做同款')
+  expect(container.querySelector('dialog')).toBeNull()
+  expect(container.querySelector('[data-office-selected]')?.dataset.officeSelected).toBe('meeting-minutes')
+  expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'meeting-minutes', revision: 'b'.repeat(24) })
+  await f.click('取消选择案例'); expect(container.querySelector('[data-office-selected]')).toBeNull()
+})
+
+it('uses Excel worksheet navigation and localized controls', async () => {
+  const f = await fixture({ english: true }); await f.click('Excel'); await f.click('Preview example Budget and expenses')
+  await f.click('费用明细'); expect(container.textContent).toContain('Page 2 of 2')
+  await act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true })))
+  expect(container.textContent).toContain('Page 1 of 2')
+  await f.click('Close preview'); expect(container.querySelector('dialog')).toBeNull()
+})
+
+it('adopts an unbound selection once and preserves an occupied session', async () => {
+  const f = await fixture({ bound: false }); await f.click('Word'); await f.click('查看案例 通用会议纪要'); await f.click('做同款')
+  expect(f.calls.some(call => call.endpoint === 'select')).toBe(false)
+  await f.switchSession('session-new')
+  expect(f.states.get('session-new').selectedTemplateId).toBe('meeting-minutes')
+  expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
+  await f.switchSession('session-a'); await f.switchSession('session-new')
+  expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
+})
+
+it.each([{ mode: 'excel', selectedTemplateId: 'budget-expenses' }, { mode: null, presentationMode: 'ppt' }])('keeps an existing output format during staged adoption: %j', async remote => {
+  const f = await fixture({ bound: false, remote }); await f.click('Word'); await f.click('查看案例 通用会议纪要'); await f.click('做同款'); await f.switchSession('session-a')
+  expect(f.calls.filter(call => call.endpoint === 'mode' || call.endpoint === 'select')).toHaveLength(0)
+  expect(f.states.get('session-a')).toEqual(remote)
+})
+
+it('keeps selection errors visible inside the modal and allows a retry', async () => {
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要'); f.fail('select', '模板版本已更新')
+  await f.click('做同款'); expect(container.querySelector('dialog [role=alert]')?.textContent).toBe('模板版本已更新')
+  await f.click('做同款'); expect(container.querySelector('[data-office-selected]')).not.toBeNull()
+})
+
+it('locks a pending choice and keeps another session free of a stale modal completion', async () => {
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要'); const release = f.hold('select')
+  await f.click('做同款'); expect(container.querySelector('.dso-use').disabled).toBe(true)
+  await f.switchSession('session-b'); await f.click('Word'); await f.click('查看案例 公文写作 · 通知')
+  await release(); expect(container.querySelector('dialog')?.getAttribute('aria-label')).toBe('公文写作 · 通知')
+})
+
+it('clears the staged Word choice when the PPT composer is chosen', async () => {
+  const f = await fixture({ bound: false }); await f.click('Word')
+  await act(async () => window.dispatchEvent(new CustomEvent('dsh-office-mode-change', { detail: { origin: 'ppt' } })))
+  expect(container.querySelector('[data-office-dock]')).toBeNull(); expect(f.store.snapshot().mode).toBeNull()
+})
+
+it('preserves modal page fit in both dimensions and owns its styles through the plugin lifecycle', async () => {
+  await fixture()
+  const css = document.querySelector('style[data-plugin="desktop-office"]').textContent
+  expect(css).toContain('object-fit:contain'); expect(css).toContain('height:100%'); expect(css).toContain('min-height:0')
+  expect(css).not.toMatch(/#[a-f0-9]{3,8}\b/i)
+})
