@@ -7,6 +7,7 @@ const provider = 'dsh-desktop-office-business'
 const definitions = [
   { name: 'gov-doc-writing', description: '公文写作：按单位、文种、角色和当前材料生成通知、报告、请示等文稿，配合 office-docx 制作可编辑 Word。' },
   { name: 'meeting-recap', description: '会议纪要：整理议题、讨论、决议、行动项、负责人和截止日期，配合 office-docx 及会议纪要案例交付。' },
+  { name: 'work-report-writer', description: '工作汇报：按当前记录整理日报、周报、月报与阶段总结，核对交付、数字、风险和下期计划，配合 office-docx 制作可编辑 Word。' },
   { name: 'research-writer', description: '研究报告：整理研究问题、证据、来源、判断与风险，配合 office-docx 制作可编辑报告。' },
   { name: 'saas-metrics-coach', description: '经营指标：核对收入、MRR、客户留存、增长假设与计算口径，配合 office-xlsx 制作经营分析。' },
   { name: 'dataset-health-audit', description: '数据质量：检查缺失、异常、单位、口径、重复与可复现计算，配合 office-xlsx 分析业务数据。' },

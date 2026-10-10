@@ -19,7 +19,7 @@ async function probe(appRoot, resources) {
       cli: join(resources, 'office-cli.mjs')
     }))
     const skills = await ctx.skills.list()
-    for (const name of ['gov-doc-writing', 'meeting-recap', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen']) {
+    for (const name of ['gov-doc-writing', 'meeting-recap', 'work-report-writer', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen']) {
       const skill = await ctx.skills.get(name)
       assert(skill, `Missing business skill ${name}`)
       assert(skill.resourceBase.path.startsWith(join(resources, 'office-runtime', 'business-skills')))
@@ -28,7 +28,7 @@ async function probe(appRoot, resources) {
     const { createTemplateLibrary } = await import(new URL('./lib/templates.js', entry).href)
     const library = await createTemplateLibrary(join(resources, 'office-runtime', 'templates'))
     const templates = await library.list()
-    assert.equal(templates.length, 9)
+    assert.equal(templates.length, 10)
     assert.deepEqual(templates.filter(item => item.mode === 'excel').map(item => item.id), ['annual-business', 'port-cargo', 'bio-assay'])
     for (const template of templates) {
       for (const file of Object.keys(library.entry(template.id).files)) await library.asset(template.id, file)
@@ -49,7 +49,7 @@ async function probe(appRoot, resources) {
     const dependencies = await tool.execute({})
     assert(dependencies.python.startsWith(join(resources, 'office-runtime')))
     assert.equal(dependencies.node, undefined)
-    console.log('Packaged Office plugin activated; nine templates, six business skills and the official runtime resolve current physical resources')
+    console.log('Packaged Office plugin activated; ten templates, seven business skills and the official runtime resolve current physical resources')
   } finally {
     for (const fiber of fibers.reverse()) await fiber.dispose()
   }

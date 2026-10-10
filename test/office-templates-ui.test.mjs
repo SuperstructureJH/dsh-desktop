@@ -11,8 +11,8 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
 const source = await readFile(resolve('packages/dsh-desktop-office/client.js'), 'utf8')
 const image = 'data:image/png;base64,iVBORw0KGgo='
 const templates = [
-  { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '常用办公', pages: 4, pageAspectRatios: Array(4).fill(0.707), revision: 'a'.repeat(24), thumbnail: image },
-  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '常用办公', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
+  { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '公文写作', pages: 4, pageAspectRatios: Array(4).fill(0.707), revision: 'a'.repeat(24), thumbnail: image },
+  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '会议纪要', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
   { id: 'annual-business', title: '年度经营与客户分析', titleEn: 'Annual business', mode: 'excel', category: '经营分析', pages: 5, pageAspectRatios: [1.6, 0.7, 0.85, 0.8, 0.9], revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '经营总览', pages: [1, 2] }, { name: '增长测算', pages: [3] }, { name: '增长质量', pages: [4, 5] }] }
 ]
 let root, container, cleanup = []
@@ -145,9 +145,37 @@ it('exposes common Word cases and selects the revision shown as a complete sprea
   await f.click('取消选择案例'); expect(container.querySelector('[data-office-selected]')).toBeNull()
 })
 
+it('filters Word by writing task, preserves selection and refreshes a retired category', async () => {
+  const example = (id, category) => ({ ...templates[1], id, title: id, category })
+  const examples = [templates[0], templates[1], example('summary', '工作总结'), example('daily', '日报周报'), example('plan', '方案报告'), example('research', '调研分析'), templates[2]]
+  const f = await fixture({ examples }); await f.click('Word')
+  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '公文写作', '会议纪要', '工作总结', '日报周报', '方案报告', '调研分析'])
+  await f.click('日报周报')
+  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(['daily'])
+  await f.click('选用案例 daily'); await f.click('工作总结')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('daily')
+  expect(container.querySelector('[data-office-template]').dataset.officeTemplate).toBe('summary')
+  examples.splice(examples.findIndex(item => item.id === 'summary'), 1)
+  await f.reset()
+  expect(container.querySelector('.dso-toolbar [aria-pressed=true]').textContent).toBe('全部')
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(5)
+  await f.click('Excel')
+  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '经营分析'])
+})
+
+it('localizes task categories and retains uncategorized examples', async () => {
+  const f = await fixture({ english: true, examples: [templates[0], templates[1], { ...templates[1], id: 'misc', titleEn: 'Other report', category: 'Imported category' }] })
+  await f.click('Word')
+  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Official documents', 'Meeting minutes', 'Other examples'])
+  await f.click('Other examples')
+  expect(container.querySelector('[data-office-template]').dataset.officeTemplate).toBe('misc')
+  await f.click('Preview example Other report')
+  expect(container.querySelector('dialog header').textContent).toContain('Other report')
+})
+
 it('uses Excel worksheet navigation and localized controls', async () => {
   const f = await fixture({ english: true }); await f.click('Excel')
-  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Specialist examples'])
+  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Business analysis'])
   expect(parseFloat(container.querySelector('[data-office-template=annual-business] .dso-thumbnail').style.aspectRatio)).toBeCloseTo(16 / 9)
   const cover = container.querySelector('[data-office-template=annual-business] .dso-thumbnail img')
   expect(parseFloat(cover.style.width)).toBeCloseTo(180)

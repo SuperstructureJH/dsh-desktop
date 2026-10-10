@@ -13,7 +13,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 
-def meeting_table(document, rows, widths):
+def office_table(document, rows, widths, centered=()):
     table = document.add_table(rows=0, cols=len(rows[0]))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = False
@@ -41,13 +41,13 @@ def meeting_table(document, rows, widths):
                 fill = OxmlElement('w:shd'); fill.set(qn('w:fill'), 'EAF0F5'); cell._tc.get_or_add_tcPr().append(fill)
             paragraph = cell.paragraphs[0]
             paragraph.paragraph_format.space_after = Pt(0)
-            paragraph.paragraph_format.line_spacing = 1.3
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if column in (1, 2) else WD_ALIGN_PARAGRAPH.LEFT
+            paragraph.paragraph_format.line_spacing = 1.15
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if column in centered else WD_ALIGN_PARAGRAPH.LEFT
             run = paragraph.add_run(text); run.bold = index == 0; run.font.size = Pt(10)
     return table
 
 
-def meeting_word(item, output):
+def word(item, output):
     document = Document()
     document.core_properties.created = document.core_properties.modified = datetime(2026, 9, 1)
     document.core_properties.author = 'DSH Desktop'
@@ -58,17 +58,24 @@ def meeting_word(item, output):
     for name, size, bold in [('Normal', 11, False), ('Title', 23, True), ('Subtitle', 10, False), ('Heading 1', 14, True), ('Heading 2', 11, True)]:
         style = document.styles[name]
         style.font.name, style.font.size, style.font.bold = '微软雅黑', Pt(size), bold
+        style.font.italic = False
         style.font.color.rgb = RGBColor(0, 0, 0)
         style.element.get_or_add_rPr().rFonts.set(qn('w:eastAsia'), '微软雅黑')
-        style.paragraph_format.line_spacing = 1.35
-        style.paragraph_format.space_after = Pt(7 if name == 'Normal' else 10)
+        style.paragraph_format.line_spacing = 1.2
+        style.paragraph_format.space_before = Pt(0)
+        style.paragraph_format.space_after = Pt(6)
+        for border in list(style.element.xpath('./w:pPr/w:pBdr')):
+            border.getparent().remove(border)
         if name.startswith('Heading'):
-            style.paragraph_format.space_before = Pt(14)
+            style.paragraph_format.space_before = Pt(10 if name == 'Heading 1' else 8)
             style.paragraph_format.keep_with_next = True
+        if name == 'Title':
+            style.paragraph_format.line_spacing = 1.1
+            style.paragraph_format.space_after = Pt(10)
     for index, page in enumerate(item['pagesContent']):
         if index:
             document.add_page_break()
-        document.add_paragraph('会议纪要' if index == 0 else '会议纪要 / 执行跟进', 'Subtitle')
+        document.add_paragraph(item['eyebrow'], 'Subtitle')
         document.add_paragraph(page['title'], 'Title')
         if page.get('subtitle'):
             document.add_paragraph(page['subtitle'], 'Subtitle')
@@ -81,53 +88,9 @@ def meeting_word(item, output):
                 document.add_paragraph(topic['title'], 'Heading 2')
                 document.add_paragraph(topic['text'])
             if block.get('table'):
-                meeting_table(document, block['table'], block['widths'])
-    document.save(output)
-
-
-def word(item, output):
-    if item['id'] == 'meeting-minutes':
-        return meeting_word(item, output)
-    document = Document()
-    document.core_properties.created = document.core_properties.modified = datetime(2026, 9, 1)
-    document.core_properties.author = 'DSH Desktop'
-    section = document.sections[0]
-    section.page_width, section.page_height = Cm(21), Cm(29.7)
-    section.top_margin, section.bottom_margin = Cm(2.3), Cm(2.3)
-    section.left_margin, section.right_margin = Cm(2.5), Cm(2.5)
-    normal = document.styles['Normal']
-    normal.font.name, normal.font.size = '宋体', Pt(12)
-    normal.element.get_or_add_rPr().rFonts.set(qn('w:eastAsia'), '宋体')
-    normal.paragraph_format.space_after = Pt(8)
-    normal.paragraph_format.line_spacing = 1.35
-    for name, size in [('Title', 22), ('Heading 1', 16)]:
-        style = document.styles[name]
-        style.font.name, style.font.size = '黑体', Pt(size)
-        style.element.get_or_add_rPr().rFonts.set(qn('w:eastAsia'), '黑体')
-        style.font.color.rgb = __import__('docx').shared.RGBColor(0, 0, 0)
-    for index, page in enumerate(item['pagesContent']):
-        if index:
-            document.add_page_break()
-        document.add_paragraph(page['title'], 'Title')
-        if page.get('subtitle'):
-            document.add_paragraph(page['subtitle'])
-        for block in page['sections']:
-            document.add_paragraph(block['title'], 'Heading 1')
-            for text in block.get('text', '').split('\n'):
-                if text:
-                    document.add_paragraph(text)
-            if block.get('table'):
-                table = document.add_table(rows=0, cols=len(block['table'][0]))
-                table.style = 'Table Grid'
-                for row in block['table']:
-                    cells = table.add_row().cells
-                    for cell, text in zip(cells, row):
-                        cell.text = text
-                for cell in table.rows[0].cells:
-                    for run in cell.paragraphs[0].runs:
-                        run.bold = True
+                office_table(document, block['table'], block['widths'], (1, 2) if item['id'] == 'meeting-minutes' else ())
     footer = section.footer.paragraphs[0]
-    footer.alignment = 1
+    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     field = OxmlElement('w:fldSimple')
     field.set(qn('w:instr'), 'PAGE')
     footer._p.append(field)
@@ -175,7 +138,10 @@ def main():
         sample = directory / 'example.docx'
         word(item, sample)
         normalize_package(sample)
-        guidance = '检查章节、决议及行动项。保持可编辑文字和表格。'
+        guidance = ('沿用 A4 纵向、约 2cm 页边距、23pt 黑色主标题、14pt 一级标题与 11pt 正文。'
+                    '表格采用浅色表头、细灰边框、自动行高、重复表头及约 10pt 表格文字。'
+                    '按信息长短分配列宽，保持可编辑段落和表格，页数依据当前材料自然形成。'
+                    '\n\n' + item['design'] + '\n\n用官方 Kit 导出 PDF 并逐页检查，交付可编辑 DOCX。')
         if item['id'] == 'meeting-minutes':
             guidance += ('\n\n沿用 A4 纵向、约 2cm 页边距、23pt 黑色主标题、14pt 一级标题与 11pt 正文。'
                          '行动项集中为一张表，采用浅色表头、细灰边框、自动行高、重复表头及约 10pt 表格文字。'

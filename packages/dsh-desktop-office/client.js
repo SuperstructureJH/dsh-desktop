@@ -3,10 +3,14 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   const NS = 'desktop-office', EVENT = 'dsh-office-mode-change', staged = '@staged'
   const zh = { templates: '选择案例', preview: '查看案例', use: '做同款', close: '关闭预览', previous: '上一页', next: '下一页',
     select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例', all: '全部',
-    page: '第 {page} 页，共 {total} 页', spread: '第 {start}–{end} 页，共 {total} 页', pageNumber: '第 {page} 页', previousSpread: '上一组', nextSpread: '下一组', expired: '案例已更新，请重新选择', common: '常用办公', other: '专业案例', empty: '该分类下暂无案例' }
+    page: '第 {page} 页，共 {total} 页', spread: '第 {start}–{end} 页，共 {total} 页', pageNumber: '第 {page} 页', previousSpread: '上一组', nextSpread: '下一组', expired: '案例已更新，请重新选择',
+    official: '公文写作', meetings: '会议纪要', summaries: '工作总结', updates: '日报周报', plans: '方案报告', research: '调研分析', business: '经营分析', logistics: '物流分析', experiments: '实验数据', other: '其他案例', empty: '该分类下暂无案例' }
   const en = { templates: 'Choose an example', preview: 'Preview example', use: 'Use this example', close: 'Close preview', previous: 'Previous page', next: 'Next page',
     select: 'Select example', loading: 'Loading…', retry: 'Retry', remove: 'Remove example', selected: 'Selected example', all: 'All',
-    page: 'Page {page} of {total}', spread: 'Pages {start}–{end} of {total}', pageNumber: 'Page {page}', previousSpread: 'Previous spread', nextSpread: 'Next spread', expired: 'This example was updated. Choose it again.', common: 'Everyday work', other: 'Specialist examples', empty: 'No examples in this category' }
+    page: 'Page {page} of {total}', spread: 'Pages {start}–{end} of {total}', pageNumber: 'Page {page}', previousSpread: 'Previous spread', nextSpread: 'Next spread', expired: 'This example was updated. Choose it again.',
+    official: 'Official documents', meetings: 'Meeting minutes', summaries: 'Work summaries', updates: 'Daily and weekly', plans: 'Plans and reports', research: 'Research', business: 'Business analysis', logistics: 'Logistics', experiments: 'Experimental data', other: 'Other examples', empty: 'No examples in this category' }
+  const categoryKeys = new Map([['公文写作', 'official'], ['会议纪要', 'meetings'], ['工作总结', 'summaries'], ['日报周报', 'updates'], ['方案报告', 'plans'], ['调研分析', 'research'], ['经营分析', 'business'], ['物流分析', 'logistics'], ['实验数据', 'experiments']])
+  const categoryOf = item => categoryKeys.get(item.category) ?? 'other'
   const empty = Object.freeze({ templates: [], mode: null, selectedTemplateId: null, loaded: false, loading: false, busy: false, error: '' })
   const keyOf = id => id || staged
   const announce = (sessionId, mode) => window.dispatchEvent(new CustomEvent(EVENT, { detail: { sessionId, mode, origin: 'office' } }))
@@ -76,7 +80,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     React.useEffect(() => { void store.load(sessionId) }, [store, sessionId])
     return state
   }
-  const titleOf = (item, t) => t('common') === en.common ? item.titleEn ?? item.title : item.title
+  const titleOf = (item, t) => t('all') === en.all ? item.titleEn ?? item.title : item.title
 
   function Thumbnail({ item }) {
     const ratio = item.pageAspectRatios[0], excel = item.mode === 'excel'
@@ -199,10 +203,11 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
     if (!visible) return null
     const modeItems = state.templates.filter(item => item.mode === state.mode)
-    const categories = ['all', ...['common', 'other'].filter(value => modeItems.some(item => (item.category === '常用办公') === (value === 'common')))]
-    const items = modeItems.filter(item => category === 'all' || (item.category === '常用办公') === (category === 'common'))
+    const categories = ['all', ...[...categoryKeys.values(), 'other'].filter(value => modeItems.some(item => categoryOf(item) === value))]
+    const activeCategory = categories.includes(category) ? category : 'all'
+    const items = modeItems.filter(item => activeCategory === 'all' || categoryOf(item) === activeCategory)
     return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
-      h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': category === value, onClick: () => setCategory(value) }, t(value))))),
+      h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': activeCategory === value, onClick: () => setCategory(value) }, t(value))))),
       h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,

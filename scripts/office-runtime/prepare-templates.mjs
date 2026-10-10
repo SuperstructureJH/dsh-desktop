@@ -60,7 +60,7 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
         const directory = join(staging, item.id)
         const sampleFile = item.sampleFile ?? (item.mode === 'word' ? 'example.docx' : 'example.xlsx')
         const sample = join(directory, sampleFile)
-        if (item.id === 'government-notice') { item.title = '公文写作 · 通知'; item.titleEn = 'Official notice'; item.category = '常用办公' }
+        if (item.id === 'government-notice') { item.title = '公文写作 · 通知'; item.titleEn = 'Official notice' }
         if (item.mode === 'excel') {
           const calculated = join(directory, 'calculated.xlsx')
           await cli(['recalculate', '--input', sample, '--output', calculated])

@@ -1,5 +1,13 @@
 # Implementation status
 
+## Office r10：用途分类与 Word 代表案例 — 2026-10-10
+
+- 基线：本工作树已合入当前远程 `V0.12.0@1fe2cd4b1c9ca9e81f29a40ece180236aa02ec33`；安装 Harness `0.2.0-rc.2` 与 Kit `0.1.3`，继续使用仓库锁定的 Office/Python 依赖。
+- 实现：Word 按公文写作、会议纪要、工作总结、日报周报、方案报告、调研分析展示。重做阶段总结与项目实施方案，新增一页日报；目录为 7 个 Word 与 3 个 Excel，共 59 页。工作汇报 Skill 从原用户归档迁入并重写，日报和总结共享同一业务方法。
+- 验证：4 个生成 Word 案例共 7 页经官方 Kit 导出与逐页 PNG 视觉检查 PASS，日报 1 页、总结和方案各 2 页。23 项 UI 行为回归 PASS，涵盖用途筛选、分类更新、格式切换及英文显示。184 文件 / 1676 项全量回归及类型检查 PASS；10 案例 / 59 页资源完整性、Word 分页 / 样式 / 表格结构、9 项 Excel 数值核对 PASS。最终构建、包内 Office 制作 / PDF 转换、8 个插件源文件 / 7 个业务 Skill / 10 个案例资源一致性、10 个案例工作副本复制、严格开发签名及 ZIP CRC PASS。实际 DSH 页面、真实模型、原生 Office 编辑保存重开、Windows、公证 NOT_RUN。
+- [r10 交付记录与 macOS ARM64 测试包](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-template-harness-rc2-20261010/delivery-r10.md)。
+
+
 ## Office r9：精简 Excel 案例与双页阅读 — 2026-10-10
 
 - 基线沿用已核实的 `V0.12.0@6c25786d`，Harness `0.2.0-rc.2`。

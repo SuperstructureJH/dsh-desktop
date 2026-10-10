@@ -38,7 +38,7 @@ it('independently verifies recalculated values, charts, original frozen panes an
   const python = resolve('.build/office-runtime/primary-runtime/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
   const { stdout } = await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/check-templates.py'), resources, resolve('packages/dsh-desktop-office/sources')])
   const result = JSON.parse(stdout)
-  expect(result.templates).toBe(9); expect(result.preview_pages).toBe(58)
+  expect(result.templates).toBe(10); expect(result.preview_pages).toBe(59)
   expect(result.numeric_checks).toBe(9)
   expect(result.excel_error_cells).toBe(0)
 })
@@ -52,10 +52,11 @@ async function modesFixture() {
   return { ctx, modes: ctx.officeModes, root, hooks }
 }
 
-it('publishes nine native cases with complete preview hashes and distinct common Word cases', async () => {
+it('publishes ten native cases with complete preview hashes and distinct common Word cases', async () => {
   const items = await library.list()
   expect(items.filter(item => item.mode === 'word').map(item => item.id).slice(0, 4)).toEqual(['government-notice', 'meeting-minutes', 'work-summary', 'project-proposal'])
-  expect(items.filter(item => item.mode === 'word')).toHaveLength(6)
+  expect(items.filter(item => item.mode === 'word')).toHaveLength(7)
+  expect([...new Set(items.filter(item => item.mode === 'word').map(item => item.category))]).toEqual(['公文写作', '会议纪要', '工作总结', '方案报告', '日报周报', '调研分析'])
   expect(items.filter(item => item.mode === 'excel').map(item => item.id)).toEqual(['annual-business', 'port-cargo', 'bio-assay'])
   for (const id of ['budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
   for (const item of items) {
@@ -114,7 +115,7 @@ it('keeps business providers separate from the official Office provider', async 
   let provider
   registerBusinessSkills({ skills: { registerProvider(factory) { provider = factory() } } })
   expect(provider.name).toBe('dsh-desktop-office-business')
-  expect((await provider.list()).map(item => item.name)).toEqual(['gov-doc-writing', 'meeting-recap', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen'])
+  expect((await provider.list()).map(item => item.name)).toEqual(['gov-doc-writing', 'meeting-recap', 'work-report-writer', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen'])
   const skill = await provider.get({ name: 'meeting-recap' })
   expect(skill.content).toContain('office-docx')
   expect(skill.content).toContain('当前用户材料提供事实')
@@ -139,6 +140,16 @@ it('restores selected Office context after compaction and retires it when switch
   surface.nodes.add(1); await f.modes.select(id, 'excel')
   const switched = await run(); expect(switched.messages[0].content[0].text).toContain('office-xlsx')
   expect(surface.nodes.has(1)).toBe(false)
+})
+
+it.each(['work-summary', 'work-daily'])('loads the shared work report method with the selected %s case', async id => {
+  const f = await modesFixture(), item = library.entry(id), loaded = []; let hook
+  await f.modes.select('work-context', 'word')
+  await f.modes.selectTemplate('work-context', { id, mode: item.mode, revision: item.revision })
+  registerOfficeContext({ on(_name, run) { hook = run }, skills: { get: async name => { loaded.push(name); return { name, provider: 'test', content: name } } } }, library, f.modes)
+  const decision = await hook({ agent: { id: 'work-context', session: { header: { cwd: f.root }, surface: { nodes: new Set() } } }, signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [] }))
+  expect(loaded).toEqual(['office-docx', 'work-report-writer'])
+  expect(decision.messages[0].content[0].text).toContain(`selected_template_id: ${id}`)
 })
 
 it('copies registered editable inputs into a new directory and rejects hashes, collisions and symlink destinations', async () => {
