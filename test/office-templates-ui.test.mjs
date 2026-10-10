@@ -13,7 +13,7 @@ const image = 'data:image/png;base64,iVBORw0KGgo='
 const templates = [
   { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '常用办公', pages: 4, pageAspectRatios: Array(4).fill(0.707), revision: 'a'.repeat(24), thumbnail: image },
   { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '常用办公', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
-  { id: 'budget-expenses', title: '预算与费用', titleEn: 'Budget and expenses', mode: 'excel', category: '常用办公', pages: 2, pageAspectRatios: [1.6, 1.6], revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '费用总览', pages: [1] }, { name: '费用明细', pages: [2] }] }
+  { id: 'annual-business', title: '年度经营与客户分析', titleEn: 'Annual business', mode: 'excel', category: '经营分析', pages: 5, pageAspectRatios: [1.6, 0.7, 0.85, 0.8, 0.9], revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '经营总览', pages: [1, 2] }, { name: '增长测算', pages: [3] }, { name: '增长质量', pages: [4, 5] }] }
 ]
 let root, container, cleanup = []
 afterEach(async () => { if (root) await act(async () => root.unmount()); for (const dispose of cleanup.splice(0)) dispose?.(); container?.remove(); root = null; delete window.__ModuleLoader__ })
@@ -147,18 +147,25 @@ it('exposes common Word cases and selects the revision shown as a complete sprea
 
 it('uses Excel worksheet navigation and localized controls', async () => {
   const f = await fixture({ english: true }); await f.click('Excel')
-  expect(parseFloat(container.querySelector('[data-office-template=budget-expenses] .dso-thumbnail').style.aspectRatio)).toBeCloseTo(16 / 9)
-  const cover = container.querySelector('[data-office-template=budget-expenses] .dso-thumbnail img')
+  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Specialist examples'])
+  expect(parseFloat(container.querySelector('[data-office-template=annual-business] .dso-thumbnail').style.aspectRatio)).toBeCloseTo(16 / 9)
+  const cover = container.querySelector('[data-office-template=annual-business] .dso-thumbnail img')
   expect(parseFloat(cover.style.width)).toBeCloseTo(180)
   expect(cover.style.height).toBe('auto')
-  await f.click('Select example Budget and expenses')
+  await f.click('Select example Annual business')
   const selected = container.querySelector('[data-office-selected] .dso-thumbnail img')
   expect(selected.style.width).toBe(cover.style.width)
   expect(selected.style.height).toBe(cover.style.height)
-  await f.click('Preview example Budget and expenses')
-  await f.click('费用明细'); expect(container.textContent).toContain('Page 2 of 2')
+  await f.click('Preview example Annual business')
+  expect(container.textContent).toContain('Pages 1–2 of 5')
+  await f.click('增长质量'); expect(container.textContent).toContain('Pages 4–5 of 5')
+  expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['增长质量 · Page 4', '增长质量 · Page 5'])
+  const lastRequests = f.calls.filter(call => call.endpoint === 'preview').length
+  await act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })))
+  expect(container.textContent).toContain('Pages 4–5 of 5')
+  expect(f.calls.filter(call => call.endpoint === 'preview')).toHaveLength(lastRequests)
   await act(async () => container.querySelector('dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true })))
-  expect(container.textContent).toContain('Page 1 of 2')
+  expect(container.textContent).toContain('Pages 1–2 of 5')
   await f.click('Close preview'); expect(container.querySelector('dialog')).toBeNull()
 })
 
@@ -172,7 +179,7 @@ it('adopts an unbound selection once and preserves an occupied session', async (
   expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
 })
 
-it.each([{ mode: 'excel', selectedTemplateId: 'budget-expenses' }, { mode: null, presentationMode: 'ppt' }])('keeps an existing output format during staged adoption: %j', async remote => {
+it.each([{ mode: 'excel', selectedTemplateId: 'annual-business' }, { mode: null, presentationMode: 'ppt' }])('keeps an existing output format during staged adoption: %j', async remote => {
   const f = await fixture({ bound: false, remote }); await f.click('Word'); await f.click('查看案例 通用会议纪要'); await f.click('做同款'); await f.switchSession('session-a')
   expect(f.calls.filter(call => call.endpoint === 'mode' || call.endpoint === 'select')).toHaveLength(0)
   expect(f.states.get('session-a')).toEqual(remote)
@@ -254,4 +261,31 @@ it('cancels both old Word page requests when a newer spread opens', async () => 
   expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['第 3 页', '第 4 页'])
   await release()
   expect([...container.querySelectorAll('figcaption')].map(node => node.textContent)).toEqual(['第 3 页', '第 4 页'])
+})
+
+it('pages Excel spreads across worksheets and keeps an odd last page bounded', async () => {
+  const f = await fixture(); await f.click('Excel'); await f.click('查看案例 年度经营与客户分析')
+  const captions = () => [...container.querySelectorAll('figcaption')].map(node => node.textContent)
+  expect(captions()).toEqual(['经营总览 · 第 1 页', '经营总览 · 第 2 页'])
+  await f.click('下一组')
+  expect(captions()).toEqual(['增长测算 · 第 3 页', '增长质量 · 第 4 页'])
+  expect(container.querySelector('.dso-sheets [aria-pressed=true]').textContent).toBe('增长测算')
+  await f.click('下一组')
+  expect(captions()).toEqual(['增长质量 · 第 5 页'])
+  expect(container.querySelector('[aria-label=下一组]').disabled).toBe(true)
+  await f.click('上一组')
+  expect(captions()).toEqual(['增长测算 · 第 3 页', '增长质量 · 第 4 页'])
+  expect(f.calls.filter(call => call.endpoint === 'preview').map(call => call.payload.page)).toEqual([1, 2, 3, 4, 5, 3, 4])
+})
+
+it('loads an Excel pair atomically and retries both pages after a worksheet failure', async () => {
+  const f = await fixture(); await f.click('Excel'); f.fail('preview:2', '工作表加载失败'); await f.click('查看案例 年度经营与客户分析')
+  expect(container.querySelector('dialog [role=alert]').textContent).toContain('工作表加载失败')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(0)
+  expect(container.querySelector('.dso-use').disabled).toBe(true)
+  await f.click('重新加载')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(2)
+  expect(f.calls.filter(call => call.endpoint === 'preview').map(call => call.payload.page)).toEqual([1, 2, 1, 2])
+  await f.click('做同款')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('annual-business')
 })

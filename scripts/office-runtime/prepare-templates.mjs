@@ -47,8 +47,8 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
       const legacy = JSON.parse(await readFile(join(sources, 'catalog.json'), 'utf8'))
       await exec(python, ['-I', '-B', join(import.meta.dirname, 'build-cases.py'), join(sources, 'common.json'), staging], { timeout: 30_000 })
       for (const item of legacy) await cp(join(sources, item.source), join(staging, item.id), { recursive: true })
-      const ordered = [legacy.find(x => x.id === 'government-notice'), ...common.filter(x => x.mode === 'word'),
-        ...legacy.filter(x => x.mode === 'word' && x.id !== 'government-notice'), ...common.filter(x => x.mode === 'excel'), ...legacy.filter(x => x.mode === 'excel')]
+      const ordered = [legacy.find(x => x.id === 'government-notice'), ...common,
+        ...legacy.filter(x => x.mode === 'word' && x.id !== 'government-notice'), ...legacy.filter(x => x.mode === 'excel')]
       const catalog = []
       const cli = async args => {
         const { stdout } = await exec(electronExecutable(project), [join(project, 'build/office-cli.mjs'), ...args],

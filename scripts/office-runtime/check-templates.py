@@ -8,13 +8,6 @@ from pathlib import Path
 from openpyxl import load_workbook
 from docx import Document
 
-EXPECTED = {
-    'budget-expenses': {'费用总览': {'C2': 7500, 'C7': 51500, 'B7': 110000}},
-    'project-tracker': {'项目总览': {'B2': 4, 'B3': 3, 'B4': 3, 'B5': 10, 'B6': .45}},
-    'sales-report': {'销售总览': {'B2': 16600, 'C2': 10300, 'D2': 6300, 'B8': 135600, 'C8': 79800, 'D8': 55800}},
-}
-
-
 def check(root, sources):
     catalog = json.loads((root / 'catalog.json').read_text())
     assert {entry.name for entry in root.iterdir()} == {'catalog.json', *(item['id'] for item in catalog)}, 'catalogue resource root'
@@ -49,10 +42,6 @@ def check(root, sources):
                 assert len(sheet._charts) == len(original[sheet.title]._charts)
         else:
             assert all(sheet.freeze_panes == 'A2' for sheet in editable)
-        for sheet, cells in EXPECTED.get(item['id'], {}).items():
-            for cell, expected in cells.items():
-                assert math.isclose(values[sheet][cell].value, expected, abs_tol=1e-6), (item['id'], sheet, cell)
-                numeric_checks += 1
         if (directory / 'checks.json').exists():
             for row in json.loads((directory / 'checks.json').read_text()):
                 actual = values[row['sheet']][row['cell']].value

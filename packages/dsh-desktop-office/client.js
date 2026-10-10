@@ -125,7 +125,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     const dialog = React.useRef(), stage = React.useRef(), opener = React.useRef(document.activeElement), active = React.useRef(true)
     const [page, setPage] = React.useState(1), [preview, setPreview] = React.useState(null), [error, setError] = React.useState(''), [retry, setRetry] = React.useState(0)
     const [bounds, setBounds] = React.useState({ width: 0, height: 0 })
-    const spread = item.mode === 'word' && item.pages > 1, step = spread ? 2 : 1, endPage = Math.min(page + step - 1, item.pages)
+    const spread = item.pages > 1, step = spread ? 2 : 1, endPage = Math.min(page + step - 1, item.pages)
     React.useEffect(() => { if (stage.current) { stage.current.scrollTop = 0; stage.current.scrollLeft = 0 } }, [page])
     React.useEffect(() => { active.current = true; const element = dialog.current; element.showModal(); element.querySelector('button')?.focus(); return () => { active.current = false; element.close(); if (opener.current?.isConnected) opener.current.focus() } }, [])
     React.useLayoutEffect(() => {
@@ -145,7 +145,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
         error => { if (!controller.signal.aborted) { setError(error.message); controller.abort() } })
       return () => controller.abort()
     }, [store, sessionId, item.id, item.revision, page, endPage, retry])
-    const move = value => { const bounded = Math.min(item.pages, Math.max(1, value)); setPage(spread ? bounded - (bounded - 1) % 2 : bounded); dialog.current?.focus() }
+    const move = value => { const bounded = Math.min(item.pages, Math.max(1, value)); setPage(spread && item.mode === 'word' ? bounded - (bounded - 1) % 2 : bounded); dialog.current?.focus() }
     const pageLabel = page === endPage ? t('page').replace('{page}', page).replace('{total}', item.pages)
       : t('spread').replace('{start}', page).replace('{end}', endPage).replace('{total}', item.pages)
     const ratios = Array.from({ length: endPage - page + 1 }, (_, index) => item.pageAspectRatios[page + index - 1])
@@ -153,6 +153,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     const spreadRatio = ratios.length === 2 ? ratios[0] + ratios[1] : ratios[0] * 2
     const availableWidth = Math.max(0, bounds.width - 32), availableHeight = Math.max(0, bounds.height - 60)
     const paperHeight = spread ? Math.max(0, Math.min(availableHeight, Math.max(0, availableWidth - 16) / spreadRatio)) : 0
+    const caption = page => [item.sheets?.find(sheet => sheet.pages.includes(page))?.name, t('pageNumber').replace('{page}', page)].filter(Boolean).join(' · ')
     return h('dialog', { ref: dialog, className: 'dso-modal', 'data-spread': spread, tabIndex: -1, 'aria-modal': true, 'aria-label': titleOf(item, t), onCancel: event => { event.preventDefault(); if (!busy) close() },
       onClick: event => {
         if (event.target !== dialog.current || busy) return
@@ -166,7 +167,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
         }
         if (event.target.tagName === 'SELECT' || busy) return
-        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); move(event.key === 'Home' ? 1 : event.key === 'End' ? item.pages : page + (event.key === 'ArrowRight' ? step : -step)) }
+        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); if (event.key === 'ArrowRight' && page + step > item.pages) return; move(event.key === 'Home' ? 1 : event.key === 'End' ? item.pages - (spread ? (item.pages - 1) % 2 : 0) : page + (event.key === 'ArrowRight' ? step : -step)) }
       } },
       h('header', null, h('h2', null, titleOf(item, t)), h('span', { className: 'dso-preview-actions' },
         h('button', { type: 'button', className: 'dso-close', onClick: close, disabled: busy, 'aria-label': t('close') }, '×'))),
@@ -174,7 +175,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
       h('div', { ref: stage, className: 'dso-page', 'data-spread': spread, 'aria-busy': !preview && !error }, preview ? spread
         ? h('div', { className: 'dso-spread' }, preview.map((value, index) => h('figure', { key: value.page, style: { width: paperHeight * ratios[index], flex: 'none' } },
           h('img', { src: value.image, alt: `${titleOf(item, t)} · ${t('page').replace('{page}', value.page).replace('{total}', item.pages)}`, style: { height: paperHeight }, draggable: false }),
-          h('figcaption', null, t('pageNumber').replace('{page}', value.page)))))
+          h('figcaption', { title: caption(value.page) }, caption(value.page)))))
         : h('img', { src: preview[0].image, alt: `${titleOf(item, t)} · ${pageLabel}`, draggable: false })
         : error ? h('div', { role: 'alert' }, error, h('button', { type: 'button', onClick: () => setRetry(value => value + 1) }, t('retry'))) : h('span', { role: 'status' }, t('loading'))),
       actionError ? h('p', { role: 'alert' }, actionError) : null,
@@ -197,9 +198,11 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     React.useEffect(() => { setOpened(null); setCategory('all') }, [sessionId, state.mode])
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
     if (!visible) return null
-    const items = state.templates.filter(item => item.mode === state.mode && (category === 'all' || (item.category === '常用办公') === (category === 'common')))
+    const modeItems = state.templates.filter(item => item.mode === state.mode)
+    const categories = ['all', ...['common', 'other'].filter(value => modeItems.some(item => (item.category === '常用办公') === (value === 'common')))]
+    const items = modeItems.filter(item => category === 'all' || (item.category === '常用办公') === (category === 'common'))
     return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
-      h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, ['all', 'common', 'other'].map(value => h('button', { key: value, type: 'button', 'aria-pressed': category === value, onClick: () => setCategory(value) }, t(value))))),
+      h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': category === value, onClick: () => setCategory(value) }, t(value))))),
       h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,
@@ -251,7 +254,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
 .dso-spread{display:flex;justify-content:center;align-items:flex-start;gap:16px;max-width:100%}
 .dso-spread figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px}
 .dso-spread img{display:block;width:100%;object-fit:contain;box-shadow:0 2px 12px color-mix(in srgb,var(--dsw-alias-label-primary) 10%,transparent)}
-.dso-spread figcaption{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;flex:none}
+.dso-spread figcaption{width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;flex:none}
 .dso-selected{display:flex;align-items:flex-start}.dso-selected button{font:inherit;cursor:pointer}.dso-selected-frame{position:relative;display:block;flex:none;width:clamp(76px,10vw,92px);aspect-ratio:16/9;transform:rotate(-3deg);transform-origin:center}.dso-selected-preview{display:block;box-sizing:border-box;width:100%;height:100%;padding:0;border:2px solid var(--dsw-alias-state-business-primary);border-radius:9px;overflow:hidden;background:var(--dsw-alias-bg-base);box-shadow:0 4px 14px color-mix(in srgb,var(--dsw-alias-label-primary) 18%,transparent)}.dso-selected .dso-thumbnail{width:100%;height:100%;border-radius:0}.dso-selected .dso-thumbnail img{height:100%;object-fit:cover;object-position:top}.dso-selected-remove{position:absolute;top:-8px;right:-8px;z-index:2;display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);font-size:15px;line-height:1;opacity:0;pointer-events:none;transform:rotate(3deg);transition:opacity 120ms ease}.dso-selected-frame:hover .dso-selected-remove,.dso-selected-frame:focus-within .dso-selected-remove{opacity:1;pointer-events:auto}.dso-selected-remove:disabled{cursor:default}.dso-selected .dso-selected-preview:focus-visible{outline-offset:2px}@media(hover:none){.dso-selected-remove{opacity:1;pointer-events:auto}}@media(prefers-reduced-motion:reduce){.dso-selected-frame{transform:none}.dso-selected-remove{transform:none;transition:none}}.dso-actions button:focus-visible,.dso-card-select:focus-visible,.dso-card-preview:focus-visible,.dso-modal button:focus-visible,.dso-selected button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}@media(max-width:540px){.dso-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dso-modal{padding:10px}.dso-modal footer{gap:12px}.dso-pagination{gap:8px}}`
   function apply(ctx) {
     const store = new OfficeStore(ctx.get('connection'))

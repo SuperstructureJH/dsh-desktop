@@ -195,7 +195,7 @@ export async function apply(ctx) {
       return envelope.result.value
     }
     const officeCatalog = await officeRpc('catalog', {})
-    expect(officeCatalog.templates).toHaveLength(12)
+    expect(officeCatalog.templates).toHaveLength(9)
     const meeting = officeCatalog.templates.find(item => item.id === 'meeting-minutes')
     const officeSession = await rpc('session/create', { cwd: neutral })
     await officeRpc('mode', { sessionId: officeSession.sessionId, mode: 'word' })

@@ -25,7 +25,7 @@ it('produces the same native workbook revision across repeated official Kit reca
   const hashes = []
   for (const filename of ['first.xlsx', 'second.xlsx']) {
     const output = join(directory, filename)
-    await promisify(execFile)(electronExecutable(resolve('.')), [resolve('build/office-cli.mjs'), 'recalculate', '--input', join(resources, 'budget-expenses/example.xlsx'), '--output', output], {
+    await promisify(execFile)(electronExecutable(resolve('.')), [resolve('build/office-cli.mjs'), 'recalculate', '--input', join(resources, 'annual-business/example.xlsx'), '--output', output], {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, timeout: 30_000
     })
     await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/build-cases.py'), '--normalize-package', output])
@@ -38,8 +38,8 @@ it('independently verifies recalculated values, charts, original frozen panes an
   const python = resolve('.build/office-runtime/primary-runtime/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
   const { stdout } = await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/check-templates.py'), resources, resolve('packages/dsh-desktop-office/sources')])
   const result = JSON.parse(stdout)
-  expect(result.templates).toBe(12); expect(result.preview_pages).toBe(64)
-  expect(result.numeric_checks).toBeGreaterThan(14)
+  expect(result.templates).toBe(9); expect(result.preview_pages).toBe(58)
+  expect(result.numeric_checks).toBe(9)
   expect(result.excel_error_cells).toBe(0)
 })
 
@@ -52,11 +52,12 @@ async function modesFixture() {
   return { ctx, modes: ctx.officeModes, root, hooks }
 }
 
-it('publishes twelve native cases with complete preview hashes and distinct common Word cases', async () => {
+it('publishes nine native cases with complete preview hashes and distinct common Word cases', async () => {
   const items = await library.list()
   expect(items.filter(item => item.mode === 'word').map(item => item.id).slice(0, 4)).toEqual(['government-notice', 'meeting-minutes', 'work-summary', 'project-proposal'])
   expect(items.filter(item => item.mode === 'word')).toHaveLength(6)
-  expect(items.filter(item => item.mode === 'excel')).toHaveLength(6)
+  expect(items.filter(item => item.mode === 'excel').map(item => item.id)).toEqual(['annual-business', 'port-cargo', 'bio-assay'])
+  for (const id of ['budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
   for (const item of items) {
     const entry = library.entry(item.id)
     for (const file of Object.keys(entry.files)) expect(digest(await library.asset(item.id, file))).toBe(entry.files[file])

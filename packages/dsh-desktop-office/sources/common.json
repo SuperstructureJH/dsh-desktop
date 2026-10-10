@@ -131,8 +131,5 @@
         { "title": "六 计划与预算", "text": "计划日期、人员投入和费用根据当前项目材料填写，尚未确认的部分保留为待确认。" }
       ] }
     ]
-  },
-  { "id": "budget-expenses", "title": "预算与费用表", "titleEn": "Budget and expenses", "mode": "excel", "category": "常用办公", "description": "比较预算与实际费用，自动计算差额和执行率，保留可编辑公式与图表。模拟数据。", "previewPages": [{ "sheet": "费用总览", "range": "A1:H23" }, { "sheet": "费用明细", "range": "A1:F16" }] },
-  { "id": "project-tracker", "title": "项目任务台账", "titleEn": "Project task tracker", "mode": "excel", "category": "常用办公", "description": "跟踪任务、负责人、计划日期、状态和完成率，汇总项目进度。模拟数据。", "previewPages": [{ "sheet": "项目总览", "range": "A1:H22" }, { "sheet": "任务台账", "range": "A1:H15" }] },
-  { "id": "sales-report", "title": "销售数据报表", "titleEn": "Sales report", "mode": "excel", "category": "常用办公", "description": "按月份和产品汇总销售额、成本与毛利，查看可编辑图表和原始明细。模拟数据。", "previewPages": [{ "sheet": "销售总览", "range": "A1:I25" }, { "sheet": "销售明细", "range": "A1:F16" }] }
+  }
 ]

@@ -11,11 +11,6 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from openpyxl import Workbook
-from openpyxl.chart import BarChart, LineChart, Reference
-from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.formatting.rule import ColorScaleRule
 
 
 def meeting_table(document, rows, widths):
@@ -139,93 +134,6 @@ def word(item, output):
     document.save(output)
 
 
-def style_book(book):
-    for sheet in book:
-        sheet.freeze_panes = 'A2'
-        sheet.sheet_view.showGridLines = False
-        for cell in sheet[1]:
-            cell.font = Font(name='微软雅黑', bold=True, color='FFFFFF', size=12)
-            cell.fill = PatternFill('solid', fgColor='25465B')
-        sheet.row_dimensions[1].height = 28
-        for row in sheet.iter_rows(min_row=2):
-            for cell in row:
-                cell.font = Font(name='微软雅黑', size=11)
-                cell.alignment = Alignment(vertical='center', wrap_text=True)
-                sheet.row_dimensions[cell.row].height = 23
-        for letter in 'ABCDEFGHI':
-            sheet.column_dimensions[letter].width = 17
-        sheet.sheet_properties.pageSetUpPr.fitToPage = True
-        sheet.page_setup.orientation = 'landscape'
-        sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
-        sheet.page_setup.fitToWidth, sheet.page_setup.fitToHeight = 1, 1
-
-
-def excel(item, output):
-    book = Workbook()
-    book.properties.created = book.properties.modified = datetime(2026, 9, 1)
-    book.properties.creator = 'DSH Desktop'
-    sheet = book.active
-    if item['id'] == 'budget-expenses':
-        sheet.title = '费用总览'
-        sheet.append(['费用类别', '预算金额', '实际金额', '预算结余', '执行率'])
-        for n, category in enumerate(['人员', '软件', '差旅', '培训', '其他'], 2):
-            sheet.append([category, 10000 + n * 3000, f'SUMIF(费用明细!B2:B11,A{n},费用明细!E2:E11)', f'=B{n}-C{n}', f'=IFERROR(C{n}/B{n},0)'])
-            sheet.cell(n, 3).value = '=' + sheet.cell(n, 3).value
-            sheet.cell(n, 5).number_format = '0.0%'
-        sheet.append(['合计', '=SUM(B2:B6)', '=SUM(C2:C6)', '=B7-C7', '=IFERROR(C7/B7,0)'])
-        detail = book.create_sheet('费用明细')
-        detail.append(['日期', '类别', '事项', '负责人', '金额', '备注'])
-        for n in range(10):
-            detail.append([f'2026-09-{n+1:02d}', ['人员', '软件', '差旅', '培训', '其他'][n % 5], '示例费用', '项目办公室', 2000 + n * 700, '模拟数据'])
-        chart = BarChart()
-        chart.title = '预算与实际费用'
-        chart.add_data(Reference(sheet, min_col=2, max_col=3, min_row=1, max_row=6), titles_from_data=True)
-        chart.set_categories(Reference(sheet, min_col=1, min_row=2, max_row=6))
-        sheet.add_chart(chart, 'A10')
-    elif item['id'] == 'project-tracker':
-        sheet.title = '项目总览'
-        sheet.append(['状态', '任务数', '占比'])
-        for n, status in enumerate(['未开始', '进行中', '已完成'], 2):
-            sheet.append([status, f'=COUNTIF(任务台账!F2:F11,A{n})', f'=IFERROR(B{n}/SUM(B2:B4),0)'])
-            sheet.cell(n, 3).number_format = '0%'
-        sheet.append(['总任务', '=COUNTA(任务台账!A2:A11)', ''])
-        sheet.append(['平均完成率', '=AVERAGE(任务台账!G2:G11)', ''])
-        sheet['B6'].number_format = '0%'
-        detail = book.create_sheet('任务台账')
-        detail.append(['任务编号', '任务名称', '负责人', '开始日期', '计划完成', '状态', '完成率', '备注'])
-        for n in range(10):
-            detail.append([f'T{n+1:02d}', ['资料整理', '方案评审', '开发联调', '业务验收'][n % 4], ['产品', '研发', '交付'][n % 3], '2026-09-01', '2026-09-15', ['未开始', '进行中', '已完成'][n % 3], [0, .5, 1][n % 3], '示例任务'])
-            detail.cell(n + 2, 7).number_format = '0%'
-        validation = DataValidation(type='list', formula1='"未开始,进行中,已完成"')
-        detail.add_data_validation(validation)
-        validation.add('F2:F1000')
-        detail.conditional_formatting.add('G2:G1000', ColorScaleRule(start_type='num', start_value=0, start_color='FFF3D6', end_type='num', end_value=1, end_color='D9EEDC'))
-        chart = BarChart()
-        chart.title = '任务状态分布'
-        chart.add_data(Reference(sheet, min_col=2, min_row=1, max_row=4), titles_from_data=True)
-        chart.set_categories(Reference(sheet, min_col=1, min_row=2, max_row=4))
-        sheet.add_chart(chart, 'A9')
-    else:
-        sheet.title = '销售总览'
-        sheet.append(['月份', '销售额', '成本', '毛利', '毛利率'])
-        for n in range(2, 8):
-            sheet.append([f'{n-1}月', f'=SUMIF(销售明细!A2:A13,A{n},销售明细!D2:D13)', f'=SUMIF(销售明细!A2:A13,A{n},销售明细!E2:E13)', f'=B{n}-C{n}', f'=IFERROR(D{n}/B{n},0)'])
-            sheet.cell(n, 5).number_format = '0.0%'
-        sheet.append(['合计', '=SUM(B2:B7)', '=SUM(C2:C7)', '=B8-C8', '=IFERROR(D8/B8,0)'])
-        detail = book.create_sheet('销售明细')
-        detail.append(['月份', '产品', '数量', '销售额', '成本', '备注'])
-        for n in range(12):
-            detail.append([f'{n//2+1}月', ['产品A', '产品B'][n % 2], 10 + n, 8000 + n * 600, 5000 + n * 300, '模拟数据'])
-        chart = LineChart()
-        chart.title = '销售额与毛利'
-        chart.add_data(Reference(sheet, min_col=2, max_col=2, min_row=1, max_row=7), titles_from_data=True)
-        chart.add_data(Reference(sheet, min_col=4, max_col=4, min_row=1, max_row=7), titles_from_data=True)
-        chart.set_categories(Reference(sheet, min_col=1, min_row=2, max_row=7))
-        sheet.add_chart(chart, 'A11')
-    style_book(book)
-    book.save(output)
-
-
 def normalize_package(path):
     # Kit allocates random chart-axis IDs. Canonical local IDs preserve the
     # axis-reference graph while giving equivalent workbooks stable revisions.
@@ -263,11 +171,11 @@ def main():
     for item in json.loads(Path(args.source).read_text()):
         directory = root / item['id']
         directory.mkdir(parents=True, exist_ok=True)
-        sample = directory / ('example.docx' if item['mode'] == 'word' else 'example.xlsx')
-        (word if item['mode'] == 'word' else excel)(item, sample)
+        assert item['mode'] == 'word', 'Common examples use the Word generator'
+        sample = directory / 'example.docx'
+        word(item, sample)
         normalize_package(sample)
-        guidance = ('检查章节、决议及行动项。保持可编辑文字和表格。' if item['mode'] == 'word' else
-                    '保留原生公式、工作表和图表。修改数据后重算，并独立核对关键数值。')
+        guidance = '检查章节、决议及行动项。保持可编辑文字和表格。'
         if item['id'] == 'meeting-minutes':
             guidance += ('\n\n沿用 A4 纵向、约 2cm 页边距、23pt 黑色主标题、14pt 一级标题与 11pt 正文。'
                          '行动项集中为一张表，采用浅色表头、细灰边框、自动行高、重复表头及约 10pt 表格文字。'

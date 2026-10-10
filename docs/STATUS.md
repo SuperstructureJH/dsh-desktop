@@ -1,5 +1,13 @@
 # Implementation status
 
+## Office r9：精简 Excel 案例与双页阅读 — 2026-10-10
+
+- 基线沿用已核实的 `V0.12.0@6c25786d`，Harness `0.2.0-rc.2`。
+- 删除预算与费用表、项目任务台账、销售数据报表及对应生成逻辑；目录保留 6 个 Word 和 3 个 Excel 案例，共 58 页。
+- Excel 复用 Word 双页阅读区，相邻两页等比并排，逐页展示工作表名称和页码。工作表标签定位到该表准确起始页；每次翻两页，奇数末页居中。
+- 184 文件 / 1661 项全量回归（含 21 项 Office UI 行为）、类型检查及 9 案例 / 58 页资源校验 PASS；9 项 Excel 数值核对通过。工作表偶数起始页的末组键盘右翻与按钮边界一致。最终构建、包内 Office 制作 / PDF 转换、8 个插件源文件与 9 案例 / 58 页资源一致性、严格开发签名及 ZIP CRC PASS。实际视觉、真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。
+- [r9 交付记录与 macOS ARM64 测试包](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-template-harness-rc2-20261010/delivery-r9.md)。
+
 ## Office r8：对齐 PPT PR #675 详细预览 — 2026-10-10
 
 - 已核实远端 `V0.12.0@6c25786d` 并合入当前 `codex/v012-office-templates`，安装 Harness `0.2.0-rc.2`。参照固定 `#675@fe63bb3c` 的详细模板 viewer。
