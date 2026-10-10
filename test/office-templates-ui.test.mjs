@@ -102,6 +102,28 @@ it('locks direct card choices while the host is saving a selection', async () =>
   expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
 })
 
+it('keeps keyboard focus inside the preview and returns to its opening control', async () => {
+  const f = await fixture(); await f.click('Word')
+  const opener = container.querySelector('[aria-label="查看案例 通用会议纪要"]')
+  opener.focus(); await f.click('查看案例 通用会议纪要')
+  const dialog = container.querySelector('dialog'), close = dialog.querySelector('[aria-label="关闭预览"]'), use = dialog.querySelector('.dso-use')
+  expect(document.activeElement).toBe(close)
+  const tab = async shiftKey => act(async () => dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true })))
+  await tab(true); expect(document.activeElement).toBe(use)
+  await tab(false); expect(document.activeElement).toBe(close)
+  await f.click('关闭预览'); expect(document.activeElement).toBe(opener)
+})
+
+it('keeps the preview open on its padding and dismisses it from the backdrop', async () => {
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要')
+  const dialog = container.querySelector('dialog')
+  dialog.getBoundingClientRect = () => ({ left: 16, right: 1264, top: 16, bottom: 704 })
+  await act(async () => dialog.dispatchEvent(new MouseEvent('click', { clientX: 24, clientY: 24, bubbles: true })))
+  expect(container.querySelector('dialog')).toBe(dialog)
+  await act(async () => dialog.dispatchEvent(new MouseEvent('click', { clientX: 4, clientY: 4, bubbles: true })))
+  expect(container.querySelector('dialog')).toBeNull()
+})
+
 it('exposes common Word cases and selects the revision shown as a complete spread', async () => {
   const f = await fixture(); await f.click('Word')
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)

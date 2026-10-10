@@ -1,5 +1,12 @@
 # Implementation status
 
+## Office r8：对齐 PPT PR #675 详细预览 — 2026-10-10
+
+- 已核实远端 `V0.12.0@6c25786d` 并合入当前 `codex/v012-office-templates`，安装 Harness `0.2.0-rc.2`。参照固定 `#675@fe63bb3c` 的详细模板 viewer。
+- 实现：Word / Excel 共用 1280×900 弹窗、32px 外边距、浅灰内容区、左上小眼睛、居中翻页和黑底做同款；保留 Word 双页及 Excel 工作表。键盘焦点循环，内侧留白和外部遮罩按实际边界判断。
+- 验证：184 文件 / 1659 项全量回归（含 19 项 Office UI 行为）、类型检查和构建 PASS。独立临时 Harness 启动 PASS；浏览器安全策略阻止访问本地预览页，实际深浅主题 / 窄窗口视觉验收 NOT_RUN。最终开发包构建、包内 Office 制作 / PDF 转换、8 个源文件及 12 案例 / 64 页哈希、严格开发签名 PASS；真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。
+
+
 ## Word / Excel 案例 — 2026-10-09
 
 - r7 实现：删除预览放大入口及缩放状态；Excel 封面与输入框缩略图从表头 / 上半部分裁切，卡片前景延伸至底边；Word 浅蓝背景浓度 5%、Excel 浅绿 6%。Word / Excel 模式选中使用主题前景底色和反色文字，浅色主题黑底白字。实际 Harness 封面、双页、Excel 工作表 / 做同款、深浅主题和 520px 窄窗口 PASS；184 文件 / 1656 项最终回归与类型检查 PASS；最终开发包构建、包内 Office 制作 / PDF 转换、8 源文件与业务资源一致、12 案例 / 64 页哈希、严格签名 PASS；真实模型、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。

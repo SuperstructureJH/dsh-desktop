@@ -4,11 +4,19 @@
 
 ## 基线与来源
 
-- Desktop：远端 `upstream/V0.12.0@35b9f85ae06d6b19faa070b1c32f5f631bb474a2`。
+- Desktop：初始基线 `V0.12.0@35b9f85ae06d6b19faa070b1c32f5f631bb474a2`；r8 已合入本轮核实的 `upstream/V0.12.0@6c25786dae65c787b44692a7f34dae33fab3cc7a`。
 - 安装的官方 Harness：`0.2.0-rc.2`；源码标签 `dsh-v0.2.0-rc.2@639ed015397290b3745d163aafe02ffee4aa3f84`。官方 Office 依赖、服务注入、工具和客户端协议均按该版本接入。
 - 原 Word / Excel PR：#387、#424 均 CLOSED，合并时间为空。复用 #424 的 `08fe8ce64db6e30ebc701be8120fd4aca2ec0c2e` 中六个案例原始文件和六个业务 Skill。
 - 官方 Office / 离线 Python 已由 #649 进入 V0.12.0；本次复用现有安装级运行时和 `@deepseek-ai/libreoffice-kit@0.1.3`。Python 3.12.14、python-docx、openpyxl 等依赖继续使用仓库锁定版本。
 - 工作树：`.worktrees/dsh-desktop-v012-office-templates`。相邻 PPT 验收和旧 Office 工作树保持原状态。
+
+## r8 按 PPT PR #675 对齐详细预览
+
+样式参照固定的 `PR #675@fe63bb3c07d823bac7b4a2791d9e96717a3c24d3`，来源为 `packages/ppt-runtime/client/personal-template-manager.js` 的详细模板 viewer。本轮只调整 Office 自有客户端，PPT PR 的后续上传改动由原工作树继续维护。
+
+Word、Excel 共用 1280×900 最大阅读弹窗、32px 视窗外边距、20px 内边距、16px 圆角和标题；内容区使用官方浅灰 hover token。小眼睛位于卡片左上，关闭按钮、居中翻页和黑底做同款按 PPT 对齐，窄窗口操作自然换行。Word 双页按阅读区尺寸等比显示、各页标号、每次翻两页；Excel 保留工作表标签。弹窗内键盘焦点循环，关闭后返回入口；点击弹窗内留白保持阅读，点击外部遮罩关闭。
+
+184 文件 / 1659 项全量回归（含 19 项 Office UI 行为）、类型检查和构建 PASS。独立临时 Harness 启动 PASS；浏览器安全策略阻止访问本地预览页，实际深浅主题及窄窗口视觉验收 NOT_RUN。最终开发包构建、包内 Office 制作 / PDF 转换、8 个插件源文件及 12 案例 / 64 页哈希、严格开发签名 PASS。真实模型与原生 Office 编辑保存重开继续由用户独立验收。
 
 ## r7 封面与选中状态
 
@@ -49,7 +57,7 @@ Word 预览统一使用官方 Kit 导出的 PDF 页面。公文红色抬头旁�
 
 共 12 个案例、64 页预览。六个常用新案例通过维护的 Python 生成器制作；六个旧案例以原生 DOCX/XLSX、设计说明和登记的输入材料为权威源。业务方法包含公文写作、会议纪要、研究写作、经营指标、数据质量和数据图表。示例事实与用户本次材料分别标识，缺失字段使用待确认。
 
-Word 沿用 PPT 的模板选用流程：点击案例卡片直接选用，小眼睛打开完整预览，预览内支持翻页和「做同款」。提供适合页面 / 放大阅读，支持键盘翻页和 Esc 关闭。Excel 使用同一交互，并按工作表切换预览。模板选择随会话保存；Word、Excel、PPT 共用已有 Host 状态和审计层，切换输出格式时清理前一格式的模板选择。
+Word 沿用 PPT 的模板选用流程：点击案例卡片直接选用，小眼睛打开完整预览，预览内支持翻页和「做同款」。页面自动适合阅读区，支持键盘翻页和 Esc 关闭。Excel 使用同一交互，并按工作表切换预览。模板选择随会话保存；Word、Excel、PPT 共用已有 Host 状态和审计层，切换输出格式时清理前一格式的模板选择。
 
 r4 以当前 V0.12.0 已改版的 PPT chooser / input accessory / opening preview 为样式基准：分类靠左、12px 单行居中标题、9px 卡片圆角、单色 18px 模式图标；预览采用 760px 最大宽度、20px 内边距、16px 标题、28px 关闭按钮和居中 32px 翻页按钮。Word / Excel 保留浅色文档底板及内容层缩放，沿用自身独立插件和公开主题 token。
 
