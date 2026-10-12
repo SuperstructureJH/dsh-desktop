@@ -219,8 +219,8 @@
 
 ## 本地测试产物清理 — 2026-10-12
 
-- 按用户要求，将本会话生成的 14 份 DMG、2 份 ZIP、15 份 blockmap 和 2 份解压测试应用通过 macOS 原生文件管理 API 移到废纸篓，约 6.7 GB；逐项核对原位置已移除及废纸篓目标存在。三个测试映像均已卸载，最新复测包在对应程序退出后一起清理，历史交付路径现按清理记录恢复。
-- 正式安装的 `DSH Desktop 0.11.0`、实际用户 Profile／模板数据、源码与 Git 历史、回归输入和报告保留。下载目录受 macOS 权限限制，本轮作为未检查范围记录。清理及恢复记录：`dist-dev/ppt-session-cleanup-review/cleanup-evidence.json`、`trash-receipt.json`。运行源码及既有验证状态保持。
+- 按用户要求，本会话生成的 14 份 DMG、2 份 ZIP、15 份 blockmap 和 2 份解压测试应用此前通过 macOS 原生文件管理 API 移到废纸篓，约 6.7 GB；三个测试映像均已卸载。随后收到仅永久删除这 33 项的授权，执行前逐项核对发现：33 个原位置和记录中的废纸篓位置均已缺失，本轮完成状态核查，无需再次执行删除。这 33 项的历史废纸篓恢复路径已失效。
+- 此前清理时保留的 `/Applications/DSH Desktop.app` 在本轮删除前查询中已缺失；本轮文件操作限于清理证据与本状态文档。源码与 Git 历史、回归输入和报告仍保留，用户 Profile／模板数据和原始 PPT 沿授权范围保留。下载目录受 macOS 权限限制，继续记录为未检查范围。历史操作与当前核查记录位于 `dist-dev/ppt-session-cleanup-review/`：`trash-receipt.json`、`permanent-cleanup-verification.json`、`cleanup-evidence.json`、`storage-audit.json`。工作树目录合计约 78.6 GB，截图中的转换工具与多个项目运行依赖经路径核对后作为另一批文件记录。运行源码及既有验证状态保持。
 
 ## 后续验收与技术边界
 
