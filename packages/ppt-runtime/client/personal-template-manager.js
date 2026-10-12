@@ -206,6 +206,15 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
   const activeDraft = react.useRef(null);
   const activeUpload = react.useRef(null);
   const finishImportPause = react.useRef(null);
+  const cancelTransfer = transfer => {
+    if (!transfer) return;
+    transfer.cancelled = true;
+    transfer.reader?.abort();
+    if (transfer.uploadId && !transfer.cancellation) {
+      // The host audits termination and cleans its owned upload/draft together.
+      transfer.cancellation = transfer.client.call('template/upload-cancel', { uploadId: transfer.uploadId }).catch(() => {});
+    }
+  };
   react.useEffect(() => { activeDraft.current = draft; }, [draft]);
   react.useEffect(() => {
     generation.current++; pageRequest.current++;
@@ -217,7 +226,7 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
       finishImportPause.current?.();
       if (activeDraft.current) client.call('template/cancel', { draftId: activeDraft.current.draftId }).catch(() => {});
       activeDraft.current = null;
-      if (activeUpload.current) activeUpload.current.client.call('template/upload-cancel', { uploadId: activeUpload.current.uploadId }).catch(() => {});
+      cancelTransfer(activeUpload.current);
       activeUpload.current = null;
     };
   }, [client, sessionId]);
@@ -239,6 +248,15 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
     setDraft(null); setImporting(false); setEditing(null); setDeleting(null); setError('');
   };
   const closeModal = () => {
+    if (busy && importing && !draft) {
+      generation.current++;
+      finishImportPause.current?.();
+      cancelTransfer(activeUpload.current);
+      activeUpload.current = null;
+      setBusy(false);
+      dismissModal();
+      return;
+    }
     if (busy) return;
     if (draft && !savedDraft.current) act(() => client.call('template/cancel', { draftId: draft.draftId }), true);
     else dismissModal();
@@ -268,21 +286,26 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
     refresh().catch(reason => { if (alive.current && generation.current === current) setError(String(reason)); });
   }, [client, sessionId]);
   async function upload(file) {
-    if (!file) return;
+    if (!file || busy) return;
     const current = generation.current;
     setImporting(true); setImportProgress({total:0,pages:[]});
     await act(async isCurrent => {
       if (!/\.pptx$/i.test(file.name)) throw new Error(t('personal.fileType'));
-      const { uploadId, chunkBytes } = await client.call('template/upload-start', { input: { fileName: file.name, size: file.size } });
+      const transfer = {client,uploadId:null,reader:null,cancelled:false};
+      activeUpload.current = transfer;
+      let prepared = false;
       try {
+        const { uploadId, chunkBytes } = await client.call('template/upload-start', { input: { fileName: file.name, size: file.size } });
+        transfer.uploadId = uploadId;
         if (!isCurrent()) return;
-        activeUpload.current = { uploadId, client };
         for (let offset = 0; offset < file.size; offset += chunkBytes) {
           if (!isCurrent()) return;
           const base64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result).split(',')[1]);
-            reader.onerror = () => reject(new Error(t('personal.readFailed')));
+            transfer.reader = reader;
+            reader.onload = () => { transfer.reader = null; resolve(String(reader.result).split(',')[1]); };
+            reader.onerror = () => { transfer.reader = null; reject(new Error(t('personal.readFailed'))); };
+            reader.onabort = () => { transfer.reader = null; reject(new DOMException('Cancelled', 'AbortError')); };
             reader.readAsDataURL(file.slice(offset, offset + chunkBytes));
           });
           if (!isCurrent()) return;
@@ -319,6 +342,7 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
         finally {polling=false;void pollingTask;}
 
         if (!alive.current || current !== generation.current) { if (result.draftId) await client.call('template/cancel', { draftId: result.draftId }); return; }
+        prepared = true;
         if (result.duplicate) { await refresh(); if (alive.current && current === generation.current) { dismissModal(); setNotice(t('personal.duplicate')); } return; }
         setDraft({
           ...result,
@@ -327,9 +351,9 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
         });
         setName(result.template.name); setPage(0);
       } finally {
-        if (activeUpload.current?.uploadId === uploadId) activeUpload.current = null;
-        // The host also expires abandoned transfers after a client disconnect.
-        await client.call('template/upload-cancel', { uploadId }).catch(() => {});
+        if (activeUpload.current === transfer) activeUpload.current = null;
+        if (!prepared || transfer.cancelled) cancelTransfer(transfer);
+        await transfer.cancellation;
       }
     });
   }
@@ -459,7 +483,7 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
       } },
       modalOpen && h(react.Fragment, null,
         h('header', null, h('h2', { id: `${dialogId}-title` }, t(importing ? 'personal.preview' : deleting ? 'personal.deleteTitle' : 'personal.editTitle')),
-          h('button', { type: 'button', className: 'personal-close', disabled: busy, 'aria-label': t('personal.close'), onClick: closeModal }, icon('close'))),
+          h('button', { type: 'button', className: 'personal-close', disabled: busy && (!importing || !!draft), 'aria-label': t('personal.close'), onClick: closeModal }, icon('close'))),
         importing ? h('form', { className: 'personal-upload-form', 'aria-busy': busy, onSubmit: event => {
           event.preventDefault(); if (!draft || !name.trim()) return;
           act(async current => {
@@ -493,7 +517,7 @@ function PersonalTemplateManager({ client, mode, sessionId, state, choose, t, mu
               h('span', { role: 'status' }, `${draft.template.templateSamples ? t('personal.layouts')+' ' : ''}${page + 1} / ${slides.length}`),
               h('button', { type: 'button', 'aria-label': t('personal.next'), disabled: page === slides.length - 1, onClick: () => showPage(page + 1) }, '›')),
             h('div', { className: 'personal-upload-actions' },
-              h('button', { type: 'button', disabled: busy, onClick: closeModal }, t('personal.cancel')),
+              h('button', { type: 'button', disabled: busy && !!draft, onClick: closeModal }, t('personal.cancel')),
               draft ? h('button', { type: 'submit', className: 'personal-submit', disabled: busy || !name.trim() }, t(busy ? 'personal.processing' : 'personal.save'))
               : !busy && h('button', { type: 'button', onClick: () => input.current?.click() }, t('personal.chooseFile')))))
         : deleting ? h('div', { className: 'personal-fields' },

@@ -108,6 +108,23 @@ async function save(f) {
 }
 
 describe('personal PPT templates in the shipped runtime', () => {
+  it('cancels preparation through the authenticated host without waiting behind the import', async () => {
+    const f=await fixture(), bytes=await source(), requestId=randomUUID();
+    const upload=await f.request('template/upload-start',{input:{fileName:'cancel.pptx',size:bytes.length}});
+    await f.request('template/upload-chunk',{uploadId:upload.uploadId,offset:0,base64:bytes.toString('base64')});
+    const preparing=f.request('template/prepare',{input:{uploadId:upload.uploadId,requestId}});
+    const outcome=preparing.then(value=>({value}),error=>({error}));
+    expect(await f.httpRequest('template/upload-cancel',{uploadId:upload.uploadId},{authorized:false})).toEqual({status:401,body:'unauthorized'});
+    await expect(f.request('template/upload-cancel',{uploadId:upload.uploadId},'session-b')).rejects.toThrow('其他会话');
+    const cancelled=await f.httpRequest('template/upload-cancel',{uploadId:upload.uploadId});
+    expect(cancelled.status).toBe(200);
+    expect(JSON.parse(cancelled.body).result.value.status).toBe('ok');
+    expect((await outcome).error).toBeInstanceOf(Error);
+    expect((await f.request('template/import-progress',{requestId})).status).toBe('cancelled');
+    expect(await readdir(path.join(f.storage,'personal-templates/uploads'))).toEqual([]);
+    expect((await f.request('state')).templates.filter(template=>template.origin==='personal')).toEqual([]);
+  });
+
   it('publishes real rendered pages during preparation with session ownership and cursor reads', async () => {
     const f=await fixture(), bytes=await source(), requestId=randomUUID();
     const preparing=f.request('template/prepare',{input:{fileName:'progress.pptx',base64:bytes.toString('base64'),requestId}});

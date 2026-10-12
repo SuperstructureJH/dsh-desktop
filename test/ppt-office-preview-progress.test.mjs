@@ -88,3 +88,29 @@ it('applies the PDF byte budget across batches',async()=>{
   const published=[];await expect(renderOfficeTemplatePreview(project(10),root,1920,200,async p=>published.push(p.page))).rejects.toThrow('PDF byte budget');
   expect(published).toEqual([1]);expect(mocks.dispose).toHaveBeenCalledTimes(1);await expect(access(path.join(root,'office-preview'))).rejects.toThrow();
 });
+
+
+it('propagates external cancellation to both slots and joins the pending export', async () => {
+  const controller=new AbortController(); let pendingStarted=false;
+  const original=mocks.render.getMockImplementation();
+  mocks.render.mockImplementation(async (args,signal) => {
+    expect(signal).toBe(controller.signal);
+    if (args.inputPath.includes('batch-10')) {
+      pendingStarted=true;
+      return new Promise((resolve,reject) => signal.addEventListener('abort',() => reject(signal.reason),{once:true}));
+    }
+    return original(args);
+  });
+  const originalImages=mocks.images.getMockImplementation();
+  mocks.images.mockImplementation(async (args,signal,onImage) => {
+    expect(signal).toBe(controller.signal);
+    return originalImages(args,signal,onImage);
+  });
+  const published=[];
+  await expect(renderOfficeTemplatePreview(project(17),root,1920,200,async p => {
+    published.push(p.page);
+    if(p.page===2){await vi.waitFor(() => expect(pendingStarted).toBe(true));controller.abort();}
+  },controller.signal)).rejects.toMatchObject({name:'AbortError'});
+  expect(published).toEqual([1,2]);expect(mocks.dispose).toHaveBeenCalledTimes(1);
+  await expect(access(path.join(root,'office-preview'))).rejects.toThrow();
+});

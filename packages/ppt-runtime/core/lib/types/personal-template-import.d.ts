@@ -13,5 +13,5 @@ export interface PersonalTemplateImportProgress {
 export declare function runPersonalTemplateImport(
   job: PersonalTemplateImportJob,
   onProgress?: (progress: PersonalTemplateImportProgress) => void,
-  options?: {timeoutMs?: number; maxHeapMiB?: number}
+  options?: {timeoutMs?: number; maxHeapMiB?: number; signal?: AbortSignal}
 ): Promise<{draftId?: string; duplicate?: boolean; template: Record<string, unknown>; preview?: string}>;

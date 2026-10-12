@@ -23,11 +23,14 @@ async function writeSource(directory,source) {
   for(const [relative,content] of source.pages)await put(relative,content);
   for(const asset of source.assets.values())await put(asset.path,asset.bytes);
 }
+const controller=new AbortController();
+process.on('message',message=>{if(message?.type==='cancel')controller.abort();});
 process.once('message',async job=>{
+  if(job?.type==='cancel')return;
   try {
     const library=new PersonalTemplateLibrary({root:job.root},convertPptxToPptd,writeSource,job.maxSlides);
     const report=value=>process.send?.({type:'progress',value});
-    const result=await library.prepareSource(job.sessionId,{uploadId:job.uploadId,draftId:job.draftId},report);
+    const result=await library.prepareSource(job.sessionId,{uploadId:job.uploadId,draftId:job.draftId},report,controller.signal);
     process.send?.({type:'result',value:result},()=>process.disconnect());
   } catch(error) {
     process.send?.({type:'error',message:error.message,conversion:error.conversion},()=>process.disconnect());

@@ -145,19 +145,33 @@ export class PersonalTemplateLibrary {
     return this.locked(() => this.audit(sessionId, 'upload-personal-template-chunk', () => this.uploads.append(sessionId, input)));
   }
   async cancelUpload(sessionId, uploadId) {
-    return this.locked(() => this.audit(sessionId, 'cancel-personal-template-upload', () => this.uploads.cancel(sessionId, uploadId)));
+    if (!DRAFT.test(uploadId)) throw new Error('上传标识无效');
+    const jobs = [...this.imports.values()].filter(job => job.uploadId === uploadId);
+    const owned = jobs.filter(job => job.session === hash(sessionId));
+    if (jobs.length && !owned.length) throw new Error('该处理任务属于其他会话');
+    // Interrupt owned workers before joining the library queue that they hold.
+    for (const job of owned) job.controller.abort();
+    return this.locked(() => this.audit(sessionId, 'cancel-personal-template-upload', async () => {
+      await this.uploads.cancel(sessionId, uploadId);
+      for (const job of owned) {
+        let directory;
+        try { directory = await this.draft(sessionId, job.draftId); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+        if (directory) await rm(directory, { recursive: true, force: true });
+      }
+      return { uploadId };
+    }));
   }
   async prepare(sessionId, input) {
-    const requestId=input?.requestId;
-    let progress;
-    if(requestId!==undefined) {
-      if(!DRAFT.test(requestId)) throw new Error('处理标识无效');
-      for(const [id,job] of this.imports) if(Date.now()-job.startedAt>3600000) this.imports.delete(id);
-      if(this.imports.has(requestId)||this.imports.size>=32) throw new Error('请稍后重新处理模板');
-      progress={session:hash(sessionId),startedAt:Date.now(),total:0,pages:[],status:'processing'};
-      this.imports.set(requestId,progress);
-    }
+    const requestId=input?.requestId ?? randomUUID();
+    if(!DRAFT.test(requestId)) throw new Error('处理标识无效');
+    for(const [id,job] of this.imports) if(job.status!=='processing' && Date.now()-job.startedAt>3600000) this.imports.delete(id);
+    if(this.imports.has(requestId)||this.imports.size>=32) throw new Error('请稍后重新处理模板');
+    const progress={session:hash(sessionId),startedAt:Date.now(),total:0,pages:[],status:'processing',
+      uploadId:input?.uploadId,draftId:randomUUID(),controller:new AbortController()};
+    this.imports.set(requestId,progress);
     try { return await this.locked(() => this.audit(sessionId, 'prepare-personal-template', async () => {
+      progress.controller.signal.throwIfAborted();
       let uploadId=input?.uploadId;
       if(uploadId===undefined) {
         const fileName=personalTemplateFileName(input?.fileName),bytes=decodeTemplateBase64(input?.base64);
@@ -168,18 +182,22 @@ export class PersonalTemplateLibrary {
         } catch(error) {await this.uploads.cancel(sessionId,uploadId);throw error;}
       }
       const upload=await this.uploads.record(sessionId,uploadId);
-      const draftId=randomUUID();
+      progress.uploadId=uploadId;
+      const draftId=progress.draftId;
       if((await lstat(upload.file)).size!==upload.record.size)throw new Error('请完成文件上传后再处理模板');
       try {
-        return await runPersonalTemplateImport({root:this.store.root,sessionId,uploadId,draftId,maxSlides:this.maxSlides}, progress ? update=>{
+        const result=await runPersonalTemplateImport({root:this.store.root,sessionId,uploadId,draftId,maxSlides:this.maxSlides}, update=>{
           progress.total=update.total;
           if(update.page)progress.pages.push(update.page);
-        } : undefined);
+        }, {signal:progress.controller.signal});
+        progress.controller.signal.throwIfAborted();
+        return result;
       } catch(error) {await rm(path.join(this.root,'drafts',draftId),{recursive:true,force:true});throw error;} finally {await rm(upload.directory,{recursive:true,force:true});}
-    })); } finally { if(progress) {progress.status='finished';progress.startedAt=Date.now();} }
+    })); } finally { progress.status=progress.controller.signal.aborted?'cancelled':'finished';progress.startedAt=Date.now(); }
   }
   /** Runs inside the host-owned import process, under the parent's policy/audit lock. */
-  async prepareSource(sessionId,input,progress) {
+  async prepareSource(sessionId,input,progress,signal) {
+      signal?.throwIfAborted();
       const started=Date.now();
       let upload;
       try {
@@ -210,7 +228,8 @@ export class PersonalTemplateLibrary {
         }
         if ((await readdir(drafts)).length >= 10) throw new Error('待保存模板达到 10 套，请先保存或取消已有预览');
         const conversionStarted=Date.now();
-        const converted = await this.convert(bytes, fileName);
+        const converted = await this.convert(bytes, fileName, {signal});
+        signal?.throwIfAborted();
         const convertedAt=Date.now();
         if (!converted.slideCount || converted.slideCount > this.maxSlides) throw new Error(`模板应包含 1–${this.maxSlides} 页`);
         const missing = converted.diagnostics.filter(item => item.level === 'unsupported');
@@ -235,10 +254,12 @@ export class PersonalTemplateLibrary {
           await this.writeSource(project, source);
           await writeFile(path.join(directory, 'source.pptx'), bytes, { mode: 0o600 });
           const previewDirectory = path.join(directory, 'preview');
+          signal?.throwIfAborted();
           const previewMetadata = await renderOfficeTemplatePreview(parsed,directory,PREVIEW_LONG_EDGE,this.maxSlides,progress ? async ({page,path:imagePath}) => {
             const thumbnail=await sharp(imagePath).resize({width:240,height:240,fit:'inside',withoutEnlargement:true}).png().toBuffer();
             progress({total:converted.slideCount,page:{page,preview:`data:image/png;base64,${thumbnail.toString('base64')}`}});
-          } : undefined);
+          } : undefined, signal);
+          signal?.throwIfAborted();
           const previewPage = async page => readFile(path.join(previewDirectory, 'pages', `page-${page}.png`));
           const uniquePages=templateSamples.representativePages;
           const representativePages=[uniquePages[0],uniquePages[Math.floor(uniquePages.length/2)],uniquePages.at(-1)];
@@ -270,6 +291,7 @@ export class PersonalTemplateLibrary {
           };
           await writeFile(path.join(directory, 'template.json'), JSON.stringify(record), { mode: 0o600 });
           await writeFile(path.join(directory, 'owner.json'), JSON.stringify({ session: hash(sessionId) }), { mode: 0o600 });
+          signal?.throwIfAborted();
           return { draftId, template: record, preview };
         } catch (error) { await rm(directory, { recursive: true, force: true }); throw error; }
       } finally { if (upload) await rm(upload.directory, { recursive: true, force: true }); }

@@ -10,12 +10,14 @@ const MAX_PREVIEW_BYTES = 128 * 1024 * 1024;
  * draft directory and holds the library's policy/audit lock. Two bounded slots
  * overlap the next small PDF export with the current PDF's per-page raster notifications.
  */
-export async function renderOfficeTemplatePreview(project, directory, longEdge, maxPages, onPage) {
+export async function renderOfficeTemplatePreview(project, directory, longEdge, maxPages, onPage, signal) {
+  signal?.throwIfAborted();
   if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 200
     || !Number.isFinite(longEdge) || longEdge < 1 || !project.pages.length || project.pages.length > maxPages)
     throw new Error('Office template preview exceeds its page budget');
   const started = Date.now();
   const deck = await renderPptdProject(project);
+  signal?.throwIfAborted();
   const timings = { exportMs: Date.now() - started, officeMs: 0, rasterMs: 0, firstPageMs: 0, totalMs: 0 };
   await writeFile(path.join(directory, 'preview-deck.pptx'), deck.bytes, { flag: 'wx', mode: 0o600 });
   const select = createOfficePreviewBatches(deck.bytes, project.pages.length);
@@ -26,10 +28,12 @@ export async function renderOfficeTemplatePreview(project, directory, longEdge, 
   const factory = await createConverterFactory({ timeoutMs: 120000,
     maxInputBytes: MAX_PREVIEW_BYTES, maxOutputBytes: MAX_PREVIEW_BYTES, ...templateOfficeFontOptions });
   try {
+    signal?.throwIfAborted();
     const office = await factory.create(), raster = await factory.create();
     await mkdir(tiles, { recursive: true, mode: 0o700 });
     await mkdir(destination, { recursive: true, mode: 0o700 });
     const prepare = async (first, count) => {
+      signal?.throwIfAborted();
       const begun = Date.now();
       const bytes = select(first, count);
       timings.exportMs += Date.now() - begun;
@@ -38,7 +42,7 @@ export async function renderOfficeTemplatePreview(project, directory, longEdge, 
       const inputPath = path.join(batchDirectory, 'deck.pptx'), pdf = path.join(batchDirectory, 'deck.pdf');
       await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
       const officeStarted = Date.now();
-      const converted = await office.render({ inputPath, outputPath: pdf });
+      const converted = await office.render({ inputPath, outputPath: pdf },signal);
       timings.officeMs += Date.now() - officeStarted;
       for (const font of converted.missingFonts) missingFonts.add(font);
       pdfBytes += (await stat(pdf)).size;
@@ -51,7 +55,8 @@ export async function renderOfficeTemplatePreview(project, directory, longEdge, 
       const pages = Array.from({ length: batch.count }, (_, index) => index + 1);
       const rendered = await raster.renderImages({ inputPath: batch.pdf, outputDir, pages,
         dpi: Math.max(24, Math.min(600, longEdge / Math.max(project.width, project.height) * 72)), maxPages },
-      undefined, async (image, pageCount) => {
+      signal, async (image, pageCount) => {
+        signal?.throwIfAborted();
         if (pageCount !== batch.count || image.page !== expected)
           throw new Error('Office template preview page count mismatch');
         const slideNumber = batch.first + expected, target = path.join(destination, `page-${slideNumber}.png`);
@@ -78,6 +83,7 @@ export async function renderOfficeTemplatePreview(project, directory, longEdge, 
       pending = next < project.pages.length ? schedule(next) : undefined;
       await paint(batch);
     }
+    signal?.throwIfAborted();
     timings.totalMs = Date.now() - started;
     return { engine: 'libreoffice-pdfium', missingFonts: [...missingFonts], timings };
   } finally {

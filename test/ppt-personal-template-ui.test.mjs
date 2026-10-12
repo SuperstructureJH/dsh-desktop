@@ -54,22 +54,25 @@ async function loadPreview() {
 
 async function fixture(prepareError, waitForPrepare, resourcePlaceholders = [], Component = Manager, templateSamples, waitForPreview = true) {
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
-  let saved = [], draft, selectedId;
+  let saved = [], draft, selectedId, uploads = 0, preparations = 0;
   const calls = [];
   const waits = new Map(), failures = new Map();
+  const onceWaits = new Map();
   const image = 'data:image/png;base64,iVBORw0KGgo=';
   const client = { bound: true, async call(endpoint, payload) {
     calls.push({ endpoint, payload });
+    const preparation = endpoint === 'template/prepare' ? ++preparations : undefined;
+    if (onceWaits.has(endpoint)) { const pending = onceWaits.get(endpoint); onceWaits.delete(endpoint); await pending; }
     if (waits.has(endpoint)) await waits.get(endpoint);
     if (failures.has(endpoint)) { const error = failures.get(endpoint); failures.delete(endpoint); throw new Error(error); }
     if (endpoint === 'state') return { templates: saved, selectedTemplateId: selectedId, presentationMode: 'ppt' };
-    if (endpoint === 'template/upload-start') return {uploadId:'upload-1',chunkBytes:8*1024*1024};
+    if (endpoint === 'template/upload-start') return {uploadId:`upload-${++uploads}`,chunkBytes:8*1024*1024};
     if (endpoint === 'template/upload-chunk') return {received:payload.offset+Buffer.from(payload.base64,'base64').length};
     if (endpoint === 'template/upload-cancel') return {uploadId:payload.uploadId};
     if (endpoint === 'template/prepare') {
       if (waitForPrepare) await waitForPrepare;
       if (prepareError) throw new Error(prepareError);
-      draft = { draftId: 'draft-1', template: { id: 'personal-1', name: 'Company', origin: 'personal', slideCount: templateSamples ? 4 : 2,templateSamples, previewImages: [image], palette: { background: 'FFFFFF', surface: 'F4F4F4', text: '242424', muted: '666666', accent: '3888FF', secondary: 'E7E7E9' }, resourcePlaceholders, diagnostics: [{ slide: 2, feature: 'shape-style', message: '样式已标准化' }] }, preview: image };
+      draft = { draftId: `draft-${preparation}`, template: { id: 'personal-1', name: 'Company', origin: 'personal', slideCount: templateSamples ? 4 : 2,templateSamples, previewImages: [image], palette: { background: 'FFFFFF', surface: 'F4F4F4', text: '242424', muted: '666666', accent: '3888FF', secondary: 'E7E7E9' }, resourcePlaceholders, diagnostics: [{ slide: 2, feature: 'shape-style', message: '样式已标准化' }] }, preview: image };
       return draft;
     }
     if (endpoint === 'template/import-progress') return {total:2,completed:1,pages:payload.after ? [] : [{page:1,preview:image}],status:'processing'};
@@ -103,7 +106,7 @@ async function fixture(prepareError, waitForPrepare, resourcePlaceholders = [], 
       if (draft && waitForPreview) await new Promise(resolve => setTimeout(resolve, 1050));
     });
   }
-  return { calls, click, upload, choose, hold(endpoint) { let release; waits.set(endpoint, new Promise(resolve => release = resolve)); return async () => { await act(async () => { waits.delete(endpoint); release(); }); }; }, failNext(endpoint, message) { failures.set(endpoint, message); }, async switchSession() { sessionId = 'session-b'; await act(async () => render()); } };
+  return { calls, click, upload, choose, holdOnce(endpoint) { let release; onceWaits.set(endpoint, new Promise(resolve => release = resolve)); return async () => { await act(async () => release()); }; }, hold(endpoint) { let release; waits.set(endpoint, new Promise(resolve => release = resolve)); return async () => { await act(async () => { waits.delete(endpoint); release(); }); }; }, failNext(endpoint, message) { failures.set(endpoint, message); }, async switchSession() { sessionId = 'session-b'; await act(async () => render()); } };
 }
 
 it('hides create, rename, and delete before a session exists', async () => {
@@ -586,4 +589,73 @@ it('uses the previewed template and preserves an existing selection', async () =
     expect(choose).toHaveBeenCalledTimes(1);
     expect(choose).toHaveBeenCalledWith(template);
   }
+});
+
+
+it.each(previewClients)('$name closes and cancels an active import through each dismiss control', async ({Component}) => {
+  const f = await fixture(undefined, undefined, [], Component);
+  for (const control of ['personal.close', 'personal.cancel', 'Escape']) {
+    const release = f.holdOnce('template/prepare');
+    await f.upload(new File(['source'], 'Interrupted.pptx'));
+    const uploadId = f.calls.filter(call => call.endpoint === 'template/prepare').at(-1).payload.input.uploadId;
+    expect(container.querySelector('.personal-progress-pages img')).not.toBeNull();
+    expect(container.querySelector('.personal-close').disabled).toBe(false);
+    if (control === 'Escape') await act(async () => container.querySelector('dialog').dispatchEvent(new Event('cancel', {cancelable:true})));
+    else await f.click(control);
+    expect(container.querySelector('dialog[open]')).toBeNull();
+    expect(container.querySelector('input[type=file]').disabled).toBe(false);
+    expect(f.calls).toContainEqual({endpoint:'template/upload-cancel',payload:{uploadId}});
+    await release();
+    expect(container.querySelector('dialog[open]')).toBeNull();
+    expect(container.querySelector('[role=alert]')).toBeNull();
+  }
+  expect(f.calls.filter(call => call.endpoint === 'template/save')).toHaveLength(0);
+});
+
+it.each(previewClients)('$name keeps a new import active when a cancelled task returns late', async ({Component}) => {
+  const f = await fixture(undefined, undefined, [], Component);
+  const releaseOld = f.holdOnce('template/prepare');
+  await f.upload(new File(['source'], 'Old.pptx'));
+  await f.click('personal.cancel');
+  const releaseNew = f.holdOnce('template/prepare');
+  await f.upload(new File(['source'], 'New.pptx'));
+  await releaseOld();
+  expect(container.querySelector('dialog[open] .personal-progress-pages')).not.toBeNull();
+  expect(container.querySelector('dialog[open] form').getAttribute('aria-busy')).toBe('true');
+  expect(f.calls.filter(call => call.endpoint === 'template/cancel').map(call => call.payload.draftId)).toEqual(['draft-1']);
+  expect(f.calls.filter(call => call.endpoint === 'template/upload-cancel').map(call => call.payload.uploadId)).toEqual(['upload-1']);
+  await releaseNew();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve,1050)); });
+  expect(container.querySelector('dialog[open] .personal-zoom-stage')).not.toBeNull();
+  await f.click('personal.cancel');
+  expect(f.calls.filter(call => call.endpoint === 'template/cancel').map(call => call.payload.draftId)).toEqual(['draft-1','draft-2']);
+});
+
+it.each(previewClients)('$name allows cancellation during the completed-grid pause and protects saving', async ({Component}) => {
+  const f = await fixture(undefined, undefined, [], Component, undefined, false);
+  await f.upload(new File(['source'], 'Ready.pptx'));
+  expect(container.querySelector('dialog[open] .personal-zoom-stage')).toBeNull();
+  await f.click('personal.close');
+  expect(container.querySelector('dialog[open]')).toBeNull();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve,1050)); });
+  expect(container.querySelector('dialog[open]')).toBeNull();
+  await f.upload(new File(['source'], 'Save.pptx'));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve,1050)); });
+  const release = f.hold('template/save');
+  await f.click('personal.save');
+  expect(container.querySelector('.personal-close').disabled).toBe(true);
+  await f.click('personal.cancel');
+  expect(container.querySelector('dialog[open]')).not.toBeNull();
+  await release();
+  expect(container.querySelector('dialog[open]')).toBeNull();
+});
+
+it.each(['template/upload-start','template/upload-chunk'])('closes during %s and releases late transfer resources', async endpoint => {
+  const f = await fixture(); const release = f.holdOnce(endpoint);
+  await f.upload(new File(['source'], 'Transfer.pptx'));
+  await f.click('personal.cancel');
+  expect(container.querySelector('dialog[open]')).toBeNull();
+  await release();
+  expect(f.calls.filter(call => call.endpoint === 'template/prepare')).toHaveLength(0);
+  expect(f.calls).toContainEqual({endpoint:'template/upload-cancel',payload:{uploadId:'upload-1'}});
 });

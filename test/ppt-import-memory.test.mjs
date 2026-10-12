@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp,readFile,rm,writeFile } from 'node:fs/promises';
+import { mkdtemp,readFile,readdir,rm,writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import PptxGenJS from 'pptxgenjs';
-import { afterEach,expect,it } from 'vitest';
+import { afterEach,expect,it,vi } from 'vitest';
 import { PersonalTemplateLibrary } from '../packages/ppt-runtime/core/lib/personal-templates.js';
 import { runPersonalTemplateImport } from '../packages/ppt-runtime/core/lib/personal-template-import.js';
 import { unzipSync,zipSync,strFromU8,strToU8 } from 'fflate';
@@ -20,7 +20,7 @@ async function fixture(pages=1) {
   const bytes=Buffer.from(await pptx.write({outputType:'nodebuffer'}));
   const upload=await library.uploadStart('owner',{fileName:'template.pptx',size:bytes.length});
   await library.uploadChunk('owner',{uploadId:upload.uploadId,offset:0,base64:bytes.toString('base64')});
-  return {root,library,audits,job:{root,sessionId:'owner',uploadId:upload.uploadId,draftId:randomUUID(),maxSlides:200}};
+  return {root,library,audits,bytes,job:{root,sessionId:'owner',uploadId:upload.uploadId,draftId:randomUUID(),maxSlides:200}};
 }
 
 it('imports more template pages than the default generation cap and preserves every preview index',async()=>{
@@ -42,10 +42,13 @@ it('contains a real child V8 heap exhaustion and accepts a later import in the s
   await library.cancel('owner',draft.draftId);
 },60000);
 
-it('bounds an import deadline and keeps the host upload available for a new attempt',async()=>{
-  const {library,job}=await fixture();
+it('bounds an import deadline, joins the worker, and accepts a fresh upload',async()=>{
+  const {library,job,bytes}=await fixture();
   await expect(runPersonalTemplateImport(job,undefined,{timeoutMs:1})).rejects.toThrow('超时');
-  const draft=await library.prepare('owner',{uploadId:job.uploadId});
+  await library.cancelUpload('owner',job.uploadId);
+  const upload=await library.uploadStart('owner',{fileName:'retry.pptx',size:bytes.length});
+  await library.uploadChunk('owner',{uploadId:upload.uploadId,offset:0,base64:bytes.toString('base64')});
+  const draft=await library.prepare('owner',{uploadId:upload.uploadId});
   expect(draft.template.slideCount).toBe(1);
   await library.cancel('owner',draft.draftId);
 });
@@ -107,4 +110,55 @@ it.each(['a','drawing',''])('preserves namespace and Unicode positions while bou
   expect(bounded).toContain('dshBudget:placeholder="geometry"');
   expect(bounded).not.toContain('custGeom');
   expect(bounded.length).toBeLessThan(1000);
+});
+
+
+it('stops an active Office import, authenticates cancellation, cleans its files, and accepts a retry', async () => {
+  const {root,library,job,bytes,audits} = await fixture(17), requestId = randomUUID();
+  const preparing = library.prepare('owner',{uploadId:job.uploadId,requestId});
+  const outcome = preparing.then(value => ({value}),error => ({error}));
+  await vi.waitFor(async () => expect((await library.importProgress('owner',requestId)).completed).toBeGreaterThanOrEqual(1),{timeout:60000,interval:50});
+  await expect(library.cancelUpload('other',job.uploadId)).rejects.toThrow('其他会话');
+  expect((await library.importProgress('owner',requestId)).status).toBe('processing');
+  const started = Date.now();
+  await library.cancelUpload('owner',job.uploadId);
+  expect(Date.now()-started).toBeLessThan(5000);
+  expect((await outcome).error).toMatchObject({name:'AbortError'});
+  expect((await library.importProgress('owner',requestId)).status).toBe('cancelled');
+  expect(await readdir(path.join(root,'personal-templates/drafts'))).toEqual([]);
+  expect(await readdir(path.join(root,'personal-templates/uploads'))).toEqual([]);
+  expect(audits.at(-1)[1]).toMatchObject({operation:'cancel-personal-template-upload',status:'completed'});
+  const upload = await library.uploadStart('owner',{fileName:'retry.pptx',size:bytes.length});
+  await library.uploadChunk('owner',{uploadId:upload.uploadId,offset:0,base64:bytes.toString('base64')});
+  const retry = await library.prepare('owner',{uploadId:upload.uploadId});
+  expect(retry.template.slideCount).toBe(17);
+  await library.cancelUpload('owner',upload.uploadId);
+  expect(await readdir(path.join(root,'personal-templates/drafts'))).toEqual([]);
+},120000);
+
+it('interrupts a queued import before a worker starts and clears the cancelled transfer', async () => {
+  const {root,library,job} = await fixture(), requestId = randomUUID();
+  let release;
+  const blocked = library.locked(() => new Promise(resolve => {release=resolve;}));
+  await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+  const preparing = library.prepare('owner',{uploadId:job.uploadId,requestId});
+  const outcome = preparing.then(value => ({value}),error => ({error}));
+  const cancelling = library.cancelUpload('owner',job.uploadId);
+  expect(library.imports.get(requestId).controller.signal.aborted).toBe(true);
+  release(); await blocked; await cancelling;
+  expect((await outcome).error).toMatchObject({name:'AbortError'});
+  expect((await library.importProgress('owner',requestId)).completed).toBe(0);
+  expect(await readdir(path.join(root,'personal-templates/uploads'))).toEqual([]);
+  expect(await library.list()).toEqual([]);
+});
+
+it('releases completed preview drafts through upload cancellation and preserves committed templates', async () => {
+  const {root,library,job,bytes} = await fixture();
+  const draft = await library.prepare('owner',{uploadId:job.uploadId});
+  await expect(library.cancelUpload('other',job.uploadId)).rejects.toThrow('其他会话');
+  const saved = await library.save('owner',draft.draftId,'Keep');
+  await library.cancelUpload('owner',job.uploadId);
+  await library.cancelUpload('owner',job.uploadId);
+  expect((await library.list()).map(template => template.id)).toEqual([saved.id]);
+  expect(await readFile(path.join(root,'personal-templates/saved',saved.id,'source.pptx'))).toEqual(bytes);
 });

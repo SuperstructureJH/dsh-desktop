@@ -611,12 +611,13 @@ function installDomParser() {
 }
 /** Convert one bounded PPTX package into an editable, self-contained PPTD v2 project. */
 let pptxConversionTail = Promise.resolve();
-function convertPptxToPptd(bytes, fileName) {
-	const pending = pptxConversionTail.catch(() => {}).then(() => convertPptxWithDomParser(bytes, fileName));
+function convertPptxToPptd(bytes, fileName, {signal} = {}) {
+	const pending = pptxConversionTail.catch(() => {}).then(() => convertPptxWithDomParser(bytes, fileName, signal));
 	pptxConversionTail = pending;
 	return pending;
 }
-async function convertPptxWithDomParser(bytes, fileName) {
+async function convertPptxWithDomParser(bytes, fileName, signal) {
+	signal?.throwIfAborted();
 	const restoreDomParser = installDomParser();
 	try {
 		const bounded = boundedPptxMedia(bytes);
@@ -631,8 +632,10 @@ async function convertPptxWithDomParser(bytes, fileName) {
         const groupFallbacks = new Map();
         for (const [slidePath, xml] of files.slides) {
             await new Promise(resolve=>setImmediate(resolve));
+            signal?.throwIfAborted();
             const alternatives = resolvePptxAlternatives(xml);
             await new Promise(resolve=>setImmediate(resolve));
+            signal?.throwIfAborted();
             const flattened = flattenPptxGroups(alternatives.xml);
             files.slides.set(slidePath, flattened.xml);
             groupFallbacks.set(slidePath, new Map((flattened.fallbacks ?? []).map(item => [item.nodeId, item])));
@@ -793,6 +796,7 @@ async function convertPptxWithDomParser(bytes, fileName) {
 				const node = slide.nodes.find(candidate => candidate.id === sourceObject.id);
 				await convertNode(node ?? sourceObject, 0, 0, sourceSlide.nodes.find(candidate => candidate.id === sourceObject.id));
                 await new Promise(resolve=>setImmediate(resolve));
+                signal?.throwIfAborted();
 			}
 			const pagePath = `pages/page-${slide.index + 1}.page`;
 			const backgroundContainer = safeElement(sourceSlide.background);
@@ -844,10 +848,12 @@ async function convertPptxWithDomParser(bytes, fileName) {
             files.slides.delete(sourceSlide.slidePath);
         };
         for(const sourceSlide of presentation.slides) {
+            signal?.throwIfAborted();
             await convertSlide(sourceSlide);
             // Yield between pages so the host can deliver progress and collect
             // discarded DOM trees before another dense page is materialized.
             await new Promise(resolve=>setImmediate(resolve));
+            signal?.throwIfAborted();
         }
 		return {
 			source: {

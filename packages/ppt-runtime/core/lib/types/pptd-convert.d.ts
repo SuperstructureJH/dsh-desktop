@@ -20,4 +20,4 @@ export interface PptxToPptdResult {
     readonly diagnostics: readonly PptxToPptdDiagnostic[];
 }
 /** Convert one bounded PPTX package into an editable, self-contained PPTD v2 project. */
-export declare function convertPptxToPptd(bytes: Uint8Array, fileName: string): Promise<PptxToPptdResult>;
+export declare function convertPptxToPptd(bytes: Uint8Array, fileName: string, options?: {signal?: AbortSignal}): Promise<PptxToPptdResult>;
