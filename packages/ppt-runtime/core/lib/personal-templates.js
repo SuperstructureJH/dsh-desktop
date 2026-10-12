@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { runPersonalTemplateImport } from './personal-template-import.js';
 import { loadPptdProject, checkPptdProject, parsePptdProject } from './pptd.js';
 import { renderOfficeTemplatePreview } from './office-template-preview.js';
+import { prepareOfficeFontAccess } from './office-font-access.js';
 import { extractPersonalTemplateProfile, personalTemplateSourceTheme, validPersonalTemplateProfile, PERSONAL_TEMPLATE_PROFILE_VERSION } from './personal-template-profile.js';
 import { createPersonalTemplateSamples, validPersonalTemplateSamples } from './personal-template-samples.js';
 import { PersonalTemplateUploads, personalTemplateFileName, decodeTemplateBase64 } from './personal-template-upload.js';
@@ -59,6 +60,7 @@ function conversionError(check, fileName, sha256) {
 export class PersonalTemplateLibrary {
   tail = Promise.resolve();
   imports = new Map();
+  fontAccess;
   constructor(store, convert, writeSource, maxSlides = MAX_PERSONAL_TEMPLATE_SLIDES) {
     this.store = store;
     this.root = path.join(store.root, 'personal-templates');
@@ -139,7 +141,17 @@ export class PersonalTemplateLibrary {
     }
   }
   async uploadStart(sessionId, input) {
-    return this.locked(() => this.audit(sessionId, 'upload-personal-template', () => this.uploads.start(sessionId, input)));
+    return this.locked(() => this.audit(sessionId, 'upload-personal-template', async () => {
+      const upload=await this.uploads.start(sessionId,input);
+      try {await this.ensureFontAccess();return upload;}
+      catch(error) {await this.uploads.cancel(sessionId,upload.uploadId);throw error;}
+    }));
+  }
+  async ensureFontAccess() {
+    // One check per host library. Optional denial retains the SDK's font fallbacks.
+    const pending=this.fontAccess ??= prepareOfficeFontAccess();
+    try {return await pending;}
+    catch(error) {if(this.fontAccess===pending)this.fontAccess=undefined;throw error;}
   }
   async uploadChunk(sessionId, input) {
     return this.locked(() => this.audit(sessionId, 'upload-personal-template-chunk', () => this.uploads.append(sessionId, input)));
@@ -186,6 +198,8 @@ export class PersonalTemplateLibrary {
       const draftId=progress.draftId;
       if((await lstat(upload.file)).size!==upload.record.size)throw new Error('请完成文件上传后再处理模板');
       try {
+        await this.ensureFontAccess();
+        progress.controller.signal.throwIfAborted();
         const result=await runPersonalTemplateImport({root:this.store.root,sessionId,uploadId,draftId,maxSlides:this.maxSlides}, update=>{
           progress.total=update.total;
           if(update.page)progress.pages.push(update.page);
