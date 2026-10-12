@@ -195,13 +195,13 @@ export async function apply(ctx) {
       return envelope.result.value
     }
     const officeCatalog = await officeRpc('catalog', {})
-    expect(officeCatalog.templates).toHaveLength(10)
-    const meeting = officeCatalog.templates.find(item => item.id === 'meeting-minutes')
+    expect(officeCatalog.templates).toHaveLength(6)
+    const notice = officeCatalog.templates.find(item => item.id === 'government-notice')
     const officeSession = await rpc('session/create', { cwd: neutral })
     await officeRpc('mode', { sessionId: officeSession.sessionId, mode: 'word' })
-    await officeRpc('select', { sessionId: officeSession.sessionId, templateId: meeting.id, revision: meeting.revision })
-    const copied = await officeRpc('prepare', { sessionId: officeSession.sessionId, templateId: meeting.id }, 'office-probe')
-    expect(copied.workspace_path).toMatch(/^office-templates\/meeting-minutes-[a-f0-9-]+\/example.docx$/)
+    await officeRpc('select', { sessionId: officeSession.sessionId, templateId: notice.id, revision: notice.revision })
+    const copied = await officeRpc('prepare', { sessionId: officeSession.sessionId, templateId: notice.id }, 'office-probe')
+    expect(copied.workspace_path).toMatch(/^office-templates\/government-notice-[a-f0-9-]+\/example.docx$/)
     const bytes = await readFile(join(neutral, copied.workspace_path))
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(copied.files.find(file => file.workspace_path === copied.workspace_path).sha256)
     expect(probe.names).toEqual(expect.arrayContaining(['gov-doc-writing', 'meeting-recap', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen']))

@@ -27,17 +27,6 @@ def check(root, sources):
         if item['mode'] == 'word':
             document = Document(sample)
             assert document.paragraphs, item['id']
-            expected_pages = {'meeting-minutes': 2, 'work-summary': 2, 'project-proposal': 2, 'work-daily': 1}
-            if item['id'] in expected_pages:
-                assert item['pages'] == expected_pages[item['id']], (item['id'], 'readable page budget')
-                assert not document.styles['Title'].element.xpath('./w:pPr/w:pBdr'), (item['id'], 'title border')
-                assert document.styles['Subtitle'].font.italic is False, item['id']
-                for table in document.tables:
-                    assert table.rows[0]._tr.xpath('./w:trPr/w:tblHeader'), (item['id'], 'repeating header')
-                    assert all(row._tr.xpath('./w:trPr/w:cantSplit') for row in table.rows), (item['id'], 'complete rows')
-                    # OOXML rounds each column and margin to a twip (635 EMU).
-                    usable_width = document.sections[0].page_width - document.sections[0].left_margin - document.sections[0].right_margin
-                    assert sum(column.width for column in table.columns) <= usable_width + len(table.columns) * 635, (item['id'], 'table fits page')
             continue
         values, editable = load_workbook(sample, data_only=True), load_workbook(sample, data_only=False)
         for sheet in values:

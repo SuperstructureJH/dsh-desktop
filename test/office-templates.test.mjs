@@ -28,7 +28,7 @@ it('produces the same native workbook revision across repeated official Kit reca
     await promisify(execFile)(electronExecutable(resolve('.')), [resolve('build/office-cli.mjs'), 'recalculate', '--input', join(resources, 'annual-business/example.xlsx'), '--output', output], {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, timeout: 30_000
     })
-    await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/build-cases.py'), '--normalize-package', output])
+    await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/normalize-package.py'), output])
     hashes.push(digest(await readFile(output)))
   }
   expect(hashes[0]).toBe(hashes[1])
@@ -38,7 +38,7 @@ it('independently verifies recalculated values, charts, original frozen panes an
   const python = resolve('.build/office-runtime/primary-runtime/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
   const { stdout } = await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/check-templates.py'), resources, resolve('packages/dsh-desktop-office/sources')])
   const result = JSON.parse(stdout)
-  expect(result.templates).toBe(10); expect(result.preview_pages).toBe(59)
+  expect(result.templates).toBe(6); expect(result.preview_pages).toBe(52)
   expect(result.numeric_checks).toBe(9)
   expect(result.excel_error_cells).toBe(0)
 })
@@ -52,13 +52,13 @@ async function modesFixture() {
   return { ctx, modes: ctx.officeModes, root, hooks }
 }
 
-it('publishes ten native cases with complete preview hashes and distinct common Word cases', async () => {
+it('publishes six curated native cases with complete preview hashes', async () => {
   const items = await library.list()
-  expect(items.filter(item => item.mode === 'word').map(item => item.id).slice(0, 4)).toEqual(['government-notice', 'meeting-minutes', 'work-summary', 'project-proposal'])
-  expect(items.filter(item => item.mode === 'word')).toHaveLength(7)
-  expect([...new Set(items.filter(item => item.mode === 'word').map(item => item.category))]).toEqual(['公文写作', '会议纪要', '工作总结', '方案报告', '日报周报', '调研分析'])
+  expect(items.filter(item => item.mode === 'word').map(item => item.id)).toEqual(['government-notice', 'coffee-market', 'equity-research'])
+  expect(items.filter(item => item.mode === 'word')).toHaveLength(3)
+  expect([...new Set(items.filter(item => item.mode === 'word').map(item => item.category))]).toEqual(['公文写作', '调研分析'])
   expect(items.filter(item => item.mode === 'excel').map(item => item.id)).toEqual(['annual-business', 'port-cargo', 'bio-assay'])
-  for (const id of ['budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
+  for (const id of ['meeting-minutes', 'work-summary', 'work-daily', 'project-proposal', 'budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
   for (const item of items) {
     const entry = library.entry(item.id)
     for (const file of Object.keys(entry.files)) expect(digest(await library.asset(item.id, file))).toBe(entry.files[file])
@@ -66,26 +66,26 @@ it('publishes ten native cases with complete preview hashes and distinct common 
     expect(last.image).toMatch(/^data:image\/webp;base64,/)
   }
   await expect(library.preview('equity-research', 13)).rejects.toThrow('available')
-  await expect(library.asset('meeting-minutes', '../example.docx')).rejects.toThrow('registered')
+  await expect(library.asset('government-notice', '../example.docx')).rejects.toThrow('registered')
 })
 
 it('rejects changed resources and stale selections before copying them', async () => {
   const root = await temporary()
   await cp(resources, root, { recursive: true })
   const changed = await createTemplateLibrary(root)
-  await writeFile(join(root, 'meeting-minutes', 'example.docx'), 'tampered')
-  await expect(changed.prepare('meeting-minutes', { id: 'meeting-minutes', mode: 'word', revision: library.entry('meeting-minutes').revision })).rejects.toThrow('recorded revision')
-  await expect(library.prepare('meeting-minutes', { id: 'meeting-minutes', mode: 'word', revision: 'old' })).rejects.toThrow('selected Office')
+  await writeFile(join(root, 'government-notice', 'example.docx'), 'tampered')
+  await expect(changed.prepare('government-notice', { id: 'government-notice', mode: 'word', revision: library.entry('government-notice').revision })).rejects.toThrow('recorded revision')
+  await expect(library.prepare('government-notice', { id: 'government-notice', mode: 'word', revision: 'old' })).rejects.toThrow('selected Office')
 })
 
 it('persists a single document format across restarts and preserves historical PPT files', async () => {
   const f = await modesFixture(), id = 'session-state'
   await f.modes.select(id, 'word')
-  const item = library.entry('meeting-minutes')
+  const item = library.entry('government-notice')
   await f.modes.selectTemplate(id, { id: item.id, mode: item.mode, revision: item.revision })
   const restarted = { provide(name, value) { this[name] = value }, skills: { registerProvider() {} }, tools: { register() {} }, systemPrompt: { section() {} }, on() {}, inject() {} }
   await applyPpt(restarted, { root: f.root })
-  expect((await restarted.officeModes.state(id)).selectedDocumentTemplate.id).toBe('meeting-minutes')
+  expect((await restarted.officeModes.state(id)).selectedDocumentTemplate.id).toBe('government-notice')
   await restarted.officeModes.select(id, 'excel')
   expect((await f.modes.state(id)).selectedDocumentTemplate).toBeUndefined()
   expect((await f.modes.state(id)).documentMode).toBe('excel')
@@ -101,7 +101,7 @@ it('routes bounded, versioned choices through the authenticated Connection owner
   expect(route.path).toBe('/api/office-templates')
   const rpc = async (endpoint, payload, signal) => (await (await route.fetch(new Request('http://localhost/api/office-templates', { method: 'POST', headers: { 'content-type': 'application/json' }, signal, body: JSON.stringify({ type: 'client-request', rpcId: 'test-' + endpoint, method: 'office-templates', payload: { endpoint, ...payload } }) }))).json()).result
   const signal = new AbortController().signal
-  const item = library.entry('meeting-minutes'), payload = { sessionId: 'session-route', templateId: item.id, revision: item.revision }
+  const item = library.entry('government-notice'), payload = { sessionId: 'session-route', templateId: item.id, revision: item.revision }
   expect((await rpc('select', payload, signal)).ok).toBe(false)
   expect((await rpc('mode', { sessionId: payload.sessionId, mode: 'word' }, signal)).ok).toBe(true)
   expect((await rpc('select', { ...payload, revision: 'old' }, signal)).ok).toBe(false)
@@ -121,9 +121,21 @@ it('keeps business providers separate from the official Office provider', async 
   expect(skill.content).toContain('当前用户材料提供事实')
 })
 
+it('expires a saved retired case and lets the session choose a curated replacement', async () => {
+  const f = await modesFixture(); let route
+  await f.modes.select('retired-case', 'word')
+  await f.modes.selectTemplate('retired-case', { id: 'meeting-minutes', mode: 'word', revision: 'a'.repeat(24) })
+  registerOfficeRoutes({ connection: { fetch: { register(value) { route = value } } } }, library, f.modes)
+  const rpc = async (endpoint, payload = {}) => (await (await route.fetch(new Request('http://localhost/api/office-templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId: endpoint, method: 'office-templates', payload: { endpoint, sessionId: 'retired-case', ...payload } }) }))).json()).result
+  expect((await rpc('state')).value).toMatchObject({ selectedTemplateId: null, selectionExpired: true })
+  expect((await rpc('select', { templateId: 'meeting-minutes', revision: 'a'.repeat(24) })).ok).toBe(false)
+  const item = library.entry('government-notice')
+  expect((await rpc('select', { templateId: item.id, revision: item.revision })).value).toMatchObject({ selectedTemplateId: item.id, selectionExpired: false })
+})
+
 it('restores selected Office context after compaction and retires it when switching formats', async () => {
   const f = await modesFixture(), id = 'session-context'; let hook
-  const item = library.entry('meeting-minutes')
+  const item = library.entry('government-notice')
   await f.modes.select(id, 'word'); await f.modes.selectTemplate(id, { id: item.id, mode: item.mode, revision: item.revision })
   const events = new Map(), surface = { nodes: new Set() }
   const session = { header: { cwd: f.root }, surface, eventAt: seq => events.get(seq), append(type, data, options) {
@@ -142,27 +154,18 @@ it('restores selected Office context after compaction and retires it when switch
   expect(surface.nodes.has(1)).toBe(false)
 })
 
-it.each(['work-summary', 'work-daily'])('loads the shared work report method with the selected %s case', async id => {
-  const f = await modesFixture(), item = library.entry(id), loaded = []; let hook
-  await f.modes.select('work-context', 'word')
-  await f.modes.selectTemplate('work-context', { id, mode: item.mode, revision: item.revision })
-  registerOfficeContext({ on(_name, run) { hook = run }, skills: { get: async name => { loaded.push(name); return { name, provider: 'test', content: name } } } }, library, f.modes)
-  const decision = await hook({ agent: { id: 'work-context', session: { header: { cwd: f.root }, surface: { nodes: new Set() } } }, signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [] }))
-  expect(loaded).toEqual(['office-docx', 'work-report-writer'])
-  expect(decision.messages[0].content[0].text).toContain(`selected_template_id: ${id}`)
-})
 
 it('copies registered editable inputs into a new directory and rejects hashes, collisions and symlink destinations', async () => {
-  const root = await temporary(), prepared = await library.prepare('meeting-minutes')
-  const directory = `office-templates/meeting-minutes-${randomUUID()}`
+  const root = await temporary(), prepared = await library.prepare('government-notice')
+  const directory = `office-templates/government-notice-${randomUUID()}`
   const result = await materialize(root, { directory, files: prepared.files })
-  expect(digest(await readFile(join(root, directory, 'example.docx')))).toBe(library.entry('meeting-minutes').files['example.docx'])
+  expect(digest(await readFile(join(root, directory, 'example.docx')))).toBe(library.entry('government-notice').files['example.docx'])
   expect(result.files.length).toBe(prepared.files.length)
   await expect(materialize(root, { directory, files: prepared.files })).rejects.toMatchObject({ code: 'EEXIST' })
-  await expect(materialize(root, { directory: `office-templates/meeting-minutes-${randomUUID()}`, files: [{ ...prepared.files[0], data: Buffer.from('changed').toString('base64') }] })).rejects.toThrow('identity')
+  await expect(materialize(root, { directory: `office-templates/government-notice-${randomUUID()}`, files: [{ ...prepared.files[0], data: Buffer.from('changed').toString('base64') }] })).rejects.toThrow('identity')
   const linked = await temporary(), outside = await temporary()
   await symlink(outside, join(linked, 'office-templates'), 'dir')
-  await expect(materialize(linked, { directory: `office-templates/meeting-minutes-${randomUUID()}`, files: prepared.files })).rejects.toThrow('regular workspace')
+  await expect(materialize(linked, { directory: `office-templates/government-notice-${randomUUID()}`, files: prepared.files })).rejects.toThrow('regular workspace')
 })
 
 it('requires the session write policy before starting the sandbox worker', async () => {
@@ -171,5 +174,5 @@ it('requires the session write policy before starting the sandbox worker', async
   await expect(workspacePolicy({ sandboxPolicy: { resolve: () => ({ mode: 'read-only', workspaceRoot: root }) } }, exec)).rejects.toThrow('write permission')
   await expect(workspacePolicy({ sandboxPolicy: { resolve: () => ({ mode: 'workspace-write', workspaceRoot: outside }) } }, exec)).rejects.toThrow('covered')
   const tool = templateTool({}, library, { state: async () => ({ documentMode: 'word' }) })
-  await expect(tool.execute({ template_id: 'meeting-minutes' }, exec)).rejects.toThrow('current Word')
+  await expect(tool.execute({ template_id: 'government-notice' }, exec)).rejects.toThrow('current Word')
 })

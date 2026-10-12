@@ -31,7 +31,7 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
   const inputs = await files(sources)
   const fingerprint = hash(Buffer.concat([
     Buffer.from(JSON.stringify({ format: 1, manifest, kit: kit.version })),
-    await readFile(fileURLToPath(import.meta.url)), await readFile(join(import.meta.dirname, 'build-cases.py')),
+    await readFile(fileURLToPath(import.meta.url)), await readFile(join(import.meta.dirname, 'normalize-package.py')),
     ...await Promise.all(inputs.map(async path => Buffer.concat([Buffer.from(path), await readFile(join(sources, path))])))
   ]))
   const saved = join(cache, fingerprint)
@@ -43,11 +43,9 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
   if (!cached) {
     const staging = await mkdtemp(join(cache, '.templates-'))
     try {
-      const common = JSON.parse(await readFile(join(sources, 'common.json'), 'utf8'))
       const legacy = JSON.parse(await readFile(join(sources, 'catalog.json'), 'utf8'))
-      await exec(python, ['-I', '-B', join(import.meta.dirname, 'build-cases.py'), join(sources, 'common.json'), staging], { timeout: 30_000 })
       for (const item of legacy) await cp(join(sources, item.source), join(staging, item.id), { recursive: true })
-      const ordered = [legacy.find(x => x.id === 'government-notice'), ...common,
+      const ordered = [legacy.find(x => x.id === 'government-notice'),
         ...legacy.filter(x => x.mode === 'word' && x.id !== 'government-notice'), ...legacy.filter(x => x.mode === 'excel')]
       const catalog = []
       const cli = async args => {
@@ -56,7 +54,7 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
         return JSON.parse(stdout.trim())
       }
       for (const source of ordered) {
-        const { source: sourcePath, pagesContent, previewPages, ...item } = source
+        const { source: sourcePath, previewPages, ...item } = source
         const directory = join(staging, item.id)
         const sampleFile = item.sampleFile ?? (item.mode === 'word' ? 'example.docx' : 'example.xlsx')
         const sample = join(directory, sampleFile)
@@ -64,7 +62,7 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
         if (item.mode === 'excel') {
           const calculated = join(directory, 'calculated.xlsx')
           await cli(['recalculate', '--input', sample, '--output', calculated])
-          await exec(python, ['-I', '-B', join(import.meta.dirname, 'build-cases.py'), '--normalize-package', calculated], { timeout: 30_000 })
+          await exec(python, ['-I', '-B', join(import.meta.dirname, 'normalize-package.py'), calculated], { timeout: 30_000 })
           await rename(calculated, sample)
         }
         const images = [], sheets = [], missingFonts = new Set()

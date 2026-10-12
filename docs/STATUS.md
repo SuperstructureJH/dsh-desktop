@@ -1,5 +1,14 @@
 # Implementation status
 
+## Office r11：Word 收敛为三个精选案例 — 2026-10-12
+
+- 基线：重新核实远程 `V0.12.0@1fe2cd4b1c9ca9e81f29a40ece180236aa02ec33`，工作树 `codex/v012-office-templates`，Harness `0.2.0-rc.2`、Kit `0.1.3`。
+- 实现：Word 直接展示公文写作、咖啡市场调研、小米汽车研究三份案例；撤下会议纪要、工作总结、日报和方案，清理相应生成器与安装资源。Excel 保留三个案例、分类与工作表双页交互。总目录 6 案例 / 52 页。
+- 验证：184 文件 / 1675 项全量回归、23 项 Office UI 行为、类型检查 PASS；已保存的撤下案例呈现过期状态，用户可选择保留案例继续。最终构建、包内 Office 激活 / 文件制作 / PDF 转换、8 个插件源文件与 6 案例 / 52 页资源一致性、严格开发签名及 ZIP CRC PASS。实际 DSH 视觉、真实模型、原生 Office 保存重开、Windows、公证 NOT_RUN。
+- 会议案例：[重新筛选与评审](meeting-minutes-case-review.md)，完整成品与原始材料配对后再引入。
+- [r11 交付记录与 macOS ARM64 测试包](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-template-harness-rc2-20261010/delivery-r11.md)。
+
+
 ## Office r10：用途分类与 Word 代表案例 — 2026-10-10
 
 - 基线：本工作树已合入当前远程 `V0.12.0@1fe2cd4b1c9ca9e81f29a40ece180236aa02ec33`；安装 Harness `0.2.0-rc.2` 与 Kit `0.1.3`，继续使用仓库锁定的 Office/Python 依赖。

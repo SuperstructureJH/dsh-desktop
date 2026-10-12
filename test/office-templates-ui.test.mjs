@@ -12,7 +12,7 @@ const source = await readFile(resolve('packages/dsh-desktop-office/client.js'), 
 const image = 'data:image/png;base64,iVBORw0KGgo='
 const templates = [
   { id: 'government-notice', title: '公文写作 · 通知', titleEn: 'Official notice', mode: 'word', category: '公文写作', pages: 4, pageAspectRatios: Array(4).fill(0.707), revision: 'a'.repeat(24), thumbnail: image },
-  { id: 'meeting-minutes', title: '通用会议纪要', titleEn: 'Meeting minutes', mode: 'word', category: '会议纪要', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
+  { id: 'coffee-market', title: '中国现制咖啡市场调研报告', titleEn: 'Coffee market research', mode: 'word', category: '调研分析', pages: 2, pageAspectRatios: [0.707, 0.707], revision: 'b'.repeat(24), thumbnail: image },
   { id: 'annual-business', title: '年度经营与客户分析', titleEn: 'Annual business', mode: 'excel', category: '经营分析', pages: 5, pageAspectRatios: [1.6, 0.7, 0.85, 0.8, 0.9], revision: 'c'.repeat(24), thumbnail: image, sheets: [{ name: '经营总览', pages: [1, 2] }, { name: '增长测算', pages: [3] }, { name: '增长质量', pages: [4, 5] }] }
 ]
 let root, container, cleanup = []
@@ -82,30 +82,30 @@ it('completes the current catalogue load when the connection resets during the f
 
 it('selects a card directly and keeps the eye preview independent of selection', async () => {
   const f = await fixture(); await f.click('Word')
-  await f.click('查看案例 通用会议纪要')
+  await f.click('查看案例 中国现制咖啡市场调研报告')
   expect(f.calls.some(call => call.endpoint === 'select')).toBe(false)
-  await f.click('关闭预览'); await f.click('选用案例 通用会议纪要')
+  await f.click('关闭预览'); await f.click('选用案例 中国现制咖啡市场调研报告')
   expect(container.querySelector('dialog')).toBeNull()
-  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('coffee-market')
   expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
   await f.click('查看案例 公文写作 · 通知')
-  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('coffee-market')
   await f.click('做同款')
   expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('government-notice')
 })
 
 it('locks direct card choices while the host is saving a selection', async () => {
   const f = await fixture(); await f.click('Word'); const release = f.hold('select')
-  await f.click('选用案例 通用会议纪要')
+  await f.click('选用案例 中国现制咖啡市场调研报告')
   expect([...container.querySelectorAll('.dso-card button')].every(button => button.disabled)).toBe(true)
   await release()
-  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('coffee-market')
 })
 
 it('keeps keyboard focus inside the preview and returns to its opening control', async () => {
   const f = await fixture(); await f.click('Word')
-  const opener = container.querySelector('[aria-label="查看案例 通用会议纪要"]')
-  opener.focus(); await f.click('查看案例 通用会议纪要')
+  const opener = container.querySelector('[aria-label="查看案例 中国现制咖啡市场调研报告"]')
+  opener.focus(); await f.click('查看案例 中国现制咖啡市场调研报告')
   const dialog = container.querySelector('dialog'), close = dialog.querySelector('[aria-label="关闭预览"]'), use = dialog.querySelector('.dso-use')
   expect(document.activeElement).toBe(close)
   const tab = async shiftKey => act(async () => dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true })))
@@ -115,7 +115,7 @@ it('keeps keyboard focus inside the preview and returns to its opening control',
 })
 
 it('keeps the preview open on its padding and dismisses it from the backdrop', async () => {
-  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要')
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 中国现制咖啡市场调研报告')
   const dialog = container.querySelector('dialog')
   dialog.getBoundingClientRect = () => ({ left: 16, right: 1264, top: 16, bottom: 704 })
   await act(async () => dialog.dispatchEvent(new MouseEvent('click', { clientX: 24, clientY: 24, bubbles: true })))
@@ -127,7 +127,7 @@ it('keeps the preview open on its padding and dismisses it from the backdrop', a
 it('exposes common Word cases and selects the revision shown as a complete spread', async () => {
   const f = await fixture(); await f.click('Word')
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(2)
-  await f.click('查看案例 通用会议纪要')
+  await f.click('查看案例 中国现制咖啡市场调研报告')
   expect(container.querySelector('dialog[open]')).not.toBeNull()
   expect(container.textContent).toContain('第 1–2 页，共 2 页')
   expect(container.querySelectorAll('.dso-spread img')).toHaveLength(2)
@@ -135,42 +135,35 @@ it('exposes common Word cases and selects the revision shown as a complete sprea
   expect(container.querySelector('[aria-label=下一组]').disabled).toBe(true)
   await f.click('做同款')
   expect(container.querySelector('dialog')).toBeNull()
-  expect(container.querySelector('[data-office-selected]')?.dataset.officeSelected).toBe('meeting-minutes')
+  expect(container.querySelector('[data-office-selected]')?.dataset.officeSelected).toBe('coffee-market')
   const accessory = container.querySelector('[data-office-selected]')
   expect(accessory.textContent).toBe('×')
-  expect(accessory.querySelector('.dso-selected-preview').getAttribute('aria-label')).toBe('查看案例 通用会议纪要')
+  expect(accessory.querySelector('.dso-selected-preview').getAttribute('aria-label')).toBe('查看案例 中国现制咖啡市场调研报告')
   expect(parseFloat(accessory.querySelector('.dso-thumbnail').style.aspectRatio)).toBe(1.414)
-  expect(parseFloat(container.querySelector('[data-office-template=meeting-minutes] .dso-thumbnail').style.aspectRatio)).toBe(1.414)
-  expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'meeting-minutes', revision: 'b'.repeat(24) })
+  expect(parseFloat(container.querySelector('[data-office-template=coffee-market] .dso-thumbnail').style.aspectRatio)).toBe(1.414)
+  expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'coffee-market', revision: 'b'.repeat(24) })
   await f.click('取消选择案例'); expect(container.querySelector('[data-office-selected]')).toBeNull()
 })
 
-it('filters Word by writing task, preserves selection and refreshes a retired category', async () => {
-  const example = (id, category) => ({ ...templates[1], id, title: id, category })
-  const examples = [templates[0], templates[1], example('summary', '工作总结'), example('daily', '日报周报'), example('plan', '方案报告'), example('research', '调研分析'), templates[2]]
+it('shows the three curated Word cases together and keeps preview and selection available', async () => {
+  const examples = [templates[0], templates[1], { ...templates[1], id: 'equity-research', title: '小米汽车研究报告', titleEn: 'Company research', revision: 'd'.repeat(24) }, templates[2]]
   const f = await fixture({ examples }); await f.click('Word')
-  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '公文写作', '会议纪要', '工作总结', '日报周报', '方案报告', '调研分析'])
-  await f.click('日报周报')
-  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(['daily'])
-  await f.click('选用案例 daily'); await f.click('工作总结')
-  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('daily')
-  expect(container.querySelector('[data-office-template]').dataset.officeTemplate).toBe('summary')
-  examples.splice(examples.findIndex(item => item.id === 'summary'), 1)
-  await f.reset()
-  expect(container.querySelector('.dso-toolbar [aria-pressed=true]').textContent).toBe('全部')
-  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(5)
+  expect(container.querySelector('.dso-toolbar')).toBeNull()
+  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(['government-notice', 'coffee-market', 'equity-research'])
+  await f.click('查看案例 小米汽车研究报告'); await f.click('做同款')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('equity-research')
   await f.click('Excel')
   expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '经营分析'])
+  await f.click('Word')
+  expect(container.querySelector('.dso-toolbar')).toBeNull()
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(3)
 })
 
-it('localizes task categories and retains uncategorized examples', async () => {
-  const f = await fixture({ english: true, examples: [templates[0], templates[1], { ...templates[1], id: 'misc', titleEn: 'Other report', category: 'Imported category' }] })
-  await f.click('Word')
-  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Official documents', 'Meeting minutes', 'Other examples'])
-  await f.click('Other examples')
-  expect(container.querySelector('[data-office-template]').dataset.officeTemplate).toBe('misc')
-  await f.click('Preview example Other report')
-  expect(container.querySelector('dialog header').textContent).toContain('Other report')
+it('localizes Word titles without a category toolbar', async () => {
+  const f = await fixture({ english: true }); await f.click('Word')
+  expect(container.querySelector('.dso-toolbar')).toBeNull()
+  await f.click('Preview example Coffee market research')
+  expect(container.querySelector('dialog header').textContent).toContain('Coffee market research')
 })
 
 it('uses Excel worksheet navigation and localized controls', async () => {
@@ -198,29 +191,29 @@ it('uses Excel worksheet navigation and localized controls', async () => {
 })
 
 it('adopts an unbound selection once and preserves an occupied session', async () => {
-  const f = await fixture({ bound: false }); await f.click('Word'); await f.click('查看案例 通用会议纪要'); await f.click('做同款')
+  const f = await fixture({ bound: false }); await f.click('Word'); await f.click('查看案例 中国现制咖啡市场调研报告'); await f.click('做同款')
   expect(f.calls.some(call => call.endpoint === 'select')).toBe(false)
   await f.switchSession('session-new')
-  expect(f.states.get('session-new').selectedTemplateId).toBe('meeting-minutes')
+  expect(f.states.get('session-new').selectedTemplateId).toBe('coffee-market')
   expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
   await f.switchSession('session-a'); await f.switchSession('session-new')
   expect(f.calls.filter(call => call.endpoint === 'select')).toHaveLength(1)
 })
 
 it.each([{ mode: 'excel', selectedTemplateId: 'annual-business' }, { mode: null, presentationMode: 'ppt' }])('keeps an existing output format during staged adoption: %j', async remote => {
-  const f = await fixture({ bound: false, remote }); await f.click('Word'); await f.click('查看案例 通用会议纪要'); await f.click('做同款'); await f.switchSession('session-a')
+  const f = await fixture({ bound: false, remote }); await f.click('Word'); await f.click('查看案例 中国现制咖啡市场调研报告'); await f.click('做同款'); await f.switchSession('session-a')
   expect(f.calls.filter(call => call.endpoint === 'mode' || call.endpoint === 'select')).toHaveLength(0)
   expect(f.states.get('session-a')).toEqual(remote)
 })
 
 it('keeps selection errors visible inside the modal and allows a retry', async () => {
-  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要'); f.fail('select', '模板版本已更新')
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 中国现制咖啡市场调研报告'); f.fail('select', '模板版本已更新')
   await f.click('做同款'); expect(container.querySelector('dialog [role=alert]')?.textContent).toBe('模板版本已更新')
   await f.click('做同款'); expect(container.querySelector('[data-office-selected]')).not.toBeNull()
 })
 
 it('locks a pending choice and keeps another session free of a stale modal completion', async () => {
-  const f = await fixture(); await f.click('Word'); await f.click('查看案例 通用会议纪要'); const release = f.hold('select')
+  const f = await fixture(); await f.click('Word'); await f.click('查看案例 中国现制咖啡市场调研报告'); const release = f.hold('select')
   await f.click('做同款'); expect(container.querySelector('.dso-use').disabled).toBe(true)
   await f.switchSession('session-b'); await f.click('Word'); await f.click('查看案例 公文写作 · 通知')
   await release(); expect(container.querySelector('dialog')?.getAttribute('aria-label')).toBe('公文写作 · 通知')
@@ -270,7 +263,7 @@ it('shows an odd final Word page and localizes the spread controls', async () =>
 })
 
 it('retries a failed right page as a complete Word spread', async () => {
-  const f = await fixture(); await f.click('Word'); f.fail('preview:2', '第二页加载失败'); await f.click('查看案例 通用会议纪要')
+  const f = await fixture(); await f.click('Word'); f.fail('preview:2', '第二页加载失败'); await f.click('查看案例 中国现制咖啡市场调研报告')
   expect(container.querySelector('dialog [role=alert]').textContent).toContain('第二页加载失败')
   expect(container.querySelectorAll('.dso-spread img')).toHaveLength(0)
   expect(container.querySelector('.dso-use').disabled).toBe(true)

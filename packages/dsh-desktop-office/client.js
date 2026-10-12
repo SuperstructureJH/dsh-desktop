@@ -203,11 +203,11 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
     if (!visible) return null
     const modeItems = state.templates.filter(item => item.mode === state.mode)
-    const categories = ['all', ...[...categoryKeys.values(), 'other'].filter(value => modeItems.some(item => categoryOf(item) === value))]
+    const categories = state.mode === 'word' ? ['all'] : ['all', ...[...categoryKeys.values(), 'other'].filter(value => modeItems.some(item => categoryOf(item) === value))]
     const activeCategory = categories.includes(category) ? category : 'all'
     const items = modeItems.filter(item => activeCategory === 'all' || categoryOf(item) === activeCategory)
     return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
-      h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': activeCategory === value, onClick: () => setCategory(value) }, t(value))))),
+      state.mode === 'excel' ? h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': activeCategory === value, onClick: () => setCategory(value) }, t(value))))) : null,
       h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,
