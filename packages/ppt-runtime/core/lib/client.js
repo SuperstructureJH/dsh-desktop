@@ -515,26 +515,42 @@ window.__ModuleLoader__.load({
 			});
 		}
 		function deselectTemplate(client, mode, sessionId, activeMode) {
+            mode.bump(sessionId);
+            const revision = mode.revision(sessionId);
 			mode.setLoading(sessionId, true);
 			if (!client.bound) {
 				mode.deselect(sessionId, activeMode);
+                announcePptMode(sessionId);
 				return;
 			}
 			client.call("template/deselect").then(() => {
+                if (mode.revision(sessionId) !== revision) return;
 				return client.call("presentation/mode", { mode: activeMode });
 			}).then(() => {
+                if (mode.revision(sessionId) !== revision) return;
+                announcePptMode(sessionId);
 				mode.deselect(sessionId, activeMode);
 			}).catch((reason) => {
-				mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+                if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
 			});
 		}
+        function announcePptMode(sessionId) {
+            window.dispatchEvent(new CustomEvent('dsh-office-mode-change', { detail: { sessionId, origin: 'ppt' } }));
+        }
 		function selectPresentationMode(client, mode, sessionId, activeMode) {
-			mode.setMode(sessionId, activeMode);
-			if (!client.bound) return;
-			client.call("presentation/mode", { mode: activeMode }).catch((reason) => {
-				mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
-			});
-		}
+            if (!client.bound) { mode.setMode(sessionId, activeMode); announcePptMode(sessionId); return; }
+            mode.bump(sessionId);
+            const revision = mode.revision(sessionId);
+            mode.setLoading(sessionId, true);
+            client.call("presentation/mode", { mode: activeMode }).then(() => {
+                if (mode.revision(sessionId) !== revision) return;
+                announcePptMode(sessionId);
+                mode.setMode(sessionId, activeMode);
+                mode.setLoading(sessionId, false);
+            }).catch((reason) => {
+                if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+            });
+        }
 		/** Compact selected-template thumbnail inside the resident input card. */
 		function OfficePptInputAccessory({ client, mode, sessionId, t }) {
 			const state = useMode(mode, sessionId);
@@ -662,16 +678,21 @@ window.__ModuleLoader__.load({
 			const select = (template, activeMode = state.activeMode ?? "ppt") => {
 				if (!client.bound) {
 					mode.select(sessionId, template, activeMode);
+                    announcePptMode(sessionId);
 					return;
 				}
+                mode.bump(sessionId);
+                const revision = mode.revision(sessionId);
 				mode.setLoading(sessionId, true);
 				client.call("template/select", {
 					templateId: template.id,
 					mode: activeMode
 				}).then(() => {
+                    if (mode.revision(sessionId) !== revision) return;
+                    announcePptMode(sessionId);
 					mode.select(sessionId, template, activeMode);
 				}).catch((reason) => {
-					mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+					if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
 				});
 			};
 			const choose = (template) => {

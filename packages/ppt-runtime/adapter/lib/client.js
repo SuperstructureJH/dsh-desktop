@@ -527,26 +527,39 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 			});
 		}
 		function deselectTemplate(client, mode, sessionId, activeMode) {
+            mode.bump(sessionId);
+            const revision = mode.revision(sessionId);
 			mode.setLoading(sessionId, true);
 			if (!client.bound) {
 				mode.deselect(sessionId, activeMode);
+                announcePptMode(sessionId);
 				return;
 			}
 			client.call("template/deselect").then(() => {
+                if (mode.revision(sessionId) !== revision) return;
 				return client.call("presentation/mode", { mode: activeMode });
 			}).then(() => {
+                if (mode.revision(sessionId) !== revision) return;
+                announcePptMode(sessionId);
 				mode.deselect(sessionId, activeMode);
 			}).catch((reason) => {
-				mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+                if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
 			});
 		}
 		function selectPresentationMode(client, mode, sessionId, activeMode) {
-			mode.setMode(sessionId, activeMode);
-			if (!client.bound) { announcePptMode(sessionId); return; }
-			client.call("presentation/mode", { mode: activeMode }).catch((reason) => {
-				mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
-			});
-		}
+            if (!client.bound) { mode.setMode(sessionId, activeMode); announcePptMode(sessionId); return; }
+            mode.bump(sessionId);
+            const revision = mode.revision(sessionId);
+            mode.setLoading(sessionId, true);
+            client.call("presentation/mode", { mode: activeMode }).then(() => {
+                if (mode.revision(sessionId) !== revision) return;
+                announcePptMode(sessionId);
+                mode.setMode(sessionId, activeMode);
+                mode.setLoading(sessionId, false);
+            }).catch((reason) => {
+                if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+            });
+        }
 		/** Compact selected-template thumbnail inside the resident input card. */
 		function OfficePptInputAccessory({ client, mode, sessionId, t }) {
 			const state = useMode(mode, sessionId);
@@ -859,14 +872,18 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
                     announcePptMode(sessionId);
 					return;
 				}
+                mode.bump(sessionId);
+                const revision = mode.revision(sessionId);
 				mode.setLoading(sessionId, true);
 				client.call("template/select", {
 					templateId: template.id,
 					mode: activeMode
 				}).then(() => {
+                    if (mode.revision(sessionId) !== revision) return;
+                    announcePptMode(sessionId);
 					mode.select(sessionId, template, activeMode);
 				}).catch((reason) => {
-					mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
+					if (mode.revision(sessionId) === revision) mode.setError(sessionId, reason instanceof Error ? reason.message : String(reason));
 				});
 			};
 			const choose = (template) => {
@@ -934,6 +951,8 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 				"aria-expanded": state.activeMode === "ppt",
 				"aria-pressed": state.activeMode === "ppt",
 				"data-desktop-ppt": "",
+                "aria-busy": state.loading,
+                disabled: state.loading,
 				onClick: togglePpt,
 				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(DesktopPptIcon, {}), t("mode.label")]
 			});
@@ -952,6 +971,8 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 						"aria-expanded": state.activeMode === "ppt",
 						"aria-pressed": state.activeMode === "ppt",
 						"data-desktop-ppt": "",
+                        "aria-busy": state.loading,
+                        disabled: state.loading,
 						onClick: togglePpt,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(DesktopPptIcon, {}), t("mode.label")]
 					})
@@ -1029,10 +1050,17 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
             const state = useMode(props.mode, props.sessionId);
             (0, react.useEffect)(() => {
                 if (!props.client?.bound) return;
-                props.mode.adopt(props.sessionId, props.client);
+                let active = true;
+                props.mode.adopt(props.sessionId, props.client).then(result => {
+                    if (active && ['applied', 'partial'].includes(result) && props.mode.snapshot(props.sessionId).activeMode === 'ppt') announcePptMode(props.sessionId);
+                }).catch(reason => {
+                    if (active) props.mode.setError(props.sessionId, reason instanceof Error ? reason.message : String(reason));
+                });
+                return () => { active = false; };
             }, [props.client, props.mode, props.sessionId]);
             return (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [
                 (0, react_jsx_runtime.jsx)(OfficePptChooser, { ...props, placement: "trigger" }),
+                state.error && state.activeMode === null ? (0, react_jsx_runtime.jsx)("span", { role: "alert", children: state.error }) : null,
                 state.notice && state.activeMode !== null ? (0, react_jsx_runtime.jsx)("span", {
                     role: "status", "data-ppt-template-migration": "",
                     style: { fontSize: 11, color: "var(--dsw-alias-label-secondary)", maxWidth: 300 },
@@ -1282,7 +1310,6 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
 				const inner = raw;
 				if (inner.status === "error") throw new Error(inner.error.message);
 				if (!bound && endpoint === "state") return { templates: inner.data?.templates ?? [], selectedTemplateId: null, presentationMode: null };
-                if (["template/select", "presentation/mode"].includes(endpoint) && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('dsh-office-mode-change', { detail: { sessionId, origin: 'ppt' } }));
 				return inner.data;
 			} };
 		}
@@ -1308,7 +1335,6 @@ button[data-desktop-ppt]:focus-visible{outline:2px solid var(--dsw-alias-label-p
                     if (detail?.origin !== 'office') return;
                     mode.bump(detail.sessionId);
                     mode.update(detail.sessionId, current => ({ ...current, activeMode: null, selectedId: null, engaged: false, loading: false, error: '' }));
-                    if (!detail.sessionId) mode.clearStaged();
                 };
                 window.addEventListener('dsh-office-mode-change', listener);
                 return () => window.removeEventListener('dsh-office-mode-change', listener);
