@@ -23,6 +23,16 @@
 
 已依据完整转写制作[两页可编辑 Word 评审稿](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-meeting-case-review-20261012/发布会筹备对齐_案例评审稿.docx)：第一页为会议结果、分工与待确认事项，第二页为 10 项行动记录、责任分工及时间依赖。使用本地确定性生成器制作，完成 DOCX 原生结构检查和两页逐页渲染检查；材料与产物只用于本地案例评估。用户对成品质量的评审、DSH 真实模型再生成、原生 Office 编辑保存重开仍为 `NOT_RUN`。
 
+### DSH 内置 Skill 实际评估
+
+用户反馈上述两页稿内容简单、版式普通，并要求使用 DSH 内置 Skill。用户另行明确授权本条演示转写和制作任务发送到开发版已配置的阿里云百炼模型，仅用于本次案例评估。
+
+使用官方 Harness `0.2.0-rc.2` headless，在独立评估目录运行同一会话；实际加载 r11 安装包的 `meeting-recap`、官方 `office-docx` 和安装级依赖工具，模型为开发版已配置的 `deepseek-v4-pro-0813`。安装资源来自 r11 的 `V0.12.0@1fe2cd4b`，本轮只读观察到远程版本分支已推进至 `ab419d21`；评估沿用 r11 安装资源，产品代码保持当前交付版本。生成时使用安装级 Python 和安装包 Electron / Kit `0.1.3`；凭据通过宿主服务解析，生成进程采用工作区写入、网络隔离及拒绝升权策略。
+
+首次实际输出出现相对日期换算依据不足、部分来源归属错误，以及等宽窄列、孤立标题和空白尾页。通过同一 DSH 会话反馈内容与逐页版式问题后完成[三页内置 Skill 评审稿](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-meeting-case-review-20261012/dsh-builtin/发布会筹备对齐_内置Skill定稿.docx)，保留五个议题与十五项行动记录，使用原生标题样式、10.2 / 3.1 / 3.7cm 行动表及相对期限。Word 文件及其修订由 DSH 模型执行，Codex 提供复核反馈和独立检查。
+
+实际模型 / Skill 加载、原生 DOCX 结构、行动项来源与期限核对、官方 Kit 导出和三个页面的逐页视觉检查 PASS；最终字体诊断为空。所选 DSH 模型的图片输入返回不可用，逐页视觉检查由 Codex 完成。[评估证据](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-meeting-case-review-20261012/dsh-builtin/delivery-evidence.json)保存执行日志关联、资源与文件哈希、原生列宽及验收边界。用户对最终成品质量的认可待取得；实际 Desktop UI、原生 Office 编辑保存重开为 `NOT_RUN`。本轮验证的是经过复核的内置流程成品，首轮默认输出的质量问题仍需作为后续 Skill 改进依据。
+
 ## 候选二 NHSBT 公开纪要与行动表
 
 [官方会议材料目录](https://www.nhsbt.nhs.uk/who-we-are/transparency/board-meetings-and-papers/board-papers-july-2025/)同时提供[2025年5月20日公开董事会纪要草稿](https://nhsbtdbe.blob.core.windows.net/umbraco-assets-corp/36882/agenda-item-13-draft-minutes-of-board-meeting-in-public-20-may-2025v3final.pdf)与[配套行动表](https://nhsbtdbe.blob.core.windows.net/umbraco-assets-corp/36883/agenda-item-14-board-in-public-action-log-for-july-2025-meeting-updated-on-3-june-2025.pdf)。纪要为14页，行动表为1页；纪要文件标注为待董事会确认的草稿。
@@ -33,4 +43,4 @@
 
 ## 当前结论
 
-飞书演示可作为会议纪要内容底稿，原始摘要需要补齐行动责任、期限与建议边界。两页 Word 评审稿已完成本地结构和版式验证，等待用户判断质量；新案例在用户认可成品并完成 DSH 再生成验证后再引入。NHSBT 用于参考决策与行动项的关联方式。本轮产品继续交付三个已认可的 Word 成品以及原有三个 Excel 案例。
+飞书演示可作为会议纪要内容底稿，原始摘要需要补齐行动责任、期限与建议边界。原两页稿已收到用户的简略与版式反馈；三页 DSH 内置 Skill 稿已完成实际模型、结构和版式评估，等待用户认可质量后再决定外显。NHSBT 用于参考决策与行动项的关联方式。本轮产品继续交付三个已认可的 Word 成品以及原有三个 Excel 案例。
