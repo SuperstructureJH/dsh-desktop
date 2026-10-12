@@ -1,5 +1,12 @@
 # Word / Excel 案例与官方 Harness 集成
 
+## 与 PPT PR #675 综合 — 2026-10-12
+
+合入 `PR #675@364e683461b62a6ef1b2e8f3b660ddd5f3ef8cb4` 的完整 PPT 版本，并保留 Word / Excel 模式服务、选择与持久化协议。Word 四个案例、Excel 三个案例继续平铺；会议内置 Skill、双页预览、工作表导航与当前用户材料替换流程保持。
+
+基线为 `V0.12.0@ab419d21`，Harness `0.2.0-rc.2`、Kit `0.1.3`。干净安装重放、类型检查、194 文件 / 1845 项回归、综合开发包及包内 Office/PPT 加载与制作转换 PASS。PPT 42 个维护模块、45 个声明和两份客户端源 / 构建 / ASAR 一致，Office 8 个插件文件和 90 个资源一致，严格签名与 ZIP CRC PASS。综合版实际 Desktop UI、当前材料的模型生成、原生 Office 保存重开、Windows/WASM、首次字体授权、公证 NOT_RUN。
+
+
 ## Office r13：Excel 三个案例直接平铺 — 2026-10-12
 
 - Excel 与 Word 共用按文件格式直接展示案例的逻辑；分类栏、分类筛选状态及对应样式已清理。Excel 三个案例直接展示，预览内保留工作表导航和双页阅读。

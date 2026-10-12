@@ -4,7 +4,9 @@
 
 - 基于本轮核实的 `V0.12.0@ab419d21f8973cd22db8e4971889840fef52d02f`，合入 `PR #675@364e683461b62a6ef1b2e8f3b660ddd5f3ef8cb4` 的完整 PPT 实现；保留 Word 四案例、Excel 三案例平铺、会议内置 Skill 与双页预览。
 - 冲突处理保留 Office 模式服务注册，并采用 #675 的个人模板库初始化逻辑，使 PPT 导入页数预算和现有 Office 状态同步共同生效。两边历史验收记录合并保留。
-- Harness `0.2.0-rc.2`、Kit `0.1.3`；依赖重放、完整回归、综合测试包及包内资源核对进行中。当前综合版 Desktop UI、原生 Office 编辑保存重开、Windows、公证 NOT_RUN。
+- Harness `0.2.0-rc.2`、Kit `0.1.3`；干净 `npm ci` 与 postinstall 重放、类型检查、194 文件 / 1845 项完整回归 PASS。综合开发包构建、afterPack 独立加载 / 192 张 PPT 资源 / Office 制作及 PDF 转换、42 个 PPT 模块 / 45 个声明 / 两份客户端、8 个 Office 插件文件 / 90 个案例资源一致性、严格签名、ZIP CRC PASS。
+- 当前综合版 Desktop UI、当前用户材料的模型生成、原生 PowerPoint/WPS 编辑保存重开、Windows/WASM、首次字体授权及 Apple 公证 NOT_RUN；本轮使用本地测试包验收。
+- [综合包及交付记录](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-ppt-integration-20261012/delivery.md)。
 
 ## Office r13：Excel 三个案例直接平铺 — 2026-10-12
 
