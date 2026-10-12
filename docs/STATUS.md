@@ -5,7 +5,8 @@
 - 组合两份真实客户端的 DOM 回归复现：绑定会话点击 PPT 后，PPT 模板区先出现，Excel 模板区等待 Host 响应再收起；延迟和失败路径出现同时显示的两个区域。
 - 尚未绑定会话的格式切换还会清空已加载的 PPT 目录，引发再次加载。现在清理选择时保留目录缓存，首次进入 PPT 即使用已加载案例。
 - PPT 模式切换改为 Host 成功后同步提交模式与跨格式通知；等待期间保留当前区域并显示按钮 busy，失败保留原模式和错误。模式 / 模板操作用当前会话修订确认结果归属，过期结果保持丢弃；RPC 层的重复通知移到模式提交点。
-- 组合回归覆盖等待、成功、失败、后续 Word 选择与未绑定缓存。195 文件 / 1849 项完整回归（4 workers）、类型检查、修复版包内加载 / Office 转换和源 / 构建 / ASAR 一致性 PASS；开发签名及 ZIP 检查进行中。最终 Desktop Host 的逐帧视觉验收 NOT_RUN。
+- 组合回归覆盖等待、成功、失败、后续 Word 选择与未绑定缓存。195 文件 / 1849 项完整回归（4 workers）、类型检查、修复版包内加载 / Office 转换和源 / 构建 / ASAR 一致性 PASS；严格开发签名和 ZIP CRC PASS。最终 Desktop Host 的逐帧视觉验收 NOT_RUN，由用户使用修复版包复测。
+- 已更新 [PR #683](https://github.com/dataelement/dsh-desktop/pull/683)，[修复版测试包与证据](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-ppt-mode-switch-20261012/delivery.md)。
 
 
 ## Office + PPT #675 综合本地验证 — 2026-10-12
