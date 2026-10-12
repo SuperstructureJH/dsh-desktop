@@ -1,5 +1,12 @@
 # Implementation status
 
+## 会议案例评估 — 2026-10-12
+
+- 用户授权后成功只读飞书官方一条演示的总结、3 条待办、5 个章节及完整转写，范围限本地案例评估。
+- 逐项核对发现摘要遗漏相对期限、待办合并多项责任，发布会演示与宣传 Demo 的建议需按用途分别表达。已依据原文制作两页可编辑 Word 评审稿，原生 DOCX 结构及两页逐页渲染检查 PASS。
+- 用户成品质量评审、DSH 真实模型再生成、原生 Office 编辑保存重开 NOT_RUN。产品继续保留 r11 的三个 Word / 三个 Excel 案例，会议稿处于评审阶段。
+- [评估结果与本地评审稿](meeting-minutes-case-review.md)。
+
 ## Office r11：Word 收敛为三个精选案例 — 2026-10-12
 
 - 基线：重新核实远程 `V0.12.0@1fe2cd4b1c9ca9e81f29a40ece180236aa02ec33`，工作树 `codex/v012-office-templates`，Harness `0.2.0-rc.2`、Kit `0.1.3`。
