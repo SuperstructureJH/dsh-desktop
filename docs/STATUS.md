@@ -1,5 +1,14 @@
 # Implementation status
 
+## Office r12：采用已认可的会议纪要案例 — 2026-10-12
+
+- 用户认可 DSH 内置 `meeting-recap` + 官方 `office-docx` 生成、修订并复核的三页成品；将原始 DOCX 作为 `meeting-minutes` 的权威模板，含五个议题与十五项行动记录。Word 四个案例平铺，Excel 保留三个案例，目录共 7 案例 / 55 页。会议案例沿用双页预览，第三页独立居中，并支持直接选用和做同款。
+- 基线已合入本轮核实的远程 `V0.12.0@ab419d21f8973cd22db8e4971889840fef52d02f`；Harness `0.2.0-rc.2`、Kit `0.1.3`。Skill 明确相对期限、原文依据、原生标题、网格与列宽；用户当前材料替换案例中的全部事实。
+- 184 文件 / 1688 项全量回归、类型检查、真实 Harness 模板复制与审计、会议结构及期限核对 PASS。最终开发包构建、包内 Office 制作 / PDF 转换、8 个插件文件、90 个登记资源哈希、7 案例 / 55 页原生检查及严格开发签名 PASS。
+- 受限字体环境曾产生标题缺字预览；原生环境重建后逐页检查通过。构建在缓存发布和复用时执行标题字形覆盖检查；该已知标题检查用于拦截本次故障，完整成品仍逐页检查。批准的 DOCX 字节保持一致，SHA256 `b6183bbe83637defb3efe220fbfba6ddc9e5070a1e42aacf1168f9040f0deb5a`。
+- 用户已认可会议成品质量；实际 Desktop UI、使用当前用户材料的新一轮生成、原生 Office 编辑保存重开、Windows、Apple 公证 NOT_RUN。原始转写及模型日志保存在本地评估目录；安装包收录成品及设计说明。
+- [r12 交付记录与 macOS ARM64 测试包](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-template-harness-rc2-20261010/delivery-r12.md)。
+
 ## DSH 内置会议 Skill 实际评估 — 2026-10-12
 
 - 用户明确授权单条飞书演示的模型评估后，使用开发版已配置模型及官方 Harness headless，实际加载 r11 安装包 `meeting-recap`、`office-docx` 和安装级依赖工具，执行同一会话中的生成及复核修订。使用 r11 的 `V0.12.0@1fe2cd4b` 资源；当前远程版本分支只读观察为 `ab419d21`，产品代码保持 r11。

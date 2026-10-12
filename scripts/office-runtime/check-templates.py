@@ -7,11 +7,12 @@ import zipfile
 from pathlib import Path
 from openpyxl import load_workbook
 from docx import Document
+from PIL import Image
 
 def check(root, sources):
     catalog = json.loads((root / 'catalog.json').read_text())
     assert {entry.name for entry in root.iterdir()} == {'catalog.json', *(item['id'] for item in catalog)}, 'catalogue resource root'
-    numeric_checks, previews = 0, 0
+    numeric_checks, previews, visual_checks = 0, 0, 0
     for item in catalog:
         directory = root / item['id']
         for name, digest in item['files'].items():
@@ -27,6 +28,23 @@ def check(root, sources):
         if item['mode'] == 'word':
             document = Document(sample)
             assert document.paragraphs, item['id']
+            proof = directory / 'preview-checks.json'
+            if proof.exists():
+                checks = json.loads(proof.read_text())
+                assert checks['schemaVersion'] == 1 and isinstance(checks['checks'], list)
+                for row in checks['checks']:
+                    assert row['image'] in item['files'] and row['image'].startswith('pages/')
+                    x0, y0, x1, y1 = row['region']
+                    assert 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1
+                    assert 0 <= row['darkMax'] <= 255 and 0 < row['minInkCoverage'] <= 1
+                    with Image.open(directory / row['image']) as source:
+                        image = source.convert('RGB')
+                    region = image.crop((int(image.width*x0), int(image.height*y0), int(image.width*x1), int(image.height*y1)))
+                    dark = sum(1 for pixel in region.getdata() if max(pixel) < row['darkMax'])
+                    coverage = dark / (region.width * region.height)
+                    assert coverage >= row['minInkCoverage'], (item['id'], row['label'], coverage,
+                        'Generate and verify previews with complete native font access')
+                    visual_checks += 1
             continue
         values, editable = load_workbook(sample, data_only=True), load_workbook(sample, data_only=False)
         for sheet in values:
@@ -48,7 +66,7 @@ def check(root, sources):
                 actual = values[row['sheet']][row['cell']].value
                 assert math.isclose(actual, row['expected'], abs_tol=row.get('tolerance', 1e-6)), (item['id'], row, actual)
                 numeric_checks += 1
-    return {'templates': len(catalog), 'preview_pages': previews, 'numeric_checks': numeric_checks,
+    return {'templates': len(catalog), 'preview_pages': previews, 'numeric_checks': numeric_checks, 'preview_visual_checks': visual_checks,
             'resource_hashes': 'PASS', 'native_zip_crc': 'PASS', 'excel_error_cells': 0,
             'native_charts': 'PASS', 'frozen_panes': 'PASS'}
 

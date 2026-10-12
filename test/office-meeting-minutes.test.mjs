@@ -63,3 +63,30 @@ print(json.dumps({'grey':grey,'red':red,'originalSource':same}))
   expect(result.red).toBeGreaterThan(1000)
   expect(result.grey).toBeLessThan(50)
 })
+
+it('keeps the approved meeting editable with native headings, fifteen actions and preserved relative deadlines', async () => {
+  const { stdout } = await promisify(execFile)(python, ['-I', '-B', '-c', `
+import json
+from pathlib import Path
+from docx import Document
+from docx.oxml.ns import qn
+source = Path('packages/dsh-desktop-office/sources/curated/meeting-minutes/example.docx')
+sample = Path('.build/office-runtime/templates/meeting-minutes/example.docx')
+document = Document(sample)
+table = document.tables[0]
+title = next(p for p in document.paragraphs if p.style.name == 'Title')
+text = '\\n'.join(cell.text for row in table.rows for cell in row.cells)
+grid = [int(col.get(qn('w:w'))) for col in table._tbl.find(qn('w:tblGrid'))]
+result = {'sameSource':source.read_bytes()==sample.read_bytes(), 'actions':len(table.rows)-1,
+          'columns':len(table.columns), 'grid':grid, 'todayCount':text.count('今天下班前'),
+          'reviewTime':'明天下午对齐' in text, 'marketPolish':'市场润色话术' in text,
+          'absoluteDeadline':'2024-07-23' in text or '2024-07-22' in text,
+          'titleBorder':title._p.find('./'+qn('w:pPr')+'/'+qn('w:pBdr')) is not None,
+          'styleBorder':document.styles['Title']._element.find('./'+qn('w:pPr')+'/'+qn('w:pBdr')) is not None,
+          'headingStyles':sorted({p.style.name for p in document.paragraphs if p.style.name.startswith('Heading')})}
+print(json.dumps(result))
+`])
+  expect(JSON.parse(stdout)).toEqual({ sameSource: true, actions: 15, columns: 3,
+    grid: [5783, 1757, 2097], todayCount: 2, reviewTime: true, marketPolish: true,
+    absoluteDeadline: false, titleBorder: false, styleBorder: false, headingStyles: ['Heading 1', 'Heading 2'] })
+})

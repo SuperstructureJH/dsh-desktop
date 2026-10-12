@@ -195,15 +195,23 @@ export async function apply(ctx) {
       return envelope.result.value
     }
     const officeCatalog = await officeRpc('catalog', {})
-    expect(officeCatalog.templates).toHaveLength(6)
-    const notice = officeCatalog.templates.find(item => item.id === 'government-notice')
+    expect(officeCatalog.templates).toHaveLength(7)
     const officeSession = await rpc('session/create', { cwd: neutral })
     await officeRpc('mode', { sessionId: officeSession.sessionId, mode: 'word' })
-    await officeRpc('select', { sessionId: officeSession.sessionId, templateId: notice.id, revision: notice.revision })
-    const copied = await officeRpc('prepare', { sessionId: officeSession.sessionId, templateId: notice.id }, 'office-probe')
-    expect(copied.workspace_path).toMatch(/^office-templates\/government-notice-[a-f0-9-]+\/example.docx$/)
-    const bytes = await readFile(join(neutral, copied.workspace_path))
-    expect(createHash('sha256').update(bytes).digest('hex')).toBe(copied.files.find(file => file.workspace_path === copied.workspace_path).sha256)
+    for (const id of ['government-notice', 'meeting-minutes']) {
+      const template = officeCatalog.templates.find(item => item.id === id)
+      await officeRpc('select', { sessionId: officeSession.sessionId, templateId: id, revision: template.revision })
+      const copied = await officeRpc('prepare', { sessionId: officeSession.sessionId, templateId: id }, 'office-probe')
+      expect(copied.workspace_path).toMatch(new RegExp(`^office-templates/${id}-[a-f0-9-]+/example\\.docx$`))
+      const bytes = await readFile(join(neutral, copied.workspace_path))
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(copied.files.find(file => file.workspace_path === copied.workspace_path).sha256)
+      if (id === 'meeting-minutes') {
+        expect(bytes).toEqual(await readFile(join(root, 'packages/dsh-desktop-office/sources/curated/meeting-minutes/example.docx')))
+        const preview = await officeRpc('preview', { templateId: id, revision: template.revision, page: 3 })
+        expect(preview).toMatchObject({ page: 3, pages: 3 })
+        expect(preview.image).toMatch(/^data:image\/webp;base64,/)
+      }
+    }
     expect(probe.names).toEqual(expect.arrayContaining(['gov-doc-writing', 'meeting-recap', 'research-writer', 'saas-metrics-coach', 'dataset-health-audit', 'data-viz-gen']))
     await officeRpc('mode', { sessionId: officeSession.sessionId, mode: 'excel' })
     expect((await officeRpc('state', { sessionId: officeSession.sessionId })).selectedTemplateId).toBeNull()

@@ -32,6 +32,7 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
   const fingerprint = hash(Buffer.concat([
     Buffer.from(JSON.stringify({ format: 1, manifest, kit: kit.version })),
     await readFile(fileURLToPath(import.meta.url)), await readFile(join(import.meta.dirname, 'normalize-package.py')),
+    await readFile(join(import.meta.dirname, 'check-templates.py')),
     ...await Promise.all(inputs.map(async path => Buffer.concat([Buffer.from(path), await readFile(join(sources, path))])))
   ]))
   const saved = join(cache, fingerprint)
@@ -100,11 +101,13 @@ export async function prepareOfficeTemplates({ runtime = join(project, '.build/o
         if (entry.startsWith('.render-') || entry.startsWith('.print-')) await rm(join(staging, entry), { recursive: true, force: true })
       }
       await writeFile(join(staging, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n')
+      await exec(python, ['-I', '-B', join(import.meta.dirname, 'check-templates.py'), staging, sources], { timeout: 30_000 })
       await rename(staging, saved)
     } finally { await rm(staging, { recursive: true, force: true }) }
   }
   const library = await createTemplateLibrary(saved)
   for (const item of await library.list()) for (const file of Object.keys(library.entry(item.id).files)) await library.asset(item.id, file)
+  await exec(python, ['-I', '-B', join(import.meta.dirname, 'check-templates.py'), saved, sources], { timeout: 30_000 })
   await cp(saved, output, { recursive: true })
   console.log(`Office template resources prepared: ${fingerprint.slice(0, 12)}`)
 }

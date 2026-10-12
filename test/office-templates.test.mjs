@@ -38,9 +38,30 @@ it('independently verifies recalculated values, charts, original frozen panes an
   const python = resolve('.build/office-runtime/primary-runtime/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
   const { stdout } = await promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/check-templates.py'), resources, resolve('packages/dsh-desktop-office/sources')])
   const result = JSON.parse(stdout)
-  expect(result.templates).toBe(6); expect(result.preview_pages).toBe(52)
+  expect(result.templates).toBe(7); expect(result.preview_pages).toBe(55)
   expect(result.numeric_checks).toBe(9)
+  expect(result.preview_visual_checks).toBe(1)
   expect(result.excel_error_cells).toBe(0)
+})
+
+it('rejects partial Chinese glyph coverage even when every resource hash is current', async () => {
+  const root = await temporary()
+  await cp(join(resources, 'meeting-minutes'), join(root, 'meeting-minutes'), { recursive: true })
+  await writeFile(join(root, 'catalog.json'), JSON.stringify([library.entry('meeting-minutes')]))
+  const python = resolve('.build/office-runtime/primary-runtime/dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
+  await promisify(execFile)(python, ['-I', '-B', '-c', `
+from pathlib import Path
+from PIL import Image,ImageDraw
+import hashlib,json,sys
+root=Path(sys.argv[1]); path=root/'meeting-minutes/pages/1.webp'
+image=Image.open(path).convert('RGB')
+ImageDraw.Draw(image).rectangle((int(image.width*.27),int(image.height*.06),int(image.width*.56),int(image.height*.105)),fill='white')
+image.save(path,format='WEBP',quality=86)
+catalog=json.loads((root/'catalog.json').read_text());catalog[0]['files']['pages/1.webp']=hashlib.sha256(path.read_bytes()).hexdigest()
+(root/'catalog.json').write_text(json.dumps(catalog))
+`, root])
+  await expect(promisify(execFile)(python, ['-I', '-B', resolve('scripts/office-runtime/check-templates.py'), root,
+    resolve('packages/dsh-desktop-office/sources')])).rejects.toThrow('Generate and verify previews with complete native font access')
 })
 
 async function modesFixture() {
@@ -52,13 +73,14 @@ async function modesFixture() {
   return { ctx, modes: ctx.officeModes, root, hooks }
 }
 
-it('publishes six curated native cases with complete preview hashes', async () => {
+it('publishes seven curated native cases with complete preview hashes', async () => {
   const items = await library.list()
-  expect(items.filter(item => item.mode === 'word').map(item => item.id)).toEqual(['government-notice', 'coffee-market', 'equity-research'])
-  expect(items.filter(item => item.mode === 'word')).toHaveLength(3)
-  expect([...new Set(items.filter(item => item.mode === 'word').map(item => item.category))]).toEqual(['公文写作', '调研分析'])
+  expect(items.filter(item => item.mode === 'word').map(item => item.id)).toEqual(['government-notice', 'meeting-minutes', 'coffee-market', 'equity-research'])
+  expect(items.filter(item => item.mode === 'word')).toHaveLength(4)
+  expect([...new Set(items.filter(item => item.mode === 'word').map(item => item.category))]).toEqual(['公文写作', '会议纪要', '调研分析'])
   expect(items.filter(item => item.mode === 'excel').map(item => item.id)).toEqual(['annual-business', 'port-cargo', 'bio-assay'])
-  for (const id of ['meeting-minutes', 'work-summary', 'work-daily', 'project-proposal', 'budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
+  for (const id of ['work-summary', 'work-daily', 'project-proposal', 'budget-expenses', 'project-tracker', 'sales-report']) await expect(library.prepare(id)).rejects.toThrow()
+  expect(library.entry('meeting-minutes')).toMatchObject({ pages: 3, businessSkill: 'meeting-recap' })
   for (const item of items) {
     const entry = library.entry(item.id)
     for (const file of Object.keys(entry.files)) expect(digest(await library.asset(item.id, file))).toBe(entry.files[file])
@@ -121,7 +143,7 @@ it('keeps business providers separate from the official Office provider', async 
   expect(skill.content).toContain('当前用户材料提供事实')
 })
 
-it('expires a saved retired case and lets the session choose a curated replacement', async () => {
+it('expires the prior meeting case revision and lets the session choose the reviewed version', async () => {
   const f = await modesFixture(); let route
   await f.modes.select('retired-case', 'word')
   await f.modes.selectTemplate('retired-case', { id: 'meeting-minutes', mode: 'word', revision: 'a'.repeat(24) })
@@ -129,7 +151,7 @@ it('expires a saved retired case and lets the session choose a curated replaceme
   const rpc = async (endpoint, payload = {}) => (await (await route.fetch(new Request('http://localhost/api/office-templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId: endpoint, method: 'office-templates', payload: { endpoint, sessionId: 'retired-case', ...payload } }) }))).json()).result
   expect((await rpc('state')).value).toMatchObject({ selectedTemplateId: null, selectionExpired: true })
   expect((await rpc('select', { templateId: 'meeting-minutes', revision: 'a'.repeat(24) })).ok).toBe(false)
-  const item = library.entry('government-notice')
+  const item = library.entry('meeting-minutes')
   expect((await rpc('select', { templateId: item.id, revision: item.revision })).value).toMatchObject({ selectedTemplateId: item.id, selectionExpired: false })
 })
 
@@ -166,6 +188,25 @@ it('copies registered editable inputs into a new directory and rejects hashes, c
   const linked = await temporary(), outside = await temporary()
   await symlink(outside, join(linked, 'office-templates'), 'dir')
   await expect(materialize(linked, { directory: `office-templates/government-notice-${randomUUID()}`, files: prepared.files })).rejects.toThrow('regular workspace')
+})
+
+it('binds the reviewed meeting to built-in business and Office skills and copies its approved native file', async () => {
+  const f = await modesFixture(), item = library.entry('meeting-minutes'), id = 'meeting-session'
+  await f.modes.select(id, 'word')
+  await f.modes.selectTemplate(id, { id: item.id, mode: item.mode, revision: item.revision })
+  let hook; const loaded = []
+  registerOfficeContext({ on(_name, callback) { hook = callback }, skills: { get: async name => {
+    loaded.push(name); return { name, provider: 'test', content: `Built-in workflow ${name}` }
+  } } }, library, f.modes)
+  const result = await hook({ agent: { id, session: { header: { cwd: f.root }, surface: { nodes: new Set() } } },
+    signal: new AbortController().signal }, async () => ({ kind: 'enter', messages: [] }))
+  expect(loaded).toEqual(['office-docx', 'meeting-recap'])
+  expect(result.messages[0].content[0].text).toContain('office_template(template_id="meeting-minutes")')
+  const prepared = await library.prepare(item.id, { id: item.id, mode: item.mode, revision: item.revision })
+  const directory = `office-templates/meeting-minutes-${randomUUID()}`
+  await materialize(f.root, { directory, files: prepared.files })
+  expect(await readFile(join(f.root, directory, 'example.docx'))).toEqual(await readFile(resolve('packages/dsh-desktop-office/sources/curated/meeting-minutes/example.docx')))
+  expect(prepared.guide).toContain('meeting-recap')
 })
 
 it('requires the session write policy before starting the sandbox worker', async () => {

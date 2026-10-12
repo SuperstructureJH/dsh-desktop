@@ -145,18 +145,26 @@ it('exposes common Word cases and selects the revision shown as a complete sprea
   await f.click('取消选择案例'); expect(container.querySelector('[data-office-selected]')).toBeNull()
 })
 
-it('shows the three curated Word cases together and keeps preview and selection available', async () => {
-  const examples = [templates[0], templates[1], { ...templates[1], id: 'equity-research', title: '小米汽车研究报告', titleEn: 'Company research', revision: 'd'.repeat(24) }, templates[2]]
+it('shows four curated Word cases and previews the reviewed meeting as a spread and a final page', async () => {
+  const meeting = { ...templates[1], id: 'meeting-minutes', title: '会议纪要 · 发布会筹备', titleEn: 'Launch preparation meeting minutes', pages: 3, pageAspectRatios: Array(3).fill(0.707), revision: 'e'.repeat(24) }
+  const examples = [templates[0], meeting, templates[1], { ...templates[1], id: 'equity-research', title: '小米汽车研究报告', titleEn: 'Company research', revision: 'd'.repeat(24) }, templates[2]]
   const f = await fixture({ examples }); await f.click('Word')
   expect(container.querySelector('.dso-toolbar')).toBeNull()
-  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(['government-notice', 'coffee-market', 'equity-research'])
-  await f.click('查看案例 小米汽车研究报告'); await f.click('做同款')
-  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('equity-research')
+  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(['government-notice', 'meeting-minutes', 'coffee-market', 'equity-research'])
+  await f.click('查看案例 会议纪要 · 发布会筹备')
+  expect(container.textContent).toContain('第 1–2 页，共 3 页')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(2)
+  await f.click('下一组')
+  expect(container.textContent).toContain('第 3 页，共 3 页')
+  expect(container.querySelectorAll('.dso-spread img')).toHaveLength(1)
+  await f.click('做同款')
+  expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
+  expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'meeting-minutes', revision: meeting.revision })
   await f.click('Excel')
   expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '经营分析'])
   await f.click('Word')
   expect(container.querySelector('.dso-toolbar')).toBeNull()
-  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(3)
+  expect(container.querySelectorAll('[data-office-template]')).toHaveLength(4)
 })
 
 it('localizes Word titles without a category toolbar', async () => {
