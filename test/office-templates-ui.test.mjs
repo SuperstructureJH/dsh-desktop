@@ -161,7 +161,7 @@ it('shows four curated Word cases and previews the reviewed meeting as a spread 
   expect(container.querySelector('[data-office-selected]').dataset.officeSelected).toBe('meeting-minutes')
   expect(f.calls.find(call => call.endpoint === 'select').payload).toEqual({ sessionId: 'session-a', templateId: 'meeting-minutes', revision: meeting.revision })
   await f.click('Excel')
-  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['全部', '经营分析'])
+  expect(container.querySelector('.dso-toolbar')).toBeNull()
   await f.click('Word')
   expect(container.querySelector('.dso-toolbar')).toBeNull()
   expect(container.querySelectorAll('[data-office-template]')).toHaveLength(4)
@@ -175,8 +175,10 @@ it('localizes Word titles without a category toolbar', async () => {
 })
 
 it('uses Excel worksheet navigation and localized controls', async () => {
-  const f = await fixture({ english: true }); await f.click('Excel')
-  expect([...container.querySelectorAll('.dso-toolbar button')].map(node => node.textContent)).toEqual(['All', 'Business analysis'])
+  const excel = [templates[2], { ...templates[2], id: 'logistics', titleEn: 'Logistics', category: '物流分析' }, { ...templates[2], id: 'experiments', titleEn: 'Experiments', category: '实验数据' }]
+  const f = await fixture({ english: true, examples: [...templates.slice(0, 2), ...excel] }); await f.click('Excel')
+  expect(container.querySelector('.dso-toolbar')).toBeNull()
+  expect([...container.querySelectorAll('[data-office-template]')].map(node => node.dataset.officeTemplate)).toEqual(excel.map(item => item.id))
   expect(parseFloat(container.querySelector('[data-office-template=annual-business] .dso-thumbnail').style.aspectRatio)).toBeCloseTo(16 / 9)
   const cover = container.querySelector('[data-office-template=annual-business] .dso-thumbnail img')
   expect(parseFloat(cover.style.width)).toBeCloseTo(180)

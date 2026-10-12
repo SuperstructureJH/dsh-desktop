@@ -1,5 +1,13 @@
 # Implementation status
 
+## Office r13：Excel 三个案例直接平铺 — 2026-10-12
+
+- Excel 与 Word 共用按文件格式直接展示案例的逻辑；分类栏、分类筛选状态及对应样式已清理。Excel 三个案例直接展示，预览内保留工作表导航和双页阅读。
+- 基线重新核实为 `V0.12.0@ab419d21f8973cd22db8e4971889840fef52d02f`，工作树 `codex/v012-office-templates`，安装 Harness `0.2.0-rc.2`、Kit `0.1.3`。
+- 23 项界面回归及类型检查 PASS，覆盖不同 Excel 分类的三个案例同时显示、中英文名称、选用与工作表导航。最终开发包构建、包内 Office 制作及 PDF 转换、8 个插件文件与 90 个登记资源一致性、严格开发签名和 ZIP CRC PASS；最终包实际 Desktop UI、原生 Office 编辑保存重开、Windows、公证 NOT_RUN。
+- [r13 交付记录与 macOS ARM64 测试包](/Users/dongjianghan/Documents/ChatGPT/workbuddy/outputs/office-template-harness-rc2-20261010/delivery-r13.md)。
+
+
 ## Office r12：采用已认可的会议纪要案例 — 2026-10-12
 
 - 用户认可 DSH 内置 `meeting-recap` + 官方 `office-docx` 生成、修订并复核的三页成品；将原始 DOCX 作为 `meeting-minutes` 的权威模板，含五个议题与十五项行动记录。Word 四个案例平铺，Excel 保留三个案例，目录共 7 案例 / 55 页。会议案例沿用双页预览，第三页独立居中，并支持直接选用和做同款。

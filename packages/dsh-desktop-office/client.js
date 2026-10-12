@@ -2,15 +2,13 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   const React = require('react'), h = React.createElement
   const NS = 'desktop-office', EVENT = 'dsh-office-mode-change', staged = '@staged'
   const zh = { templates: '选择案例', preview: '查看案例', use: '做同款', close: '关闭预览', previous: '上一页', next: '下一页',
-    select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例', all: '全部',
+    select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例',
     page: '第 {page} 页，共 {total} 页', spread: '第 {start}–{end} 页，共 {total} 页', pageNumber: '第 {page} 页', previousSpread: '上一组', nextSpread: '下一组', expired: '案例已更新，请重新选择',
-    official: '公文写作', meetings: '会议纪要', summaries: '工作总结', updates: '日报周报', plans: '方案报告', research: '调研分析', business: '经营分析', logistics: '物流分析', experiments: '实验数据', other: '其他案例', empty: '该分类下暂无案例' }
+    empty: '暂无案例' }
   const en = { templates: 'Choose an example', preview: 'Preview example', use: 'Use this example', close: 'Close preview', previous: 'Previous page', next: 'Next page',
-    select: 'Select example', loading: 'Loading…', retry: 'Retry', remove: 'Remove example', selected: 'Selected example', all: 'All',
+    select: 'Select example', loading: 'Loading…', retry: 'Retry', remove: 'Remove example', selected: 'Selected example',
     page: 'Page {page} of {total}', spread: 'Pages {start}–{end} of {total}', pageNumber: 'Page {page}', previousSpread: 'Previous spread', nextSpread: 'Next spread', expired: 'This example was updated. Choose it again.',
-    official: 'Official documents', meetings: 'Meeting minutes', summaries: 'Work summaries', updates: 'Daily and weekly', plans: 'Plans and reports', research: 'Research', business: 'Business analysis', logistics: 'Logistics', experiments: 'Experimental data', other: 'Other examples', empty: 'No examples in this category' }
-  const categoryKeys = new Map([['公文写作', 'official'], ['会议纪要', 'meetings'], ['工作总结', 'summaries'], ['日报周报', 'updates'], ['方案报告', 'plans'], ['调研分析', 'research'], ['经营分析', 'business'], ['物流分析', 'logistics'], ['实验数据', 'experiments']])
-  const categoryOf = item => categoryKeys.get(item.category) ?? 'other'
+    empty: 'No examples available' }
   const empty = Object.freeze({ templates: [], mode: null, selectedTemplateId: null, loaded: false, loading: false, busy: false, error: '' })
   const keyOf = id => id || staged
   const announce = (sessionId, mode) => window.dispatchEvent(new CustomEvent(EVENT, { detail: { sessionId, mode, origin: 'office' } }))
@@ -80,7 +78,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
     React.useEffect(() => { void store.load(sessionId) }, [store, sessionId])
     return state
   }
-  const titleOf = (item, t) => t('all') === en.all ? item.titleEn ?? item.title : item.title
+  const titleOf = (item, t) => t('preview') === en.preview ? item.titleEn ?? item.title : item.title
 
   function Thumbnail({ item }) {
     const ratio = item.pageAspectRatios[0], excel = item.mode === 'excel'
@@ -196,18 +194,14 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
       state.error ? h('span', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null)
   }
   function Dock({ store, sessionId, session, t }) {
-    const state = useOffice(store, sessionId), [opened, setOpened] = React.useState(null), [category, setCategory] = React.useState('all')
+    const state = useOffice(store, sessionId), [opened, setOpened] = React.useState(null)
     const root = React.useRef(), panel = React.useRef(), visible = !!state.mode && (session == null || session.blank === true)
     useDockGeometry(root, panel, visible)
-    React.useEffect(() => { setOpened(null); setCategory('all') }, [sessionId, state.mode])
+    React.useEffect(() => setOpened(null), [sessionId, state.mode])
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
     if (!visible) return null
-    const modeItems = state.templates.filter(item => item.mode === state.mode)
-    const categories = state.mode === 'word' ? ['all'] : ['all', ...[...categoryKeys.values(), 'other'].filter(value => modeItems.some(item => categoryOf(item) === value))]
-    const activeCategory = categories.includes(category) ? category : 'all'
-    const items = modeItems.filter(item => activeCategory === 'all' || categoryOf(item) === activeCategory)
+    const items = state.templates.filter(item => item.mode === state.mode)
     return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
-      state.mode === 'excel' ? h('div', { className: 'dso-toolbar' }, h('nav', { 'aria-label': t('templates') }, categories.map(value => h('button', { key: value, type: 'button', 'aria-pressed': activeCategory === value, onClick: () => setCategory(value) }, t(value))))) : null,
       h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,
@@ -230,7 +224,7 @@ window.__ModuleLoader__.load({ id: 'dsh-desktop-office', factory: require => {
   const css = `
 .dso-preview-actions{display:flex;gap:12px;align-items:center}
 .dso-actions{display:flex;gap:8px;align-items:center}.dso-actions>button{display:inline-flex;align-items:center;gap:6px;line-height:16px;font:inherit;font-size:12px;border-radius:999px;padding:7px 13px;background:transparent;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);color:var(--dsw-alias-label-secondary);cursor:pointer}.dso-actions>button[aria-pressed=true]{color:var(--dsw-alias-label-primary-foreground)!important;border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)!important}
-.dso-dock-root{box-sizing:border-box;position:relative;width:100%;height:0;padding:0 var(--dsh-composer-side-clearance);overflow:visible}.dso-dock{box-sizing:border-box;position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;width:var(--dso-dock-width,var(--dsh-composer-card-max-width,100%));max-width:calc(100vw - 32px);height:var(--dso-dock-height,calc(100dvh - 178px));margin-top:8px;color:var(--dsw-alias-label-primary);font-size:12px}.dso-viewport{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 4px 12px;scrollbar-width:none}.dso-viewport::-webkit-scrollbar{display:none}.dso-toolbar,.dso-sheets{display:flex;gap:12px;align-items:center;flex:none}.dso-toolbar{min-height:38px;padding-inline:4px}.dso-toolbar nav,.dso-sheets{display:flex;overflow:auto;gap:4px;scrollbar-width:none}.dso-toolbar nav::-webkit-scrollbar,.dso-sheets::-webkit-scrollbar{display:none}.dso-toolbar button,.dso-sheets button{font:inherit;font-size:11px;line-height:16px;border:0;border-radius:999px;padding:5px 10px;flex:none;color:var(--dsw-alias-label-caption);background:transparent;cursor:pointer}.dso-toolbar button:hover,.dso-sheets button:hover{color:var(--dsw-alias-label-primary)}.dso-toolbar button[aria-pressed=true],.dso-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.dso-dock-root{box-sizing:border-box;position:relative;width:100%;height:0;padding:0 var(--dsh-composer-side-clearance);overflow:visible}.dso-dock{box-sizing:border-box;position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;width:var(--dso-dock-width,var(--dsh-composer-card-max-width,100%));max-width:calc(100vw - 32px);height:var(--dso-dock-height,calc(100dvh - 178px));margin-top:8px;color:var(--dsw-alias-label-primary);font-size:12px}.dso-viewport{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 4px 12px;scrollbar-width:none}.dso-viewport::-webkit-scrollbar{display:none}.dso-sheets{display:flex;align-items:center;flex:none;overflow:auto;gap:4px;scrollbar-width:none}.dso-sheets::-webkit-scrollbar{display:none}.dso-sheets button{font:inherit;font-size:11px;line-height:16px;border:0;border-radius:999px;padding:5px 10px;flex:none;color:var(--dsw-alias-label-caption);background:transparent;cursor:pointer}.dso-sheets button:hover{color:var(--dsw-alias-label-primary)}.dso-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .dso-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}.dso-card{min-width:0;position:relative}.dso-card-select{font:inherit;display:flex;flex-direction:column;width:100%;padding:0;min-width:0;border:0;text-align:center;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.dso-card-select:disabled{cursor:default;opacity:.65}.dso-cover{box-sizing:border-box;display:block;position:relative;width:100%;aspect-ratio:16/9;border:2px solid transparent;border-radius:9px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 5%,var(--dsw-alias-bg-layer-1))}.dso-cover[data-mode=excel]{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 6%,var(--dsw-alias-bg-layer-1))}.dso-thumbnail{display:block;width:100%;border-radius:8px;overflow:hidden}.dso-thumbnail img{display:block;width:100%;height:auto}.dso-cover>.dso-thumbnail{position:absolute;left:13%;top:14%;width:74%;box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent);transform-origin:center top;transition:transform 180ms cubic-bezier(.23,1,.32,1)}.dso-cover[data-mode=excel]>.dso-thumbnail{left:8%;width:84%;height:100%}.dso-card[data-selected=true] .dso-cover{border-color:var(--dsw-alias-state-business-primary)}.dso-card-name{display:block;box-sizing:border-box;width:100%;padding-top:5px;text-align:center;font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dso-card[data-selected=true] .dso-card-name{color:var(--dsw-alias-label-primary)}.dso-card-preview{position:absolute;left:10px;top:10px;z-index:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);cursor:pointer;opacity:0;transition:opacity 120ms ease}.dso-card:hover .dso-card-preview,.dso-card:focus-within .dso-card-preview{opacity:1}.dso-card-preview:disabled{cursor:default}.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:scale(.98)}
 @media(hover:hover) and (pointer:fine){.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail{transform:translateY(-3px) scale(1.045)}}@media(hover:none){.dso-card-preview{opacity:1}}@media(prefers-reduced-motion:reduce){.dso-cover>.dso-thumbnail,.dso-card-preview{transition:none}.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail,.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:none}}
 /* Match the detailed viewer in PPT PR 675; Office keeps its native page navigation. */
