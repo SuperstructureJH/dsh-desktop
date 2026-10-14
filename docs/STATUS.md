@@ -5,7 +5,7 @@
 - 核实工作树及 PR #697 为 a4a67efa，目标 V0.12.0 为 0966adf9154b685e647ff932bfca5ab8823f0696，Harness 0.2.0-rc.2。
 - Word/Excel 通用按钮的 font: inherit 具有更高选择器优先级，覆盖取消按钮自身字号及行高。浏览器复现 16px / 24px 字体与行高，叉号中心比 PPT 的 15px / 15px 向下偏 3px。
 - 字体继承限定到预览按钮；取消按钮直接使用与 PPT 一致的 500 字重、15px 字号、15px 行高与系统无衬线字体。20px 按钮尺寸、右上定位、选择状态及取消行为沿原实现。
-- 实际 Office/PPT 客户端、React 和 Harness 基础及圆角样式组成浏览器验证。1100px / 390px、深浅主题的字体、字重、行高、叉号中心及按钮尺寸对照 PASS，Word/Excel 点击取消 PASS。199 文件 / 1935 项完整回归、类型与差异检查 PASS。新包构建与 PR 更新进行中；最终 Desktop 用户复测按独立门禁记录。
+- 实际 Office/PPT 客户端、React 和 Harness 基础及圆角样式组成浏览器验证。1100px / 390px、深浅主题的字体、字重、行高、叉号中心及按钮尺寸对照 PASS，Word/Excel 点击取消 PASS。199 文件 / 1935 项完整回归、类型与差异检查 PASS。生产构建、开发打包、包内原生编辑与 Office 转换、10 Office 文件 / 46 PPT 模块 / 92 案例资源一致性、严格开发签名、DMG checksum、ZIP CRC 和 ZIP 内 ASAR 一致性 PASS；PR #697 已更新。最终 Desktop 用户复测按独立门禁记录。
 
 
 ## Word 原生模板生成保真修复 — 2026-10-14
