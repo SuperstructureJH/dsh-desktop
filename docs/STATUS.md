@@ -1,5 +1,13 @@
 # Implementation status
 
+## Office 入口顺序、间距与发送后引用修复 — 2026-10-14
+
+- 已核实综合 PR #683 于 2026-10-13 11:25（北京时间）合入 `V0.12.0`，合并提交 `0cb0008911a2e069a434ad126b13efe7cece660d`。本次修复从远程 `V0.12.0@0966adf9154b685e647ff932bfca5ab8823f0696` 创建 `codex/v012-office-template-followup`，工作树 `.worktrees/dsh-desktop-v012-office-followup`；安装 Harness `0.2.0-rc.2`、Kit `0.1.3`。
+- 模式入口通过既有 slot 排序显示为 PPT、Word、Excel。Word / Excel 输出为同层按钮，由宿主入口栏统一控制 2px 间距。
+- Word / Excel 的选中缩略图跟随空白会话展示；发送后，首条用户消息 footer 展示案例名称和文件图标，可打开原有详细预览。会话选择继续用于生成及历史会话恢复，消息中的预览使用阅读模式。
+- 新增 4 项行为回归，原实现复现 4 项失败，修复后 31 项定向回归及类型检查 PASS。真实 Chrome 组件验证覆盖两种格式、深浅主题、1100px / 390px 窗口，按钮两处间距均为 2px，选中配色、发送后引用和阅读预览 PASS。
+- 198 文件 / 1918 项全量回归、类型检查、构建、差异检查 PASS；干净离线 npm ci / postinstall 完整重放 PASS。安装包 Desktop Host 实际发送 / 模型生成、Windows 与发行验收待进行。浏览器验证使用真实插件与 Harness 样式，会话 RPC 和发送成功状态由本地 fixture 提供。
+
 ## Excel → PPT 模板区闪烁修复 — 2026-10-12
 
 - 组合两份真实客户端的 DOM 回归复现：绑定会话点击 PPT 后，PPT 模板区先出现，Excel 模板区等待 Host 响应再收起；延迟和失败路径出现同时显示的两个区域。
